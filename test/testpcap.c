@@ -2,13 +2,6 @@
 #include <pcap.h>
 #include <string.h>
 #include <stdlib.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-#include <netinet/if_ether.h> 
-#include <net/ethernet.h>
-#include <netinet/ether.h> 
-#include <netinet/ip.h>
 
 #define ETHER_IP	0x0800
 #define PROTO_UDP	0x0011
