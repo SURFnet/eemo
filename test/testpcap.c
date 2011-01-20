@@ -2,6 +2,7 @@
 #include <pcap.h>
 #include <string.h>
 #include <stdlib.h>
+#include <arpa/inet.h>
 
 #define ETHER_IP	0x0800
 #define PROTO_UDP	0x0011
