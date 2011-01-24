@@ -4,7 +4,9 @@ CFLAGS=-g -Wall -Werror
 LDFLAGS=-lpcap
 EEMO_OBJECTS=\
 eemo_packet.o \
-ether_handler.o
+ether_handler.o \
+ifaddr_lookup.o \
+eemo_main.o
 
 all: eemo
 
