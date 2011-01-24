@@ -27,35 +27,18 @@
 
 /*
  * The Extensible Ethernet Monitor (EEMO)
- * General include file
+ * Ethernet packet handling
  */
 
-#ifndef _EEMO_H
-#define _EEMO_H
+#ifndef _EEMO_ETHER_CAPTURE_H
+#define _EEMO_ETHER_CAPTURE_H
 
-/* Type for function return values */
-typedef unsigned long eemo_rv;
+#include <pcap.h>
+#include "eemo.h"
+#include "eemo_packet.h"
 
-/* Function return values */
+/* Capture and handle the specified number of packets on the specified interface, optionally using a filter */
+eemo_rv eemo_capture_and_handle(const char* interface, int packet_count, const char* net_filter);
 
-/* Success */
-#define ERV_OK			0x00000000
-
-/* Processing results */
-#define ERV_HANDLED		0x00001000	/* The packet was handled by the module */
-#define ERV_SKIPPED		0x00001001	/* The packet was not handled by the module */
-#define ERV_MALFORMED		0x80001000	/* The packet was recognised but is malformed */
-
-/* Error messages */
-#define ERV_GENERAL_ERROR	0x80000000	/* An undefined error occurred */
-#define ERV_MEMORY		0x80000001	/* An error occurred while allocating memory */
-#define ERV_NO_PROMISC		0x80000002	/* Failed to set the interface in promiscuous mode */
-#define ERV_ETH_NOT_EXIST	0x80000003	/* The specified Ethernet interface does not exist */
-#define ERV_HANDLER_EXISTS	0x80000004	/* A handler for the specified type already exists */
-#define ERV_NO_HANDLER		0x80000005	/* No handler exists for the specified type */
-#define ERV_NO_ACCESS		0x80000006	/* The capture interface could not be accessed */
-#define ERV_INVALID_FILTER	0x80000007	/* Invalid packet filter specified */
-#define ERV_CAPTURE_ERROR	0x80000008	/* Error capturing packets */
-
-#endif /* !_EEMO_H */
+#endif /* !_EEMO_ETHER_CAPTURE_H */
 

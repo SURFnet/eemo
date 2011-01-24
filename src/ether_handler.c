@@ -152,20 +152,23 @@ eemo_rv eemo_handle_ether_packet(eemo_packet_buf* packet)
 	/* Take the header from the packet */
 	eemo_hdr_raw_ether* hdr = (eemo_hdr_raw_ether*) packet->data;
 
+	/* Convert to host byte order */
+	eemo_ether_ntoh(hdr);
+
 	/* Retrieve source and destination from the packet */
 	eemo_ether_packet_info packet_info;
 
 	memset(packet_info.eth_source, 0, 18);
 	memset(packet_info.eth_dest, 0, 18);
 
-	snprintf(packet_info.eth_source, 17, "%02X:%02X:%02X:%02X:%02X:%02X",
+	snprintf(packet_info.eth_source, 18, "%02X:%02X:%02X:%02X:%02X:%02X",
 		hdr->eth_source[0],
 		hdr->eth_source[1],
 		hdr->eth_source[2],
 		hdr->eth_source[3],
 		hdr->eth_source[4],
 		hdr->eth_source[5]);
-	snprintf(packet_info.eth_dest, 17, "%02X:%02X:%02X:%02X:%02X:%02X",
+	snprintf(packet_info.eth_dest, 18, "%02X:%02X:%02X:%02X:%02X:%02X",
 		hdr->eth_dest[0],
 		hdr->eth_dest[1],
 		hdr->eth_dest[2],

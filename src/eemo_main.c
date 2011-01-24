@@ -29,30 +29,30 @@
 #include "eemo_packet.h"
 #include "ether_handler.h"
 #include "ifaddr_lookup.h"
+#include "ether_capture.h"
+
+eemo_rv handle_ip(eemo_packet_buf* packet, eemo_ether_packet_info pkt_info)
+{
+	printf("IP packet from %s to %s\n", pkt_info.eth_source, pkt_info.eth_dest);
+
+	return ERV_OK;
+}
 
 int main(int argc, char* argv[])
 {
-	eemo_ifaddr_info* eth0_info = eemo_get_ifaddr_info("eth0");
-	eemo_ifaddr_info* current = eth0_info;
-
-	while (current != NULL)
+	if (eemo_reg_ether_handler(0x0800, &handle_ip) != ERV_OK)
 	{
-		switch (current->ifaddr_type)
-		{
-		case IFADDR_TYPE_V4:
-			printf("IPv4 address for eth0: %s\n", current->ifaddr_addr);
-			break;
-		case IFADDR_TYPE_V6:
-			printf("IPv6 address for eth0: %s\n", current->ifaddr_addr);
-			break;
-		default:
-			break;
-		}
+		fprintf(stderr, "Failed to register generic IP handler\n");
 
-		current = current->next;
+		return -1;
+	};
+
+	if (eemo_capture_and_handle(NULL, -1, NULL) != ERV_OK)
+	{
+		fprintf(stderr, "Failed to start packet capture\n");
+
+		return -1;
 	}
-
-	eemo_ifaddr_info_free(eth0_info);
 
 	return 0;
 }
