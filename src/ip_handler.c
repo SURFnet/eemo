@@ -82,8 +82,8 @@ void eemo_ipv6_ntoh(eemo_hdr_ipv6* hdr)
 	}
 }
 
-/* Handle an IP packet */
-eemo_rv eemo_handle_ip_packet(eemo_packet_buf* packet, eemo_ether_packet_info ether_info)
+/* Handle an IPv4 packet */
+eemo_rv eemo_handle_ipv4_packet(eemo_packet_buf* packet, eemo_ether_packet_info ether_info)
 {
 	u_char version = 0;
 	eemo_ip_packet_info ip_info;
@@ -135,7 +135,58 @@ eemo_rv eemo_handle_ip_packet(eemo_packet_buf* packet, eemo_ether_packet_info et
 		/* Determine the offset */
 		offset = sizeof(eemo_hdr_ipv4);
 	}
-	else if (version == IP_TYPE_V6)
+	else
+	{
+		/* Eek! Unknown IP version number */
+		return ERV_MALFORMED;
+	}
+
+	/* See if there is a handler for this type of packet */
+	eemo_ip_handler* handler = eemo_find_ip_handler(ip_proto);
+
+	if ((handler != NULL) && (handler->handler_fn != NULL))
+	{
+		eemo_packet_buf* ip_data = 
+			eemo_pbuf_new(&packet->data[offset], packet->len - offset);
+
+		if (ip_data == NULL)
+		{
+			return ERV_MEMORY;
+		}
+
+		eemo_rv rv = (handler->handler_fn)(ip_data, ip_info);
+
+		eemo_pbuf_free(ip_data);
+
+		return rv;
+	}
+
+	return ERV_SKIPPED;
+}
+
+/* Handle an IPv6 packet */
+eemo_rv eemo_handle_ipv6_packet(eemo_packet_buf* packet, eemo_ether_packet_info ether_info)
+{
+	u_char version = 0;
+	eemo_ip_packet_info ip_info;
+	u_short offset = 0;
+	u_short ip_proto = 0;
+
+	/* Clear ip_info structure */
+	memset(ip_info.ip_src, 0, NI_MAXHOST);
+	memset(ip_info.ip_dst, 0, NI_MAXHOST);
+
+	/* Packets smaller than 1 byte are malformed... */
+	if (packet->len < 1)
+	{
+		/* Packet is malformed */
+		return ERV_MALFORMED;
+	}
+
+	/* Check the version number */
+	version = (packet->data[0] & 0xF0) >> 4;
+
+	if (version == IP_TYPE_V6)
 	{
 		eemo_hdr_ipv6* hdr = NULL;
 
@@ -279,8 +330,25 @@ eemo_rv eemo_unreg_ip_handler(u_short which_ip_proto)
 /* Initialise IP handling */
 eemo_rv eemo_init_ip_handler(void)
 {
-	/* Register IP packet handler */
-	return eemo_reg_ether_handler(ETHER_IP, &eemo_handle_ip_packet);
+	eemo_rv rv = ERV_OK;
+
+	/* Register IPv4 packet handler */
+	rv = eemo_reg_ether_handler(ETHER_IPV4, &eemo_handle_ipv4_packet);
+
+	if (rv != ERV_OK)
+	{
+		return rv;
+	}
+
+	/* Register IPv6 packet handler */
+	rv = eemo_reg_ether_handler(ETHER_IPV6, &eemo_handle_ipv6_packet);
+
+	if (rv != ERV_OK)
+	{
+		eemo_unreg_ether_handler(ETHER_IPV4);
+	}
+
+	return rv;
 }
 
 /* Clean up */
@@ -300,7 +368,8 @@ void eemo_ip_handler_cleanup(void)
 		free(to_delete);
 	}
 
-	/* Unregister the Ethernet handler for IP packets */
-	eemo_unreg_ether_handler(ETHER_IP);
+	/* Unregister the Ethernet handler for IPv4 and IPv6 packets */
+	eemo_unreg_ether_handler(ETHER_IPV4);
+	eemo_unreg_ether_handler(ETHER_IPV6);
 }
 

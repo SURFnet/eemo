@@ -38,7 +38,8 @@
 #include "eemo.h"
 #include "eemo_packet.h"
 
-#define ETHER_IP	0x0800
+#define ETHER_IPV4	0x0800
+#define ETHER_IPV6	0x86DD
 
 /* IP header definition */
 #define IP_VER(ver) ((ver & 0xf0) >> 4)
