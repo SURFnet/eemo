@@ -80,7 +80,7 @@ eemo_rv eemo_capture_and_handle(const char* interface, int packet_count, const c
 	/* Compile and apply packet filter */
 	if (net_filter != NULL)
 	{
-		if (pcap_compile(handle, &packet_filter, net_filter, 0, 0) == -1)
+		if (pcap_compile(handle, &packet_filter, (char*) net_filter, 0, 0) == -1)
 		{
 			/* Failed to compile packet filter */
 			pcap_close(handle);
