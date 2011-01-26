@@ -27,7 +27,7 @@
 
 /*
  * The Extensible Ethernet Monitor (EEMO)
- * Ethernet packet handling
+ * Ethernet packet capturing
  */
 
 #ifndef _EEMO_ETHER_CAPTURE_H

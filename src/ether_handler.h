@@ -38,6 +38,7 @@
 #include "eemo_packet.h"
 
 /* Raw Ethernet packet header */
+#pragma pack(push, 1)
 typedef struct
 {
 	u_char 	eth_dest[6];
@@ -45,6 +46,7 @@ typedef struct
 	u_short	eth_type;
 }
 eemo_hdr_raw_ether;
+#pragma pack(pop)
 
 /* Ethernet packet info */
 typedef struct

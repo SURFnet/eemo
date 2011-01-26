@@ -33,6 +33,8 @@
 #ifndef _EEMO_H
 #define _EEMO_H
 
+#define FLAG_SET(flags, flag) ((flags & flag) == flag)
+
 /* Type for function return values */
 typedef unsigned long eemo_rv;
 

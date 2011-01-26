@@ -61,6 +61,8 @@ eemo_ether_handler* eemo_find_ether_handler(u_short which_eth_type)
 /* Register an Ethernet handler */
 eemo_rv eemo_reg_ether_handler(u_short which_eth_type, eemo_ether_handler_fn handler_fn)
 {
+	eemo_ether_handler* new_handler = NULL;
+
 	/* Check if a handler for the specified type already exists */
 	if (eemo_find_ether_handler(which_eth_type) != NULL)
 	{
@@ -69,7 +71,7 @@ eemo_rv eemo_reg_ether_handler(u_short which_eth_type, eemo_ether_handler_fn han
 	}
 
 	/* Create a new handler entry */
-	eemo_ether_handler* new_handler = (eemo_ether_handler*) malloc(sizeof(eemo_ether_handler));
+	new_handler = (eemo_ether_handler*) malloc(sizeof(eemo_ether_handler));
 
 	if (new_handler == NULL)
 	{
@@ -142,6 +144,9 @@ void eemo_ether_ntoh(eemo_hdr_raw_ether* hdr)
 /* Handle an Ethernet packet */
 eemo_rv eemo_handle_ether_packet(eemo_packet_buf* packet)
 {
+	eemo_hdr_raw_ether* hdr = NULL;
+	eemo_ether_handler* handler = NULL;
+
 	/* Check the packet size */
 	if (packet->len < sizeof(eemo_hdr_raw_ether))
 	{
@@ -150,7 +155,7 @@ eemo_rv eemo_handle_ether_packet(eemo_packet_buf* packet)
 	}
 
 	/* Take the header from the packet */
-	eemo_hdr_raw_ether* hdr = (eemo_hdr_raw_ether*) packet->data;
+	hdr = (eemo_hdr_raw_ether*) packet->data;
 
 	/* Convert to host byte order */
 	eemo_ether_ntoh(hdr);
@@ -177,7 +182,7 @@ eemo_rv eemo_handle_ether_packet(eemo_packet_buf* packet)
 		hdr->eth_dest[5]);
 
 	/* See if there is a handler for this type of packet */
-	eemo_ether_handler* handler = eemo_find_ether_handler(hdr->eth_type);
+	handler = eemo_find_ether_handler(hdr->eth_type);
 
 	if ((handler != NULL) && (handler->handler_fn != NULL))
 	{
