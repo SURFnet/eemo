@@ -208,10 +208,10 @@ eemo_rv eemo_handle_ipv6_packet(eemo_packet_buf* packet, eemo_ether_packet_info 
 		ip_info.is_fragment	= 0; /* currently not supported */
 		ip_info.more_frags 	= 0; /* currently not supported */
 		ip_info.ip_type		= IP_TYPE_V6;
-		snprintf(ip_info.ip_src, NI_MAXHOST, "%04x:%04x:%04x:%04x:%04x:%04x:%04x:%04x",
+		snprintf(ip_info.ip_src, NI_MAXHOST, "%x:%x:%x:%x:%x:%x:%x:%x",
 			hdr->ip6_src[0], hdr->ip6_src[1], hdr->ip6_src[2], hdr->ip6_src[3], 
 			hdr->ip6_src[4], hdr->ip6_src[5], hdr->ip6_src[6], hdr->ip6_src[7]);
-		snprintf(ip_info.ip_dst, NI_MAXHOST, "%04x:%04x:%04x:%04x:%04x:%04x:%04x:%04x",
+		snprintf(ip_info.ip_dst, NI_MAXHOST, "%x:%x:%x:%x:%x:%x:%x:%x",
 			hdr->ip6_dst[0], hdr->ip6_dst[1], hdr->ip6_dst[2], hdr->ip6_dst[3], 
 			hdr->ip6_dst[4], hdr->ip6_dst[5], hdr->ip6_dst[6], hdr->ip6_dst[7]);
 
