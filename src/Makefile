@@ -8,6 +8,7 @@ ether_handler.o \
 ifaddr_lookup.o \
 ether_capture.o \
 ip_handler.o \
+udp_handler.o \
 eemo_main.o
 
 all: eemo

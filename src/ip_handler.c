@@ -40,7 +40,7 @@
 #include "ip_handler.h"
 #include "ether_handler.h"
 
-/* The linked list of Ethernet packet handlers */
+/* The linked list of IP packet handlers */
 eemo_ip_handler* ip_handlers = NULL;
 
 /* Find an IP handler for the specified type */
@@ -148,6 +148,7 @@ eemo_rv eemo_handle_ipv4_packet(eemo_packet_buf* packet, eemo_ether_packet_info 
 
 	if ((handler != NULL) && (handler->handler_fn != NULL))
 	{
+		eemo_rv rv = ERV_OK;
 		eemo_packet_buf* ip_data = 
 			eemo_pbuf_new(&packet->data[offset], packet->len - offset);
 
@@ -156,7 +157,7 @@ eemo_rv eemo_handle_ipv4_packet(eemo_packet_buf* packet, eemo_ether_packet_info 
 			return ERV_MEMORY;
 		}
 
-		eemo_rv rv = (handler->handler_fn)(ip_data, ip_info);
+		rv = (handler->handler_fn)(ip_data, ip_info);
 
 		eemo_pbuf_free(ip_data);
 
@@ -234,6 +235,7 @@ eemo_rv eemo_handle_ipv6_packet(eemo_packet_buf* packet, eemo_ether_packet_info 
 
 	if ((handler != NULL) && (handler->handler_fn != NULL))
 	{
+		eemo_rv rv = ERV_OK;
 		eemo_packet_buf* ip_data = 
 			eemo_pbuf_new(&packet->data[offset], packet->len - offset);
 
@@ -242,7 +244,7 @@ eemo_rv eemo_handle_ipv6_packet(eemo_packet_buf* packet, eemo_ether_packet_info 
 			return ERV_MEMORY;
 		}
 
-		eemo_rv rv = (handler->handler_fn)(ip_data, ip_info);
+		rv = (handler->handler_fn)(ip_data, ip_info);
 
 		eemo_pbuf_free(ip_data);
 
@@ -356,7 +358,7 @@ eemo_rv eemo_init_ip_handler(void)
 /* Clean up */
 void eemo_ip_handler_cleanup(void)
 {
-	/* Clean up the list of Ethernet packet handlers */
+	/* Clean up the list of IP packet handlers */
 	eemo_ip_handler* to_delete = NULL;
 	eemo_ip_handler* current = ip_handlers;
 	ip_handlers = NULL;

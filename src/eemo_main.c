@@ -30,19 +30,13 @@
 #include <stdlib.h>
 #include "eemo_packet.h"
 #include "ip_handler.h"
+#include "udp_handler.h"
 #include "ifaddr_lookup.h"
 #include "ether_capture.h"
 
-eemo_rv handle_udp(eemo_packet_buf* packet, eemo_ip_packet_info info)
+eemo_rv handle_udp_any(eemo_packet_buf* packet, eemo_ip_packet_info info, u_short srcport, u_short dstport)
 {
-	printf("UDPv%d packet from %s to %s\n", info.ip_type, info.ip_src, info.ip_dst);
-
-	return ERV_OK;
-}
-
-eemo_rv handle_tcp(eemo_packet_buf* packet, eemo_ip_packet_info info)
-{
-	printf("TCPv%d packet from %s to %s\n", info.ip_type, info.ip_src, info.ip_dst);
+	printf("UDPv%d packet from %s:%d to %s:%d\n", info.ip_type, info.ip_src, srcport, info.ip_dst, dstport);
 
 	return ERV_OK;
 }
@@ -56,16 +50,14 @@ int main(int argc, char* argv[])
 		return -1;
 	}
 
-	if (eemo_reg_ip_handler(0x0011, &handle_udp) != ERV_OK)
+	if (eemo_init_udp_handler() != ERV_OK)
+	{
+		fprintf(stderr, "Failed to initialise the UDP packet handler\n");
+	}
+
+	if (eemo_reg_udp_handler(UDP_ANY_PORT, UDP_ANY_PORT, &handle_udp_any) != ERV_OK)
 	{
 		fprintf(stderr, "Failed to register generic UDP handler\n");
-
-		return -1;
-	};
-
-	if (eemo_reg_ip_handler(0x0006, &handle_tcp) != ERV_OK)
-	{
-		fprintf(stderr, "Failed to register generic TCP handler\n");
 
 		return -1;
 	};

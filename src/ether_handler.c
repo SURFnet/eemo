@@ -188,6 +188,7 @@ eemo_rv eemo_handle_ether_packet(eemo_packet_buf* packet)
 
 	if ((handler != NULL) && (handler->handler_fn != NULL))
 	{
+		eemo_rv rv = ERV_OK;
 		eemo_packet_buf* ether_data = 
 			eemo_pbuf_new(&packet->data[sizeof(eemo_hdr_raw_ether)], packet->len - sizeof(eemo_hdr_raw_ether));
 
@@ -196,7 +197,7 @@ eemo_rv eemo_handle_ether_packet(eemo_packet_buf* packet)
 			return ERV_MEMORY;
 		}
 
-		eemo_rv rv = (handler->handler_fn)(ether_data, packet_info);
+		rv = (handler->handler_fn)(ether_data, packet_info);
 
 		eemo_pbuf_free(ether_data);
 
