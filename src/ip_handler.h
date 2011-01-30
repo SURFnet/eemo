@@ -65,7 +65,6 @@ typedef struct
 	u_short		ip4_chksum;	/* packet checksum */
 	u_char		ip4_src[4];	/* source address */
 	u_char		ip4_dst[4];	/* destination address */
-
 }
 eemo_hdr_ipv4;
 
