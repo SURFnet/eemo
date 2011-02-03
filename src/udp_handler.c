@@ -35,7 +35,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "eemo.h"
-#include "udp_handler.h"
+#include "ip_handler.h"
 #include "udp_handler.h"
 
 /* The linked list of UDP packet handlers */

@@ -32,31 +32,163 @@
 #include "ip_handler.h"
 #include "udp_handler.h"
 #include "tcp_handler.h"
+#include "dns_qhandler.h"
+#include "dns_types.h"
 #include "ifaddr_lookup.h"
 #include "ether_capture.h"
 
-eemo_rv handle_udp_any(eemo_packet_buf* packet, eemo_ip_packet_info info, u_short srcport, u_short dstport)
+eemo_rv handle_any_dns_query(eemo_ip_packet_info ip_info, u_short qclass, u_short qtype, u_short flags, char* qname, int is_tcp)
 {
-	printf("UDPv%d packet of %d bytes from %s:%d to %s:%d\n", info.ip_type, packet->len, info.ip_src, srcport, info.ip_dst, dstport);
+	printf("%s DNS query from %s for ", is_tcp ? "TCP" : "UDP", ip_info.ip_src);
 
-	return ERV_OK;
-}
+	switch(qclass)
+	{
+	case DNS_QCLASS_UNSPECIFIED:
+		printf("UNSPEC CLASS ");
+		break;
+	case DNS_QCLASS_IN:
+		printf("IN ");
+		break;
+	case DNS_QCLASS_CS:
+		printf("CS ");
+		break;
+	case DNS_QCLASS_CH:
+		printf("CH ");
+		break;
+	case DNS_QCLASS_HS:
+		printf("HS ");
+		break;
+	case DNS_QCLASS_ANY:
+		printf("ANY ");
+		break;
+	default:
+		printf("UNKNOWN CLASS ");
+	}
 
-eemo_rv handle_tcp_any(eemo_packet_buf* packet, eemo_ip_packet_info ip_info, eemo_tcp_packet_info tcp_info)
-{
-	printf("TCPv%d packet of %d bytes from %s:%d to %s:%d (", ip_info.ip_type, packet->len, ip_info.ip_src, tcp_info.srcport, ip_info.ip_dst, tcp_info.dstport);
-	printf("SEQ %u, WIN %u", tcp_info.seqno, tcp_info.winsize);
+	switch(qtype)
+	{
+	case DNS_QTYPE_UNSPECIFIED:
+		printf("UNSPEC CLASS ");
+		break;
+	case DNS_QTYPE_A:
+		printf("A ");
+		break;
+	case DNS_QTYPE_AAAA:
+		printf("AAAA ");
+		break;
+	case DNS_QTYPE_AFSDB:
+		printf("AFSDB ");
+		break;
+	case DNS_QTYPE_APL:
+		printf("APL ");
+		break;
+	case DNS_QTYPE_CERT:
+		printf("CERT ");
+		break;
+	case DNS_QTYPE_CNAME:
+		printf("CNAME ");
+		break;
+	case DNS_QTYPE_DHCID:
+		printf("DHCID ");
+		break;
+	case DNS_QTYPE_DLV:
+		printf("DLV ");
+		break;
+	case DNS_QTYPE_DNAME:
+		printf("DNAME ");
+		break;
+	case DNS_QTYPE_DNSKEY:
+		printf("DNSKEY ");
+		break;
+	case DNS_QTYPE_DS:
+		printf("DS ");
+		break;
+	case DNS_QTYPE_HIP:
+		printf("HIP ");
+		break;
+	case DNS_QTYPE_IPSECKEY:
+		printf("IPSECKEY");
+		break;
+	case DNS_QTYPE_KEY:
+		printf("KEY ");
+		break;
+	case DNS_QTYPE_KX:
+		printf("KX ");
+		break;
+	case DNS_QTYPE_LOC:
+		printf("LOC ");
+		break;
+	case DNS_QTYPE_MX:
+		printf("MX ");
+		break;
+	case DNS_QTYPE_NAPTR:
+		printf("NAPTR ");
+		break;
+	case DNS_QTYPE_NS:
+		printf("NS ");
+		break;
+	case DNS_QTYPE_NSEC:
+		printf("NSEC ");
+		break;
+	case DNS_QTYPE_NSEC3:
+		printf("NSEC3 ");
+		break;
+	case DNS_QTYPE_NSEC3PARAM:
+		printf("NSEC3PARAM ");
+		break;
+	case DNS_QTYPE_PTR:
+		printf("PTR ");
+		break;
+	case DNS_QTYPE_RRSIG:
+		printf("RRSIG ");
+		break;
+	case DNS_QTYPE_RP:
+		printf("RP ");
+		break;
+	case DNS_QTYPE_SIG:
+		printf("SIG ");
+		break;
+	case DNS_QTYPE_SOA:
+		printf("SOA ");
+		break;
+	case DNS_QTYPE_SPF:
+		printf("SPF ");
+		break;
+	case DNS_QTYPE_SRV:
+		printf("SRV ");
+		break;
+	case DNS_QTYPE_SSHFP:
+		printf("SSHFP ");
+		break;
+	case DNS_QTYPE_TA:
+		printf("TA ");
+		break;
+	case DNS_QTYPE_TKEY:
+		printf("TKEY ");
+		break;
+	case DNS_QTYPE_TSIG:
+		printf("TSIG ");
+		break;
+	case DNS_QTYPE_TXT:
+		printf("TXT ");
+		break;
+	case DNS_QTYPE_ANY:
+		printf("ANY ");
+		break;
+	case DNS_QTYPE_AXFR:
+		printf("AXFR ");
+		break;
+	case DNS_QTYPE_IXFR:
+		printf("IXFR ");
+		break;
+	case DNS_QTYPE_OPT:
+		printf("OPT ");
+		break;
+	default:
+		printf("UNKNOWN TYPE ");
+	}
 
-	if (FLAG_SET(tcp_info.flags, TCP_CWR)) printf(" CWR");
-	if (FLAG_SET(tcp_info.flags, TCP_ECE)) printf(" ECE");
-	if (FLAG_SET(tcp_info.flags, TCP_URG)) printf(" URG(0x%04X)", tcp_info.urgptr);
-	if (FLAG_SET(tcp_info.flags, TCP_ACK)) printf(" ACK (%u)", tcp_info.ackno);
-	if (FLAG_SET(tcp_info.flags, TCP_PSH)) printf(" PSH");
-	if (FLAG_SET(tcp_info.flags, TCP_RST)) printf(" RST");
-	if (FLAG_SET(tcp_info.flags, TCP_SYN)) printf(" SYN");
-	if (FLAG_SET(tcp_info.flags, TCP_FIN)) printf(" FIN");
-
-	printf("\n");
+	printf("%s\n", qname);
 
 	return ERV_OK;
 }
@@ -80,16 +212,14 @@ int main(int argc, char* argv[])
 		fprintf(stderr, "Failed to initialise the TCP packet handler\n");
 	}
 
-	if (eemo_reg_udp_handler(UDP_ANY_PORT, UDP_ANY_PORT, &handle_udp_any) != ERV_OK)
+	if (eemo_init_dns_qhandler() != ERV_OK)
 	{
-		fprintf(stderr, "Failed to register generic UDP handler\n");
+		fprintf(stderr, "Failed to initialise the DNS query handler\n");
+	}
 
-		return -1;
-	};
-
-	if (eemo_reg_tcp_handler(TCP_ANY_PORT, TCP_ANY_PORT, &handle_tcp_any) != ERV_OK)
+	if (eemo_reg_dns_qhandler(DNS_QCLASS_UNSPECIFIED, DNS_QTYPE_UNSPECIFIED, &handle_any_dns_query) != ERV_OK)
 	{
-		fprintf(stderr, "Failed to register generic TCP handler\n");
+		fprintf(stderr, "Failed to register generic DNS query handler\n");
 
 		return -1;
 	}

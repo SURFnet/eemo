@@ -35,7 +35,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "eemo.h"
-#include "tcp_handler.h"
+#include "ip_handler.h"
 #include "tcp_handler.h"
 
 /* The linked list of TCP packet handlers */
