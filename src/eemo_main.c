@@ -31,12 +31,32 @@
 #include "eemo_packet.h"
 #include "ip_handler.h"
 #include "udp_handler.h"
+#include "tcp_handler.h"
 #include "ifaddr_lookup.h"
 #include "ether_capture.h"
 
 eemo_rv handle_udp_any(eemo_packet_buf* packet, eemo_ip_packet_info info, u_short srcport, u_short dstport)
 {
-	printf("UDPv%d packet from %s:%d to %s:%d\n", info.ip_type, info.ip_src, srcport, info.ip_dst, dstport);
+	printf("UDPv%d packet of %d bytes from %s:%d to %s:%d\n", info.ip_type, packet->len, info.ip_src, srcport, info.ip_dst, dstport);
+
+	return ERV_OK;
+}
+
+eemo_rv handle_tcp_any(eemo_packet_buf* packet, eemo_ip_packet_info ip_info, eemo_tcp_packet_info tcp_info)
+{
+	printf("TCPv%d packet of %d bytes from %s:%d to %s:%d (", ip_info.ip_type, packet->len, ip_info.ip_src, tcp_info.srcport, ip_info.ip_dst, tcp_info.dstport);
+	printf("SEQ %u, WIN %u", tcp_info.seqno, tcp_info.winsize);
+
+	if (FLAG_SET(tcp_info.flags, TCP_CWR)) printf(" CWR");
+	if (FLAG_SET(tcp_info.flags, TCP_ECE)) printf(" ECE");
+	if (FLAG_SET(tcp_info.flags, TCP_URG)) printf(" URG(0x%04X)", tcp_info.urgptr);
+	if (FLAG_SET(tcp_info.flags, TCP_ACK)) printf(" ACK (%u)", tcp_info.ackno);
+	if (FLAG_SET(tcp_info.flags, TCP_PSH)) printf(" PSH");
+	if (FLAG_SET(tcp_info.flags, TCP_RST)) printf(" RST");
+	if (FLAG_SET(tcp_info.flags, TCP_SYN)) printf(" SYN");
+	if (FLAG_SET(tcp_info.flags, TCP_FIN)) printf(" FIN");
+
+	printf("\n");
 
 	return ERV_OK;
 }
@@ -55,12 +75,24 @@ int main(int argc, char* argv[])
 		fprintf(stderr, "Failed to initialise the UDP packet handler\n");
 	}
 
+	if (eemo_init_tcp_handler() != ERV_OK)
+	{
+		fprintf(stderr, "Failed to initialise the TCP packet handler\n");
+	}
+
 	if (eemo_reg_udp_handler(UDP_ANY_PORT, UDP_ANY_PORT, &handle_udp_any) != ERV_OK)
 	{
 		fprintf(stderr, "Failed to register generic UDP handler\n");
 
 		return -1;
 	};
+
+	if (eemo_reg_tcp_handler(TCP_ANY_PORT, TCP_ANY_PORT, &handle_tcp_any) != ERV_OK)
+	{
+		fprintf(stderr, "Failed to register generic TCP handler\n");
+
+		return -1;
+	}
 
 	if (eemo_capture_and_handle(NULL, -1, NULL) != ERV_OK)
 	{

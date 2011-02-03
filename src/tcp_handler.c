@@ -98,13 +98,24 @@ eemo_rv eemo_handle_tcp_packet(eemo_packet_buf* packet, eemo_ip_packet_info ip_i
 		eemo_rv rv = ERV_OK;
 		eemo_packet_buf* tcp_data = 
 			eemo_pbuf_new(&packet->data[sizeof(eemo_hdr_tcp)], packet->len - sizeof(eemo_hdr_tcp));
+		eemo_tcp_packet_info tcp_info;
 
 		if (tcp_data == NULL)
 		{
 			return ERV_MEMORY;
 		}
 
-		rv = (handler->handler_fn)(tcp_data, ip_info, hdr->tcp_srcport, hdr->tcp_dstport);
+		/* Copy TCP information */
+		tcp_info.srcport 	= hdr->tcp_srcport;
+		tcp_info.dstport	= hdr->tcp_dstport;
+		tcp_info.seqno		= hdr->tcp_seqno;
+		tcp_info.ackno		= hdr->tcp_ackno;
+		tcp_info.flags		= hdr->tcp_flags;
+		tcp_info.winsize	= hdr->tcp_win;
+		tcp_info.urgptr		= hdr->tcp_urgent;
+
+		/* Call handler */
+		rv = (handler->handler_fn)(tcp_data, ip_info, tcp_info);
 
 		eemo_pbuf_free(tcp_data);
 
