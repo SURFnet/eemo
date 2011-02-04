@@ -205,7 +205,6 @@ eemo_rv eemo_handle_dns_tcp_qpacket(eemo_packet_buf* packet, eemo_ip_packet_info
 {
 	eemo_packet_buf* dns_data = NULL;
 	eemo_rv rv = ERV_OK;
-	int i = 0;
 
 	/* Skip SYN, RST and FIN packets */
 	if (FLAG_SET(tcp_info.flags, TCP_SYN) ||
@@ -223,18 +222,6 @@ eemo_rv eemo_handle_dns_tcp_qpacket(eemo_packet_buf* packet, eemo_ip_packet_info
 	}
 
 	/* Take length field */
-	for (i = 0; i < packet->len; i++)
-	{
-		printf("%02X ", packet->data[i]);
-	}
-
-	for (i = 0; i < packet->len; i++)
-	{
-		printf("%c  ", (packet->data[i] > 32) && (packet->data[i] < 128) ? packet->data[i] : ' ');
-	}
-
-	printf("\n");
-
 	u_short dns_length = ntohs(*((u_short*) packet->data));
 
 	/* Check length */
@@ -259,7 +246,7 @@ eemo_rv eemo_handle_dns_tcp_qpacket(eemo_packet_buf* packet, eemo_ip_packet_info
 	return rv;
 }
 
-/* Register an TCP handler */
+/* Register an DNS handler */
 eemo_rv eemo_reg_dns_qhandler(u_short qclass, u_short qtype, eemo_dns_qhandler_fn handler_fn)
 {
 	eemo_dns_qhandler* new_handler = NULL;
@@ -304,7 +291,7 @@ eemo_rv eemo_reg_dns_qhandler(u_short qclass, u_short qtype, eemo_dns_qhandler_f
 	return ERV_OK;
 }
 
-/* Unregister an TCP handler */
+/* Unregister an DNS handler */
 eemo_rv eemo_unreg_dns_qhandler(u_short qclass, u_short qtype)
 {
 	eemo_dns_qhandler* current = dns_qhandlers;
@@ -351,7 +338,7 @@ eemo_rv eemo_init_dns_qhandler(void)
 		return rv;
 	}
 
-	/* Register TCP packet handler */
+	/* Register DNS packet handler */
 	rv = eemo_reg_tcp_handler(TCP_ANY_PORT, DNS_PORT, &eemo_handle_dns_tcp_qpacket);
 
 	if (rv != ERV_OK)
