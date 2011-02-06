@@ -76,6 +76,7 @@ void eemo_tcp_ntoh(eemo_hdr_tcp* hdr)
 eemo_rv eemo_handle_tcp_packet(eemo_packet_buf* packet, eemo_ip_packet_info ip_info)
 {
 	eemo_hdr_tcp* hdr = NULL;
+	size_t hdr_len = 0;
 
 	/* Check minimum length */
 	if (packet->len < sizeof(eemo_hdr_tcp))
@@ -90,6 +91,15 @@ eemo_rv eemo_handle_tcp_packet(eemo_packet_buf* packet, eemo_ip_packet_info ip_i
 	/* Convert the header to host byte order */
 	eemo_tcp_ntoh(hdr);
 
+	/* Determine the true header length */
+	hdr_len = (hdr->tcp_ofs) >> 4;
+	hdr_len *= 4; /* size in packet in 32-bit words */
+
+	if (packet->len < hdr_len)
+	{
+		return ERV_MALFORMED;
+	}
+
 	/* See if there is a handler given the source and destination port for this packet */
 	eemo_tcp_handler* handler = eemo_find_tcp_handler(hdr->tcp_srcport, hdr->tcp_dstport);
 
@@ -97,7 +107,7 @@ eemo_rv eemo_handle_tcp_packet(eemo_packet_buf* packet, eemo_ip_packet_info ip_i
 	{
 		eemo_rv rv = ERV_OK;
 		eemo_packet_buf* tcp_data = 
-			eemo_pbuf_new(&packet->data[sizeof(eemo_hdr_tcp)], packet->len - sizeof(eemo_hdr_tcp));
+			eemo_pbuf_new(&packet->data[hdr_len], packet->len - hdr_len);
 		eemo_tcp_packet_info tcp_info;
 
 		if (tcp_data == NULL)
