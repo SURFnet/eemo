@@ -95,6 +95,7 @@ eemo_rv eemo_handle_ipv4_packet(eemo_packet_buf* packet, eemo_ether_packet_info 
 	eemo_ip_packet_info ip_info;
 	u_short offset = 0;
 	u_short ip_proto = 0;
+	eemo_ip_handler* handler = NULL;
 
 	/* Clear ip_info structure */
 	memset(ip_info.ip_src, 0, NI_MAXHOST);
@@ -148,7 +149,7 @@ eemo_rv eemo_handle_ipv4_packet(eemo_packet_buf* packet, eemo_ether_packet_info 
 	}
 
 	/* See if there is a handler for this type of packet */
-	eemo_ip_handler* handler = eemo_find_ip_handler(ip_proto);
+	handler = eemo_find_ip_handler(ip_proto);
 
 	if ((handler != NULL) && (handler->handler_fn != NULL))
 	{
@@ -178,6 +179,7 @@ eemo_rv eemo_handle_ipv6_packet(eemo_packet_buf* packet, eemo_ether_packet_info 
 	eemo_ip_packet_info ip_info;
 	u_short offset = 0;
 	u_short ip_proto = 0;
+	eemo_ip_handler* handler = NULL;
 
 	/* Clear ip_info structure */
 	memset(ip_info.ip_src, 0, NI_MAXHOST);
@@ -235,7 +237,7 @@ eemo_rv eemo_handle_ipv6_packet(eemo_packet_buf* packet, eemo_ether_packet_info 
 	}
 
 	/* See if there is a handler for this type of packet */
-	eemo_ip_handler* handler = eemo_find_ip_handler(ip_proto);
+	handler = eemo_find_ip_handler(ip_proto);
 
 	if ((handler != NULL) && (handler->handler_fn != NULL))
 	{
@@ -262,6 +264,7 @@ eemo_rv eemo_handle_ipv6_packet(eemo_packet_buf* packet, eemo_ether_packet_info 
 eemo_rv eemo_reg_ip_handler(u_short which_ip_proto, eemo_ip_handler_fn handler_fn)
 {
 	eemo_ip_handler* new_handler = NULL;
+	eemo_ip_handler* current = NULL;
 
 	/* Check if a handler for the specified type already exists */
 	if (eemo_find_ip_handler(which_ip_proto) != NULL)
@@ -284,7 +287,7 @@ eemo_rv eemo_reg_ip_handler(u_short which_ip_proto, eemo_ip_handler_fn handler_f
 	new_handler->next = NULL;
 
 	/* Register the new handler */
-	eemo_ip_handler* current = ip_handlers;
+	current = ip_handlers;
 
 	if (current == NULL)
 	{

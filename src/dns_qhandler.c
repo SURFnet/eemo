@@ -209,6 +209,7 @@ eemo_rv eemo_handle_dns_tcp_qpacket(eemo_packet_buf* packet, eemo_ip_packet_info
 {
 	eemo_packet_buf* dns_data = NULL;
 	eemo_rv rv = ERV_OK;
+	u_short dns_length = 0;
 
 	/* Skip SYN, RST and FIN packets */
 	if (FLAG_SET(tcp_info.flags, TCP_SYN) ||
@@ -226,7 +227,7 @@ eemo_rv eemo_handle_dns_tcp_qpacket(eemo_packet_buf* packet, eemo_ip_packet_info
 	}
 
 	/* Take length field */
-	u_short dns_length = ntohs(*((u_short*) packet->data));
+	dns_length = ntohs(*((u_short*) packet->data));
 
 	/* Check length */
 	if ((packet->len - 2) != dns_length)
@@ -254,6 +255,7 @@ eemo_rv eemo_handle_dns_tcp_qpacket(eemo_packet_buf* packet, eemo_ip_packet_info
 eemo_rv eemo_reg_dns_qhandler(u_short qclass, u_short qtype, eemo_dns_qhandler_fn handler_fn)
 {
 	eemo_dns_qhandler* new_handler = NULL;
+	eemo_dns_qhandler* current = NULL;
 
 	/* Check if a handler for the specified ports already exists */
 	if (eemo_find_dns_qhandler(qclass, qtype) != NULL)
@@ -277,7 +279,7 @@ eemo_rv eemo_reg_dns_qhandler(u_short qclass, u_short qtype, eemo_dns_qhandler_f
 	new_handler->next = NULL;
 
 	/* Register the new handler */
-	eemo_dns_qhandler* current = dns_qhandlers;
+	current = dns_qhandlers;
 
 	if (current == NULL)
 	{

@@ -8,6 +8,6 @@ AC_DEFUN([ACX_STRICT],[
 		[enable_strict="yes"]
 	)
 	if test "${enable_strict}" = "yes"; then
-		CFLAGS="${CFLAGS} -Wall -Wextra"
+		CFLAGS="${CFLAGS} -Wall -Werror"
 	fi
 ])

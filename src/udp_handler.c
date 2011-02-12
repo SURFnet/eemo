@@ -77,6 +77,7 @@ void eemo_udp_ntoh(eemo_hdr_udp* hdr)
 eemo_rv eemo_handle_udp_packet(eemo_packet_buf* packet, eemo_ip_packet_info ip_info)
 {
 	eemo_hdr_udp* hdr = NULL;
+	eemo_udp_handler* handler = NULL;
 
 	/* Check minimum length */
 	if (packet->len < sizeof(eemo_hdr_udp))
@@ -92,7 +93,7 @@ eemo_rv eemo_handle_udp_packet(eemo_packet_buf* packet, eemo_ip_packet_info ip_i
 	eemo_udp_ntoh(hdr);
 
 	/* See if there is a handler given the source and destination port for this packet */
-	eemo_udp_handler* handler = eemo_find_udp_handler(hdr->udp_srcport, hdr->udp_dstport);
+	handler = eemo_find_udp_handler(hdr->udp_srcport, hdr->udp_dstport);
 
 	if ((handler != NULL) && (handler->handler_fn != NULL))
 	{
@@ -119,6 +120,7 @@ eemo_rv eemo_handle_udp_packet(eemo_packet_buf* packet, eemo_ip_packet_info ip_i
 eemo_rv eemo_reg_udp_handler(u_short srcport, u_short dstport, eemo_udp_handler_fn handler_fn)
 {
 	eemo_udp_handler* new_handler = NULL;
+	eemo_udp_handler* current = NULL;
 
 	/* Check if a handler for the specified ports already exists */
 	if (eemo_find_udp_handler(srcport, dstport) != NULL)
@@ -142,7 +144,7 @@ eemo_rv eemo_reg_udp_handler(u_short srcport, u_short dstport, eemo_udp_handler_
 	new_handler->next = NULL;
 
 	/* Register the new handler */
-	eemo_udp_handler* current = udp_handlers;
+	current = udp_handlers;
 
 	if (current == NULL)
 	{

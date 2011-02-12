@@ -68,6 +68,7 @@ eemo_ether_handler* eemo_find_ether_handler(u_short which_eth_type)
 eemo_rv eemo_reg_ether_handler(u_short which_eth_type, eemo_ether_handler_fn handler_fn)
 {
 	eemo_ether_handler* new_handler = NULL;
+	eemo_ether_handler* current = NULL;
 
 	/* Check if a handler for the specified type already exists */
 	if (eemo_find_ether_handler(which_eth_type) != NULL)
@@ -90,7 +91,7 @@ eemo_rv eemo_reg_ether_handler(u_short which_eth_type, eemo_ether_handler_fn han
 	new_handler->next = NULL;
 
 	/* Register the new handler */
-	eemo_ether_handler* current = ether_handlers;
+	current = ether_handlers;
 
 	if (current == NULL)
 	{
@@ -152,6 +153,7 @@ eemo_rv eemo_handle_ether_packet(eemo_packet_buf* packet)
 {
 	eemo_hdr_raw_ether* hdr = NULL;
 	eemo_ether_handler* handler = NULL;
+	eemo_ether_packet_info packet_info;
 
 	/* Check the packet size */
 	if (packet->len < sizeof(eemo_hdr_raw_ether))
@@ -167,8 +169,6 @@ eemo_rv eemo_handle_ether_packet(eemo_packet_buf* packet)
 	eemo_ether_ntoh(hdr);
 
 	/* Retrieve source and destination from the packet */
-	eemo_ether_packet_info packet_info;
-
 	memset(packet_info.eth_source, 0, 18);
 	memset(packet_info.eth_dest, 0, 18);
 

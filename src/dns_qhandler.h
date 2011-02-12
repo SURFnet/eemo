@@ -50,7 +50,7 @@
 typedef struct
 {
 	u_short	dns_qid;	/* query ID */
-	u_short dns_flags;	/* query flags */;
+	u_short dns_flags;	/* query flags */
 	u_short dns_qdcount;	/* number of queries in packet */
 	u_short	dns_ancount;	/* number of answers in packet */
 	u_short	dns_nscount;	/* number of authority answers in packet */

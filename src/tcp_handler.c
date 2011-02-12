@@ -81,6 +81,7 @@ eemo_rv eemo_handle_tcp_packet(eemo_packet_buf* packet, eemo_ip_packet_info ip_i
 {
 	eemo_hdr_tcp* hdr = NULL;
 	size_t hdr_len = 0;
+	eemo_tcp_handler* handler = NULL;
 
 	/* Check minimum length */
 	if (packet->len < sizeof(eemo_hdr_tcp))
@@ -105,7 +106,7 @@ eemo_rv eemo_handle_tcp_packet(eemo_packet_buf* packet, eemo_ip_packet_info ip_i
 	}
 
 	/* See if there is a handler given the source and destination port for this packet */
-	eemo_tcp_handler* handler = eemo_find_tcp_handler(hdr->tcp_srcport, hdr->tcp_dstport);
+	handler = eemo_find_tcp_handler(hdr->tcp_srcport, hdr->tcp_dstport);
 
 	if ((handler != NULL) && (handler->handler_fn != NULL))
 	{
@@ -143,6 +144,7 @@ eemo_rv eemo_handle_tcp_packet(eemo_packet_buf* packet, eemo_ip_packet_info ip_i
 eemo_rv eemo_reg_tcp_handler(u_short srcport, u_short dstport, eemo_tcp_handler_fn handler_fn)
 {
 	eemo_tcp_handler* new_handler = NULL;
+	eemo_tcp_handler* current = NULL;
 
 	/* Check if a handler for the specified ports already exists */
 	if (eemo_find_tcp_handler(srcport, dstport) != NULL)
@@ -166,7 +168,7 @@ eemo_rv eemo_reg_tcp_handler(u_short srcport, u_short dstport, eemo_tcp_handler_
 	new_handler->next = NULL;
 
 	/* Register the new handler */
-	eemo_tcp_handler* current = tcp_handlers;
+	current = tcp_handlers;
 
 	if (current == NULL)
 	{
