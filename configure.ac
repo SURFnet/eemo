@@ -44,6 +44,7 @@ AC_ARG_WITH(
 # Check for libraries
 ACX_DLOPEN
 ACX_PCAP
+PKG_CHECK_MODULES([LIBCONFIG], [libconfig >= 1.3.2],, AC_MSG_ERROR([libconfig 1.3.2 or newer not found]))
 
 # Check for headers
 AC_CHECK_HEADERS([pcap.h])
