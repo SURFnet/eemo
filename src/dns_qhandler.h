@@ -38,6 +38,7 @@
 #ifndef _EEMO_DNS_QHANDLER_H
 #define _EEMO_DNS_QHANDLER_H
 
+#include "config.h"
 #include <pcap.h>
 #include <netdb.h>
 #include "eemo.h"

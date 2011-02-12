@@ -38,6 +38,8 @@
 #ifndef _EEMO_H
 #define _EEMO_H
 
+#include "config.h"
+
 #define FLAG_SET(flags, flag) ((flags & flag) == flag)
 
 /* Type for function return values */

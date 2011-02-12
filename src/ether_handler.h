@@ -38,6 +38,7 @@
 #ifndef _EEMO_ETHER_HANDLER_H
 #define _EEMO_ETHER_HANDLER_H
 
+#include "config.h"
 #include <pcap.h>
 #include "eemo.h"
 #include "eemo_packet.h"

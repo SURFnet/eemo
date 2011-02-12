@@ -38,6 +38,7 @@
 #ifndef _EEMO_IFADDR_LOOKUP_H
 #define _EEMO_IFADDR_LOOKUP_H
 
+#include "config.h"
 #include <netdb.h>
 
 #define IFADDR_TYPE_V4		4	/* this is an IPv4 address */

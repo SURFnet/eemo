@@ -38,6 +38,8 @@
 #ifndef _EEMO_DNS_TYPES_H
 #define _EEMO_DNS_TYPES_H
 
+#include "config.h"
+
 /* DNS port */
 #define DNS_PORT	53
 

@@ -35,6 +35,7 @@
  * Packet buffer handling functions
  */
 
+#include "config.h"
 #ifndef _EEMO_PACKET_H
 #define _EEMO_PACKET_H
 

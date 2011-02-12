@@ -35,6 +35,7 @@
  * TCP packet handling
  */
 
+#include "config.h"
 #include <stdlib.h>
 #include <string.h>
 #include "eemo.h"

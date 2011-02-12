@@ -35,6 +35,7 @@
  * Ethernet packet capturing
  */
 
+#include "config.h"
 #include "ether_capture.h"
 #include "ether_handler.h"
 #include <stdio.h>

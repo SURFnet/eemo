@@ -38,6 +38,7 @@
 #ifndef _EEMO_IP_HANDLER_H
 #define _EEMO_IP_HANDLER_H
 
+#include "config.h"
 #include <pcap.h>
 #include <netdb.h>
 #include "eemo.h"
