@@ -66,7 +66,7 @@ int eemo_udp_handler_compare(void* elem_data, void* comp_data)
 	}
 
 	if (((elem->srcport == UDP_ANY_PORT) || (elem->srcport == comp->srcport)) &&
-	    ((elem->dstport == UDP_ANY_PORT) || (elem->srcport == comp->srcport)))
+	    ((elem->dstport == UDP_ANY_PORT) || (elem->dstport == comp->dstport)))
 	{
 		return 1;
 	}

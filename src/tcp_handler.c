@@ -66,7 +66,7 @@ int eemo_tcp_handler_compare(void* elem_data, void* comp_data)
 	}
 
 	if (((elem->srcport == TCP_ANY_PORT) || (elem->srcport == comp->srcport)) &&
-	    ((elem->dstport == TCP_ANY_PORT) || (elem->srcport == comp->srcport)))
+	    ((elem->dstport == TCP_ANY_PORT) || (elem->dstport == comp->dstport)))
 	{
 		return 1;
 	}
