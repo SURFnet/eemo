@@ -112,14 +112,17 @@ typedef struct eemo_ip_handler
 {
 	u_short			which_ip_proto;	/* which IP protocol is handled by this module */
 	eemo_ip_handler_fn	handler_fn;	/* handler function */
-	struct eemo_ip_handler*	next;		/* next handler in the list */
 }
 eemo_ip_handler;
 
 /* Register an IP handler */
+typedef eemo_rv (*eemo_reg_ip_handler_fn) (u_short, eemo_ip_handler_fn);
+
 eemo_rv eemo_reg_ip_handler(u_short which_ip_proto, eemo_ip_handler_fn handler_fn);
 
 /* Unregister an IP handler */
+typedef eemo_rv (*eemo_unreg_ip_handler_fn) (u_short);
+
 eemo_rv eemo_unreg_ip_handler(u_short which_ip_proto);
 
 /* Initialise IP handling */

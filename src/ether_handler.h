@@ -70,14 +70,17 @@ typedef struct eemo_ether_handler
 {
 	u_short				which_eth_type; /* which Ethernet types are handled by this module */
 	eemo_ether_handler_fn		handler_fn;	/* handler function */
-	struct eemo_ether_handler*	next;		/* next handler in the list */
 }
 eemo_ether_handler;
 
 /* Register an Ethernet handler */
+typedef eemo_rv (*eemo_reg_ether_handler_fn) (u_short, eemo_ether_handler_fn);
+
 eemo_rv eemo_reg_ether_handler(u_short which_eth_type, eemo_ether_handler_fn handler_fn);
 
 /* Unregister an Ethernet handler */
+typedef eemo_rv (*eemo_unreg_ether_handler_fn) (u_short);
+
 eemo_rv eemo_unreg_ether_handler(u_short which_eth_type);
 
 /* Handle an Ethernet packet */

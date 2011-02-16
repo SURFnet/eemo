@@ -33,6 +33,8 @@
 #include "config.h"
 #include <stdio.h>
 #include <stdlib.h>
+#include "eemo.h"
+#include "eemo_api.h"
 #include "eemo_packet.h"
 #include "ip_handler.h"
 #include "udp_handler.h"

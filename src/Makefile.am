@@ -8,6 +8,9 @@ eemo_SOURCES =		dns_qhandler.c \
 			dns_qhandler.h \
 			dns_types.h \
 			eemo.h \
+			eemo_api.h \
+			eemo_list.c \
+			eemo_list.h \
 			eemo_main.c \
 			eemo_packet.c \
 			eemo_packet.h \

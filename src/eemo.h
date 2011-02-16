@@ -65,6 +65,8 @@ typedef unsigned long eemo_rv;
 #define ERV_NO_ACCESS		0x80000006	/* The capture interface could not be accessed */
 #define ERV_INVALID_FILTER	0x80000007	/* Invalid packet filter specified */
 #define ERV_CAPTURE_ERROR	0x80000008	/* Error capturing packets */
+#define ERV_NOT_FOUND		0x80000009	/* The item searched for was not found */
+#define ERV_PARAM_INVALID	0x8000000A	/* Invalid parameter(s) provided for function call */
 
 #endif /* !_EEMO_H */
 

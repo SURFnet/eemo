@@ -70,14 +70,17 @@ typedef struct eemo_udp_handler
 	u_short				srcport;	/* which source port, 0 = any */
 	u_short				dstport;	/* which destination port, 0 = any */
 	eemo_udp_handler_fn		handler_fn;	/* handler function */
-	struct eemo_udp_handler*	next;		/* next handler in the list */
 }
 eemo_udp_handler;
 
 /* Register an UDP handler */
+typedef eemo_rv (*eemo_reg_udp_handler_fn) (u_short, u_short, eemo_udp_handler_fn);
+
 eemo_rv eemo_reg_udp_handler(u_short srcport, u_short dstport, eemo_udp_handler_fn handler_fn);
 
 /* Unregister an UDP handler */
+typedef eemo_rv (*eemo_unreg_udp_handler_fn) (u_short, u_short);
+
 eemo_rv eemo_unreg_udp_handler(u_short srcport, u_short dstport);
 
 /* Initialise UDP handling */

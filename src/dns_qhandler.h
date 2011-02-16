@@ -68,14 +68,17 @@ typedef struct eemo_dns_qhandler
 	u_short				qclass;		/* query class */
 	u_short				qtype;		/* query type */
 	eemo_dns_qhandler_fn		handler_fn;	/* handler function */
-	struct eemo_dns_qhandler*	next;		/* next handler */
 }
 eemo_dns_qhandler;
 
 /* Register a DNS query handler */
+typedef eemo_rv (*eemo_reg_dns_qhandler_fn) (u_short, u_short, eemo_dns_qhandler_fn);
+
 eemo_rv eemo_reg_dns_qhandler(u_short qclass, u_short qtype, eemo_dns_qhandler_fn handler_fn);
 
 /* Unregister a DNS query handler */
+typedef eemo_rv (*eemo_unreg_dns_qhandler_fn) (u_short, u_short);
+
 eemo_rv eemo_unreg_dns_qhandler(u_short qclass, u_short qtype);
 
 /* Initialise DNS handling */

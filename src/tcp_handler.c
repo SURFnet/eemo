@@ -39,29 +39,56 @@
 #include <stdlib.h>
 #include <string.h>
 #include "eemo.h"
+#include "eemo_list.h"
 #include "ip_handler.h"
 #include "tcp_handler.h"
 
 /* The linked list of TCP packet handlers */
-eemo_tcp_handler* tcp_handlers = NULL;
+eemo_ll_entry* tcp_handlers = NULL;
 
-/* Find an IP handler for the specified type */
-eemo_tcp_handler* eemo_find_tcp_handler(u_short srcport, u_short dstport)
+/* TCP handler comparison data type */
+typedef struct
 {
-	eemo_tcp_handler* current = tcp_handlers;
+	u_short srcport;
+	u_short dstport;
+}
+eemo_tcp_handler_comp_t;
 
-	while (current != NULL)
+/* TCP handler comparison */
+int eemo_tcp_handler_compare(void* elem_data, void* comp_data)
+{
+	eemo_tcp_handler_comp_t* comp = (eemo_tcp_handler_comp_t*) comp_data;
+	eemo_tcp_handler* elem = (eemo_tcp_handler*) elem_data;
+
+	if ((elem_data == NULL) || (comp_data == NULL))
 	{
-		if (((current->srcport == TCP_ANY_PORT) || (current->srcport == srcport)) &&
-		    ((current->dstport == TCP_ANY_PORT) || (current->dstport == dstport)))
-		{
-			return current;
-		}
-
-		current = current->next;
+		return 0;
 	}
 
-	return NULL;
+	if (((elem->srcport == TCP_ANY_PORT) || (elem->srcport == comp->srcport)) &&
+	    ((elem->dstport == TCP_ANY_PORT) || (elem->srcport == comp->srcport)))
+	{
+		return 1;
+	}
+
+	return 0;
+}
+
+/* Find a TCP handler for the specified type */
+eemo_tcp_handler* eemo_find_tcp_handler(u_short srcport, u_short dstport)
+{
+	eemo_tcp_handler* rv = NULL;
+	eemo_tcp_handler_comp_t comp;
+
+	comp.srcport = srcport;
+	comp.dstport = dstport;
+
+	if (eemo_ll_find(tcp_handlers, (void*) &rv, &eemo_tcp_handler_compare, (void*) &comp) != ERV_OK)
+	{
+		/* FIXME: log this */
+	}
+
+	return rv;
 }
 
 /* Convert TCP packet header to host byte order */
@@ -110,10 +137,17 @@ eemo_rv eemo_handle_tcp_packet(eemo_packet_buf* packet, eemo_ip_packet_info ip_i
 
 	if ((handler != NULL) && (handler->handler_fn != NULL))
 	{
+		size_t delta_ofs = ((hdr->tcp_ofs & 0xf0) >> 4) * 4; /* header length in 32-bit words */
 		eemo_rv rv = ERV_OK;
-		eemo_packet_buf* tcp_data = 
-			eemo_pbuf_new(&packet->data[hdr_len], packet->len - hdr_len);
+		eemo_packet_buf* tcp_data = NULL; 
 		eemo_tcp_packet_info tcp_info;
+
+		if (delta_ofs > packet->len)
+		{
+			return ERV_MALFORMED;
+		}
+
+		tcp_data = eemo_pbuf_new(&packet->data[delta_ofs], packet->len - delta_ofs);
 
 		if (tcp_data == NULL)
 		{
@@ -140,11 +174,11 @@ eemo_rv eemo_handle_tcp_packet(eemo_packet_buf* packet, eemo_ip_packet_info ip_i
 	return ERV_SKIPPED;
 }
 
-/* Register an TCP handler */
+/* Register a TCP handler */
 eemo_rv eemo_reg_tcp_handler(u_short srcport, u_short dstport, eemo_tcp_handler_fn handler_fn)
 {
 	eemo_tcp_handler* new_handler = NULL;
-	eemo_tcp_handler* current = NULL;
+	eemo_rv rv = ERV_OK;
 
 	/* Check if a handler for the specified ports already exists */
 	if (eemo_find_tcp_handler(srcport, dstport) != NULL)
@@ -165,59 +199,25 @@ eemo_rv eemo_reg_tcp_handler(u_short srcport, u_short dstport, eemo_tcp_handler_
 	new_handler->srcport = srcport;
 	new_handler->dstport = dstport;
 	new_handler->handler_fn = handler_fn;
-	new_handler->next = NULL;
 
 	/* Register the new handler */
-	current = tcp_handlers;
-
-	if (current == NULL)
+	if ((rv = eemo_ll_append(&tcp_handlers, (void*) new_handler)) != ERV_OK)
 	{
-		/* This is the first registered handler */
-		tcp_handlers = new_handler;
-	}
-	else
-	{
-		/* Append this handler to the list */
-		while (current->next != NULL) current = current->next;
-
-		current->next = new_handler;
+		/* FIXME: log this */
 	}
 
-	return ERV_OK;
+	return rv;
 }
 
-/* Unregister an TCP handler */
+/* Unregister a TCP handler */
 eemo_rv eemo_unreg_tcp_handler(u_short srcport, u_short dstport)
 {
-	eemo_tcp_handler* current = tcp_handlers;
-	eemo_tcp_handler* prev = NULL;
+	eemo_tcp_handler_comp_t comp;
 
-	while (current != NULL)
-	{
-		if (((current->srcport == TCP_ANY_PORT) || (current->srcport == srcport)) &&
-		    ((current->dstport == TCP_ANY_PORT) || (current->dstport == dstport)))
-		{
-			/* Found the handler to delete, remove it from the chain */
-			if (prev == NULL)
-			{
-				tcp_handlers = current->next;
-			}
-			else
-			{
-				prev->next = current->next;
-			}
+	comp.srcport = srcport;
+	comp.dstport = dstport;
 
-			free(current);
-
-			return ERV_OK;
-		}
-
-		prev = current;
-		current = current->next;
-	}
-
-	/* No such handler exists */
-	return ERV_NO_HANDLER;
+	return eemo_ll_remove(&tcp_handlers, &eemo_tcp_handler_compare, (void*) &comp);
 }
 
 /* Initialise IP handling */
@@ -231,17 +231,9 @@ eemo_rv eemo_init_tcp_handler(void)
 void eemo_tcp_handler_cleanup(void)
 {
 	/* Clean up the list of TCP packet handlers */
-	eemo_tcp_handler* to_delete = NULL;
-	eemo_tcp_handler* current = tcp_handlers;
-	tcp_handlers = NULL;
-
-	while (current != NULL)
+	if (eemo_ll_free(&tcp_handlers) != ERV_OK)
 	{
-		to_delete = current;
-		current = current->next;
-
-		to_delete->next = NULL;
-		free(to_delete);
+		/* FIXME: log this */
 	}
 
 	/* Unregister the IP handler for TCP packets */

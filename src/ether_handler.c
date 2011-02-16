@@ -41,34 +41,51 @@
 #include <pcap.h>
 #include <arpa/inet.h>
 #include "eemo.h"
+#include "eemo_list.h"
 #include "ether_handler.h"
 
 /* The linked list of Ethernet packet handlers */
-eemo_ether_handler* ether_handlers = NULL;
+eemo_ll_entry* ether_handlers = NULL;
+
+/* Ethernet handler comparison */
+int eemo_ether_handler_compare(void* elem_data, void* comp_data)
+{
+	eemo_ether_handler* elem = (eemo_ether_handler*) elem_data;
+	u_short which_eth_type = 0;
+
+	if ((elem_data == NULL) || (comp_data == NULL))
+	{
+		return 0;
+	}
+
+	which_eth_type = *((u_short*) comp_data);
+
+	if (elem->which_eth_type == which_eth_type)
+	{
+		return 1;
+	}
+	
+	return 0;
+}
 
 /* Find an Ethernet handler for the specified type */
 eemo_ether_handler* eemo_find_ether_handler(u_short which_eth_type)
 {
-	eemo_ether_handler* current = ether_handlers;
+	eemo_ether_handler* rv = NULL;
 
-	while (current != NULL)
+	if (eemo_ll_find(ether_handlers, (void*) &rv, &eemo_ether_handler_compare, (void*) &which_eth_type) != ERV_OK)
 	{
-		if (current->which_eth_type == which_eth_type)
-		{
-			return current;
-		}
-
-		current = current->next;
+		/* FIXME: log this */
 	}
 
-	return NULL;
+	return rv;
 }
 
 /* Register an Ethernet handler */
 eemo_rv eemo_reg_ether_handler(u_short which_eth_type, eemo_ether_handler_fn handler_fn)
 {
 	eemo_ether_handler* new_handler = NULL;
-	eemo_ether_handler* current = NULL;
+	eemo_rv rv = ERV_OK;
 
 	/* Check if a handler for the specified type already exists */
 	if (eemo_find_ether_handler(which_eth_type) != NULL)
@@ -88,58 +105,21 @@ eemo_rv eemo_reg_ether_handler(u_short which_eth_type, eemo_ether_handler_fn han
 
 	new_handler->which_eth_type = which_eth_type;
 	new_handler->handler_fn = handler_fn;
-	new_handler->next = NULL;
 
 	/* Register the new handler */
-	current = ether_handlers;
-
-	if (current == NULL)
+	if ((rv = eemo_ll_append(&ether_handlers, (void*) new_handler)) != ERV_OK)
 	{
-		/* This is the first registered handler */
-		ether_handlers = new_handler;
-	}
-	else
-	{
-		/* Append this handler to the list */
-		while (current->next != NULL) current = current->next;
-
-		current->next = new_handler;
+		/* FIXME: log this */
+		free(new_handler);
 	}
 
-	return ERV_OK;
+	return rv;
 }
 
 /* Unregister an Ethernet handler */
 eemo_rv eemo_unreg_ether_handler(u_short which_eth_type)
 {
-	eemo_ether_handler* current = ether_handlers;
-	eemo_ether_handler* prev = NULL;
-
-	while (current != NULL)
-	{
-		if (current->which_eth_type == which_eth_type)
-		{
-			/* Found the handler to delete, remove it from the chain */
-			if (prev == NULL)
-			{
-				ether_handlers = current->next;
-			}
-			else
-			{
-				prev->next = current->next;
-			}
-
-			free(current);
-
-			return ERV_OK;
-		}
-
-		prev = current;
-		current = current->next;
-	}
-
-	/* No such handler exists */
-	return ERV_NO_HANDLER;
+	return eemo_ll_remove(&ether_handlers, &eemo_ether_handler_compare, (void*) &which_eth_type);
 }
 
 /* Convert the packet from network to host byte order */
@@ -215,17 +195,9 @@ eemo_rv eemo_handle_ether_packet(eemo_packet_buf* packet)
 void eemo_ether_handler_cleanup(void)
 {
 	/* Clean up the list of Ethernet packet handlers */
-	eemo_ether_handler* to_delete = NULL;
-	eemo_ether_handler* current = ether_handlers;
-	ether_handlers = NULL;
-
-	while (current != NULL)
+	if (eemo_ll_free(&ether_handlers) != ERV_OK)
 	{
-		to_delete = current;
-		current = current->next;
-
-		to_delete->next = NULL;
-		free(to_delete);
+		/* FIXME: log this */
 	}
 }
 

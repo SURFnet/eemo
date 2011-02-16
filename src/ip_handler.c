@@ -41,28 +41,45 @@
 #include <pcap.h>
 #include <arpa/inet.h>
 #include "eemo.h"
+#include "eemo_list.h"
 #include "ip_handler.h"
 #include "ether_handler.h"
 
 /* The linked list of IP packet handlers */
-eemo_ip_handler* ip_handlers = NULL;
+eemo_ll_entry* ip_handlers = NULL;
+
+/* IP packet handler comparison */
+int eemo_ip_handler_compare(void* elem_data, void* comp_data)
+{
+	eemo_ip_handler* elem = (eemo_ip_handler*) elem_data;
+	u_short which_ip_proto = 0;
+
+	if ((elem_data == NULL) || (comp_data == NULL))
+	{
+		return 0;
+	}
+
+	which_ip_proto = *((u_short*) comp_data);
+
+	if (elem->which_ip_proto == which_ip_proto)
+	{
+		return 1;
+	}
+
+	return 0;
+}
 
 /* Find an IP handler for the specified type */
 eemo_ip_handler* eemo_find_ip_handler(u_short which_ip_proto)
 {
-	eemo_ip_handler* current = ip_handlers;
+	eemo_ip_handler* rv = NULL;
 
-	while (current != NULL)
+	if (eemo_ll_find(ip_handlers, (void*) &rv, &eemo_ip_handler_compare, (void*) &which_ip_proto) != ERV_OK)
 	{
-		if (current->which_ip_proto == which_ip_proto)
-		{
-			return current;
-		}
-
-		current = current->next;
+		/* FIXME: log this */
 	}
 
-	return NULL;
+	return rv;
 }
 
 /* Convert IPv4 packet header to host byte order */
@@ -264,7 +281,7 @@ eemo_rv eemo_handle_ipv6_packet(eemo_packet_buf* packet, eemo_ether_packet_info 
 eemo_rv eemo_reg_ip_handler(u_short which_ip_proto, eemo_ip_handler_fn handler_fn)
 {
 	eemo_ip_handler* new_handler = NULL;
-	eemo_ip_handler* current = NULL;
+	eemo_rv rv = ERV_OK;
 
 	/* Check if a handler for the specified type already exists */
 	if (eemo_find_ip_handler(which_ip_proto) != NULL)
@@ -284,58 +301,21 @@ eemo_rv eemo_reg_ip_handler(u_short which_ip_proto, eemo_ip_handler_fn handler_f
 
 	new_handler->which_ip_proto = which_ip_proto;
 	new_handler->handler_fn = handler_fn;
-	new_handler->next = NULL;
 
 	/* Register the new handler */
-	current = ip_handlers;
-
-	if (current == NULL)
+	if ((rv = eemo_ll_append(&ip_handlers, (void*) new_handler)) != ERV_OK)
 	{
-		/* This is the first registered handler */
-		ip_handlers = new_handler;
-	}
-	else
-	{
-		/* Append this handler to the list */
-		while (current->next != NULL) current = current->next;
-
-		current->next = new_handler;
+		/* FIXME: log this */
+		free(new_handler);
 	}
 
-	return ERV_OK;
+	return rv;
 }
 
 /* Unregister an IP handler */
 eemo_rv eemo_unreg_ip_handler(u_short which_ip_proto)
 {
-	eemo_ip_handler* current = ip_handlers;
-	eemo_ip_handler* prev = NULL;
-
-	while (current != NULL)
-	{
-		if (current->which_ip_proto == which_ip_proto)
-		{
-			/* Found the handler to delete, remove it from the chain */
-			if (prev == NULL)
-			{
-				ip_handlers = current->next;
-			}
-			else
-			{
-				prev->next = current->next;
-			}
-
-			free(current);
-
-			return ERV_OK;
-		}
-
-		prev = current;
-		current = current->next;
-	}
-
-	/* No such handler exists */
-	return ERV_NO_HANDLER;
+	return eemo_ll_remove(&ip_handlers, &eemo_ip_handler_compare, (void*) &which_ip_proto);
 }
 
 /* Initialise IP handling */
@@ -366,17 +346,9 @@ eemo_rv eemo_init_ip_handler(void)
 void eemo_ip_handler_cleanup(void)
 {
 	/* Clean up the list of IP packet handlers */
-	eemo_ip_handler* to_delete = NULL;
-	eemo_ip_handler* current = ip_handlers;
-	ip_handlers = NULL;
-
-	while (current != NULL)
+	if (eemo_ll_free(&ip_handlers) != ERV_OK)
 	{
-		to_delete = current;
-		current = current->next;
-
-		to_delete->next = NULL;
-		free(to_delete);
+		/* FIXME: log this */
 	}
 
 	/* Unregister the Ethernet handler for IPv4 and IPv6 packets */

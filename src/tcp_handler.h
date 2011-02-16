@@ -98,14 +98,17 @@ typedef struct eemo_tcp_handler
 	u_short				srcport;	/* which source port, 0 = any */
 	u_short				dstport;	/* which destination port, 0 = any */
 	eemo_tcp_handler_fn		handler_fn;	/* handler function */
-	struct eemo_tcp_handler*	next;		/* next handler in the list */
 }
 eemo_tcp_handler;
 
 /* Register an TCP handler */
+typedef eemo_rv (*eemo_reg_tcp_handler_fn) (u_short, u_short, eemo_tcp_handler_fn);
+
 eemo_rv eemo_reg_tcp_handler(u_short srcport, u_short dstport, eemo_tcp_handler_fn handler_fn);
 
 /* Unregister an TCP handler */
+typedef eemo_rv (*eemo_unreg_tcp_handler_fn) (u_short, u_short);
+
 eemo_rv eemo_unreg_tcp_handler(u_short srcport, u_short dstport);
 
 /* Initialise TCP handling */
