@@ -107,7 +107,7 @@ typedef struct
 eemo_plugin_fn_table, *eemo_plugin_fn_table_ptr, **eemo_plugin_fn_table_ptrptr;
 
 /* Retrieve plugin function table; when implemented, this function should always be called eemo_plugin_get_fn_table */
-typedef eemo_rv (*eemo_plugin_get_fn_table) (eemo_plugin_fn_table_ptrptr);
+typedef eemo_rv (*eemo_plugin_get_fn_table_fn) (eemo_plugin_fn_table_ptrptr);
 
 #endif /* !_EEMO_API_H */
 

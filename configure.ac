@@ -13,6 +13,19 @@ define([EEMO_VERSION_MINOR], [1])
 define([EEMO_VERSION_BUILDREV], esyscmd([sh -c "svnversion|tr -d '\n'"]))
 define([PACKAGE_SUFFIX], [])
 
+# Plugin library versions
+
+# Version guidelines
+# Interface added/removed/changed:   <PLUGIN>_VERSION_CURRENT++, <PLUGIN>_VERSION_REVISION=0
+# Code changed:                      <PLUGIN>_VERSION_REVISION++
+# Interface added:                   <PLUGIN>_VERSION_AGE++
+# Interface removed:                 <PLUGIN>_VERSION_AGE=0
+
+# DNS statistics plugin
+define([EEMO_DNSSTATS_CURRENT], [1])
+define([EEMO_DNSSTATS_REVISION], [0])
+define([EEMO_DNSSTATS_AGE], [0])
+
 ################################################################################
 # Configuration functions                                                      #
 ################################################################################
@@ -26,8 +39,14 @@ AC_CONFIG_MACRO_DIR([m4])
 AM_INIT_AUTOMAKE(foreign)
 ACX_PREFIXHACK
 
-# Checks for compilers
+# Variable substitutions
+EEMO_DNSSTATS_VERSION_INFO="EEMO_DNSSTATS_CURRENT:EEMO_DNSSTATS_REVISION:EEMO_DNSSTATS_AGE"
+AC_SUBST(EEMO_DNSSTATS_VERSION_INFO)
+
+# Checks for compilers and other programs
 AC_PROG_CC
+AC_PROG_LIBTOOL
+AC_PROG_INSTALL
 
 # Compiler flags
 ACX_PEDANTIC
@@ -85,6 +104,8 @@ AC_PROG_INSTALL
 AC_CONFIG_FILES([
 	Makefile
 	src/Makefile
+	src/plugins/Makefile
+	src/plugins/dnsstats/Makefile
 ])
 
 AC_OUTPUT

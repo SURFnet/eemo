@@ -28,3 +28,5 @@ eemo_SOURCES =		dns_qhandler.c \
 			udp_handler.h
 
 eemo_LDADD =		-lpcap
+
+SUBDIRS =		plugins

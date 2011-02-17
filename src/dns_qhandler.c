@@ -256,24 +256,6 @@ eemo_rv eemo_handle_dns_tcp_qpacket(eemo_packet_buf* packet, eemo_ip_packet_info
 	/* Check length */
 	if ((packet->len - 2) != dns_length)
 	{
-		int i;
-
-		printf("TCP: ");
-
-		for (i = 0; i < packet->len; i++)
-		{
-			printf("%02X ", packet->data[i]);
-		}
-
-		printf("\n     ");
-
-		for (i = 0; i < packet->len; i++)
-		{
-			printf("%c  ", (packet->data[i] > 32) && (packet->data[i] < 127) ? packet->data[i] : ' ');
-		}
-
-		printf("\n");
-
 		/* Packet data is truncated and we currently don't do reassembly */
 		return ERV_MALFORMED;
 	}
