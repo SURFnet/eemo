@@ -44,7 +44,7 @@ EEMO_DNSSTATS_VERSION_INFO="EEMO_DNSSTATS_CURRENT:EEMO_DNSSTATS_REVISION:EEMO_DN
 AC_SUBST(EEMO_DNSSTATS_VERSION_INFO)
 
 # Checks for compilers and other programs
-AC_PROG_CC
+AC_PROG_CC_C99
 AC_PROG_LIBTOOL
 AC_PROG_INSTALL
 
@@ -72,13 +72,22 @@ AC_CHECK_HEADERS([netdb.h])
 AC_CHECK_HEADERS([ifaddrs.h])
 AC_CHECK_HEADERS([sys/socket.h])
 AC_CHECK_HEADERS([unistd.h])
+AC_CHECK_HEADERS([syslog.h])
 AC_HEADER_STDC
 
 # Check for functions
 AC_FUNC_MEMCMP
-AC_CHECK_FUNCS(ntohs ntohl)
-AC_CHECK_FUNCS(getnameinfo)
-AC_CHECK_FUNCS(getifaddrs)
+AC_CHECK_FUNCS(ntohs ntohl,,AC_MSG_ERROR([ntohs and ntohl are required to build eemo]))
+AC_CHECK_FUNCS(getnameinfo,,AC_MSG_ERROR([getnameinfo is required to build eemo]))
+AC_CHECK_FUNCS(getifaddrs,,AC_MSG_ERROR([getifaddrs is required to build eemo]))
+AC_CHECK_FUNCS(syslog,,AC_MSG_ERROR([syslog is required to build eemo]))
+
+# Define default paths
+full_sysconfdir=`eval eval eval eval eval echo "${sysconfdir}" | sed "s#NONE#${prefix}#" | sed "s#NONE#${ac_default_prefix}#"`
+full_localstatedir=`eval eval eval eval eval echo "${localstatedir}" | sed "s#NONE#${prefix}#" | sed "s#NONE#${ac_default_prefix}#"`
+full_libdir=`eval eval eval eval eval echo "${libdir}" | sed "s#NONE#${prefix}#" | sed "s#NONE#${ac_default_prefix}#"`
+default_eemo_conf="`eval echo ${full_sysconfdir} | sed s,NONE,$ac_default_prefix,g`/eemo.conf"
+default_pid_file="`eval echo ${full_localstatedir} | sed s,NONE,$ac_default_prefix,g`/run/eemo.pid"
 
 # Define some variables for the code
 AC_DEFINE_UNQUOTED(
@@ -95,6 +104,16 @@ AC_DEFINE_UNQUOTED(
 	[EEMO_LOGLEVEL],
 	[$EEMO_LOGLEVEL],
 	[The log level set by the user]
+)
+AC_DEFINE_UNQUOTED(
+	[DEFAULT_EEMO_CONF],
+	["$default_eemo_conf"],
+	[The default configuration file]
+)
+AC_DEFINE_UNQUOTED(
+	[DEFAULT_EEMO_PIDFILE],
+	["$default_pid_file"],
+	[The default PID file]
 )
 
 # Generate theinstall script

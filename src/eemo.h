@@ -67,6 +67,10 @@ typedef unsigned long eemo_rv;
 #define ERV_CAPTURE_ERROR	0x80000008	/* Error capturing packets */
 #define ERV_NOT_FOUND		0x80000009	/* The item searched for was not found */
 #define ERV_PARAM_INVALID	0x8000000A	/* Invalid parameter(s) provided for function call */
+#define ERV_NO_CONFIG		0x8000000B	/* No configuration file was specified */
+#define ERV_CONFIG_ERROR	0x8000000C	/* An error occurred while reading the configuration file */
+#define ERV_LOG_INIT_FAIL	0x8000000D	/* Failed to initialise logging */
+#define ERV_NO_MODULES		0x8000000E	/* No modules were configured */
 
 #endif /* !_EEMO_H */
 

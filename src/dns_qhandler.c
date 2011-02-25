@@ -46,7 +46,7 @@
 #include "dns_types.h"
 
 /* The linked list of DNS query handlers */
-eemo_ll_entry* dns_qhandlers = NULL;
+static eemo_ll_entry* dns_qhandlers = NULL;
 
 /* DNS query handler entry comparison type */
 typedef struct
@@ -325,6 +325,7 @@ eemo_rv eemo_unreg_dns_qhandler(u_short qclass, u_short qtype)
 eemo_rv eemo_init_dns_qhandler(void)
 {
 	eemo_rv rv = ERV_OK;
+	dns_qhandlers = NULL;
 
 	/* Register UDP packet handler */
 	rv = eemo_reg_udp_handler(UDP_ANY_PORT, DNS_PORT, &eemo_handle_dns_udp_qpacket);

@@ -44,7 +44,7 @@
 #include "tcp_handler.h"
 
 /* The linked list of TCP packet handlers */
-eemo_ll_entry* tcp_handlers = NULL;
+static eemo_ll_entry* tcp_handlers = NULL;
 
 /* TCP handler comparison data type */
 typedef struct
@@ -223,6 +223,8 @@ eemo_rv eemo_unreg_tcp_handler(u_short srcport, u_short dstport)
 /* Initialise IP handling */
 eemo_rv eemo_init_tcp_handler(void)
 {
+	tcp_handlers = NULL;
+
 	/* Register TCP packet handler */
 	return eemo_reg_ip_handler(IP_TCP, &eemo_handle_tcp_packet);
 }

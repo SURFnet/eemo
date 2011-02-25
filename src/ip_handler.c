@@ -46,7 +46,7 @@
 #include "ether_handler.h"
 
 /* The linked list of IP packet handlers */
-eemo_ll_entry* ip_handlers = NULL;
+static eemo_ll_entry* ip_handlers = NULL;
 
 /* IP packet handler comparison */
 int eemo_ip_handler_compare(void* elem_data, void* comp_data)
@@ -322,6 +322,7 @@ eemo_rv eemo_unreg_ip_handler(u_short which_ip_proto)
 eemo_rv eemo_init_ip_handler(void)
 {
 	eemo_rv rv = ERV_OK;
+	ip_handlers = NULL;
 
 	/* Register IPv4 packet handler */
 	rv = eemo_reg_ether_handler(ETHER_IPV4, &eemo_handle_ipv4_packet);

@@ -32,66 +32,38 @@
 
 /*
  * The Extensible Ethernet Monitor (EEMO)
- * DNS statistics plugin library entry functions
+ * Logging
  */
 
+#ifndef _EEMO_LOG_H
+#define _EEMO_LOG_H
+
 #include "config.h"
-#include <stdlib.h>
 #include "eemo.h"
-#include "eemo_api.h"
-#include "eemo_plugin_log.h"
 
-const static char* plugin_description = "EEMO DNS statistics plugin " PACKAGE_VERSION;
+/* Log levels */
+#define EEMO_LOG_NONE		0
+#define EEMO_LOG_ERROR		1
+#define EEMO_LOG_WARNING	2
+#define EEMO_LOG_INFO		3
+#define EEMO_LOG_DEBUG		4
 
-/* Plugin initialisation */
-eemo_rv eemo_dnsstats_init(eemo_export_fn_table_ptr eemo_fn, const char* conf_base_path)
-{
-	/* Initialise logging for the plugin */
-	eemo_init_plugin_log(eemo_fn->log);
+/* Initialise logging */
+eemo_rv eemo_init_log(void);
 
-	INFO_MSG("In module");
+/* Uninitialise logging */
+eemo_rv eemo_uninit_log(void);
 
-	return ERV_OK;
-}
+/* Log something */
+void eemo_log(const int log_at_level, const char* file, const int line, const char* format, ...);
 
-/* Plugin uninitialisation */
-eemo_rv eemo_dnsstats_uninit(eemo_export_fn_table_ptr eemo_fn)
-{
-	return ERV_OK;
-}
+typedef void (*eemo_log_fn)(const int, const char*, const int, const char*, ...);
 
-/* Retrieve plugin description */
-const char* eemo_dnsstats_getdescription(void)
-{
-	return plugin_description;
-}
+/* Log directives */
+#define ERROR_MSG(...) 		eemo_log(EEMO_LOG_ERROR  , __FILE__, __LINE__, __VA_ARGS__);
+#define WARNING_MSG(...) 	eemo_log(EEMO_LOG_WARNING, __FILE__, __LINE__, __VA_ARGS__);
+#define INFO_MSG(...) 		eemo_log(EEMO_LOG_INFO   , __FILE__, __LINE__, __VA_ARGS__);
+#define DEBUG_MSG(...) 		eemo_log(EEMO_LOG_DEBUG  , __FILE__, __LINE__, __VA_ARGS__);
 
-/* Retrieve plugin status */
-eemo_rv eemo_dnsstats_status(void)
-{
-	return ERV_OK;
-}
-
-/* Plugin function table */
-static eemo_plugin_fn_table dnsstats_fn_table =
-{
-	EEMO_PLUGIN_FN_VERSION,
-	&eemo_dnsstats_init,
-	&eemo_dnsstats_uninit,
-	&eemo_dnsstats_getdescription,
-	&eemo_dnsstats_status
-};
-
-/* Entry point for retrieving plugin function table */
-eemo_rv eemo_plugin_get_fn_table(eemo_plugin_fn_table_ptrptr fn_table)
-{
-	if (fn_table == NULL)
-	{
-		return ERV_PARAM_INVALID;
-	}
-
-	*fn_table = &dnsstats_fn_table;
-
-	return ERV_OK;
-}
+#endif /* !_EEMO_LOG_H */
 

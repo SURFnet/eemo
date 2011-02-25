@@ -9,8 +9,12 @@ eemo_SOURCES =		dns_qhandler.c \
 			dns_types.h \
 			eemo.h \
 			eemo_api.h \
+			eemo_config.c \
+			eemo_config.h \
 			eemo_list.c \
 			eemo_list.h \
+			eemo_log.c \
+			eemo_log.h \
 			eemo_main.c \
 			eemo_packet.c \
 			eemo_packet.h \
@@ -27,6 +31,6 @@ eemo_SOURCES =		dns_qhandler.c \
 			udp_handler.c \
 			udp_handler.h
 
-eemo_LDADD =		-lpcap
+eemo_LDADD =		-lpcap -lconfig
 
 SUBDIRS =		plugins

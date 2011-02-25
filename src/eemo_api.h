@@ -40,6 +40,7 @@
 
 #include "config.h"
 #include "eemo.h"
+#include "eemo_log.h"
 #include "dns_qhandler.h"
 #include "ether_handler.h"
 #include "ip_handler.h"
@@ -49,10 +50,23 @@
 /* Function table exported by EEMO; always check version before using */
 #define EEMO_EXPORT_FN_VERSION		1
 
+/* Configuration functions need to be defined here, otherwise we get cross-referencing headers */
+typedef eemo_rv (*eemo_conf_get_int_fn)(const char*, const char*, int*, int);
+typedef eemo_rv (*eemo_conf_get_bool_fn)(const char*, const char*, int*, int);
+typedef eemo_rv (*eemo_conf_get_string_fn)(const char*, const char*, char**, char*);
+
 typedef struct
 {
 	/* Version */
 	unsigned int			fn_table_version;
+
+	/* Logging */
+	eemo_log_fn			log;
+
+	/* Configuration */
+	eemo_conf_get_int_fn		conf_get_int;
+	eemo_conf_get_bool_fn		conf_get_bool;
+	eemo_conf_get_string_fn		conf_get_string;
 	
 	/* Ethernet handler administration */
 	eemo_reg_ether_handler_fn	reg_ether_handler;
@@ -79,7 +93,7 @@ eemo_export_fn_table, *eemo_export_fn_table_ptr;
 /* Plugin function definitions */
 
 /* Initialise plugin */
-typedef eemo_rv (*eemo_plugin_init_fn) (eemo_export_fn_table_ptr);
+typedef eemo_rv (*eemo_plugin_init_fn) (eemo_export_fn_table_ptr, const char* /* conf_base_path */);
 
 /* Uninitialise plugin */
 typedef eemo_rv (*eemo_plugin_uninit_fn) (eemo_export_fn_table_ptr);

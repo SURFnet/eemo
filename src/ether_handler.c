@@ -45,7 +45,7 @@
 #include "ether_handler.h"
 
 /* The linked list of Ethernet packet handlers */
-eemo_ll_entry* ether_handlers = NULL;
+static eemo_ll_entry* ether_handlers = NULL;
 
 /* Ethernet handler comparison */
 int eemo_ether_handler_compare(void* elem_data, void* comp_data)
@@ -189,6 +189,14 @@ eemo_rv eemo_handle_ether_packet(eemo_packet_buf* packet)
 	}
 
 	return ERV_SKIPPED;
+}
+
+/* Initialise Ethernet handling */
+eemo_rv eemo_init_ether_handler(void)
+{
+	ether_handlers = NULL;
+
+	return ERV_OK;
 }
 
 /* Clean up */

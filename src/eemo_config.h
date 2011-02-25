@@ -32,66 +32,46 @@
 
 /*
  * The Extensible Ethernet Monitor (EEMO)
- * DNS statistics plugin library entry functions
+ * Configuration handling
  */
 
+#ifndef _EEMO_CONFIG_H
+#define _EEMO_CONFIG_H
+
 #include "config.h"
-#include <stdlib.h>
 #include "eemo.h"
 #include "eemo_api.h"
-#include "eemo_plugin_log.h"
 
-const static char* plugin_description = "EEMO DNS statistics plugin " PACKAGE_VERSION;
-
-/* Plugin initialisation */
-eemo_rv eemo_dnsstats_init(eemo_export_fn_table_ptr eemo_fn, const char* conf_base_path)
+/* Module specification */
+typedef struct
 {
-	/* Initialise logging for the plugin */
-	eemo_init_plugin_log(eemo_fn->log);
-
-	INFO_MSG("In module");
-
-	return ERV_OK;
+	char* 				mod_path;	/* The path to the module's shared library */
+	char*				mod_conf_base;	/* Base configuration path for the module */
+	void*				mod_handle;	/* The module's shared library handle */
+	eemo_plugin_fn_table_ptr	mod_fn_table;	/* The module's function table */
 }
+eemo_module_spec;
 
-/* Plugin uninitialisation */
-eemo_rv eemo_dnsstats_uninit(eemo_export_fn_table_ptr eemo_fn)
-{
-	return ERV_OK;
-}
+/* Initialise the configuration handler */
+eemo_rv eemo_init_config_handling(const char* config_path);
 
-/* Retrieve plugin description */
-const char* eemo_dnsstats_getdescription(void)
-{
-	return plugin_description;
-}
+/* Get an integer value */
+eemo_rv eemo_conf_get_int(const char* base_path, const char* sub_path, int* value, int def_val);
 
-/* Retrieve plugin status */
-eemo_rv eemo_dnsstats_status(void)
-{
-	return ERV_OK;
-}
+/* Get a boolean value */
+eemo_rv eemo_conf_get_bool(const char* base_path, const char* sub_path, int* value, int def_val);
 
-/* Plugin function table */
-static eemo_plugin_fn_table dnsstats_fn_table =
-{
-	EEMO_PLUGIN_FN_VERSION,
-	&eemo_dnsstats_init,
-	&eemo_dnsstats_uninit,
-	&eemo_dnsstats_getdescription,
-	&eemo_dnsstats_status
-};
+/* Get a string value; note: caller must free string returned in value! */
+eemo_rv eemo_conf_get_string(const char* base_path, const char* sub_path, char** value, char* def_val);
 
-/* Entry point for retrieving plugin function table */
-eemo_rv eemo_plugin_get_fn_table(eemo_plugin_fn_table_ptrptr fn_table)
-{
-	if (fn_table == NULL)
-	{
-		return ERV_PARAM_INVALID;
-	}
+/* Load and initialise the modules */
+eemo_rv eemo_conf_load_modules(void);
 
-	*fn_table = &dnsstats_fn_table;
+/* Unload and uninitialise the modules */
+eemo_rv eemo_conf_unload_modules(void);
 
-	return ERV_OK;
-}
+/* Release the configuration handler */
+eemo_rv eemo_uninit_config_handling(void);
+
+#endif /* !_EEMO_CONFIG_H */
 

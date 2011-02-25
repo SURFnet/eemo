@@ -44,7 +44,7 @@
 #include "udp_handler.h"
 
 /* The linked list of UDP packet handlers */
-eemo_ll_entry* udp_handlers = NULL;
+static eemo_ll_entry* udp_handlers = NULL;
 
 /* UDP handler comparison data type */
 typedef struct
@@ -192,6 +192,8 @@ eemo_rv eemo_unreg_udp_handler(u_short srcport, u_short dstport)
 /* Initialise IP handling */
 eemo_rv eemo_init_udp_handler(void)
 {
+	udp_handlers = NULL;
+
 	/* Register UDP packet handler */
 	return eemo_reg_ip_handler(IP_UDP, &eemo_handle_udp_packet);
 }

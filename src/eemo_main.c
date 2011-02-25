@@ -33,6 +33,8 @@
 #include "config.h"
 #include <stdio.h>
 #include <stdlib.h>
+#include <unistd.h>
+#include <string.h>
 #include "eemo.h"
 #include "eemo_api.h"
 #include "eemo_packet.h"
@@ -43,199 +45,193 @@
 #include "dns_types.h"
 #include "ifaddr_lookup.h"
 #include "ether_capture.h"
+#include "eemo_config.h"
+#include "eemo_log.h"
 
-eemo_rv handle_any_dns_query(eemo_ip_packet_info ip_info, u_short qclass, u_short qtype, u_short flags, char* qname, int is_tcp)
+void version(void)
 {
-	printf("%s DNS query from %s for ", is_tcp ? "TCP" : "UDP", ip_info.ip_src);
+	printf("Extensible Ethernet Monitor (eemo) version %s\n", VERSION);
+	printf("Copyright (c) 2010-2011 SURFnet bv\n\n");
+	printf("Use, modification and redistribution of this software is subject to the terms\n");
+	printf("of the license agreement. This software is licensed under a 3-clause BSD-style\n");
+	printf("license a copy of which is included as the file LICENSE in the distribution.\n");
+}
 
-	switch(qclass)
-	{
-	case DNS_QCLASS_UNSPECIFIED:
-		printf("UNSPEC CLASS ");
-		break;
-	case DNS_QCLASS_IN:
-		printf("IN ");
-		break;
-	case DNS_QCLASS_CS:
-		printf("CS ");
-		break;
-	case DNS_QCLASS_CH:
-		printf("CH ");
-		break;
-	case DNS_QCLASS_HS:
-		printf("HS ");
-		break;
-	case DNS_QCLASS_ANY:
-		printf("ANY ");
-		break;
-	default:
-		printf("UNKNOWN CLASS ");
-	}
-
-	switch(qtype)
-	{
-	case DNS_QTYPE_UNSPECIFIED:
-		printf("UNSPEC CLASS ");
-		break;
-	case DNS_QTYPE_A:
-		printf("A ");
-		break;
-	case DNS_QTYPE_AAAA:
-		printf("AAAA ");
-		break;
-	case DNS_QTYPE_AFSDB:
-		printf("AFSDB ");
-		break;
-	case DNS_QTYPE_APL:
-		printf("APL ");
-		break;
-	case DNS_QTYPE_CERT:
-		printf("CERT ");
-		break;
-	case DNS_QTYPE_CNAME:
-		printf("CNAME ");
-		break;
-	case DNS_QTYPE_DHCID:
-		printf("DHCID ");
-		break;
-	case DNS_QTYPE_DLV:
-		printf("DLV ");
-		break;
-	case DNS_QTYPE_DNAME:
-		printf("DNAME ");
-		break;
-	case DNS_QTYPE_DNSKEY:
-		printf("DNSKEY ");
-		break;
-	case DNS_QTYPE_DS:
-		printf("DS ");
-		break;
-	case DNS_QTYPE_HIP:
-		printf("HIP ");
-		break;
-	case DNS_QTYPE_IPSECKEY:
-		printf("IPSECKEY");
-		break;
-	case DNS_QTYPE_KEY:
-		printf("KEY ");
-		break;
-	case DNS_QTYPE_KX:
-		printf("KX ");
-		break;
-	case DNS_QTYPE_LOC:
-		printf("LOC ");
-		break;
-	case DNS_QTYPE_MX:
-		printf("MX ");
-		break;
-	case DNS_QTYPE_NAPTR:
-		printf("NAPTR ");
-		break;
-	case DNS_QTYPE_NS:
-		printf("NS ");
-		break;
-	case DNS_QTYPE_NSEC:
-		printf("NSEC ");
-		break;
-	case DNS_QTYPE_NSEC3:
-		printf("NSEC3 ");
-		break;
-	case DNS_QTYPE_NSEC3PARAM:
-		printf("NSEC3PARAM ");
-		break;
-	case DNS_QTYPE_PTR:
-		printf("PTR ");
-		break;
-	case DNS_QTYPE_RRSIG:
-		printf("RRSIG ");
-		break;
-	case DNS_QTYPE_RP:
-		printf("RP ");
-		break;
-	case DNS_QTYPE_SIG:
-		printf("SIG ");
-		break;
-	case DNS_QTYPE_SOA:
-		printf("SOA ");
-		break;
-	case DNS_QTYPE_SPF:
-		printf("SPF ");
-		break;
-	case DNS_QTYPE_SRV:
-		printf("SRV ");
-		break;
-	case DNS_QTYPE_SSHFP:
-		printf("SSHFP ");
-		break;
-	case DNS_QTYPE_TA:
-		printf("TA ");
-		break;
-	case DNS_QTYPE_TKEY:
-		printf("TKEY ");
-		break;
-	case DNS_QTYPE_TSIG:
-		printf("TSIG ");
-		break;
-	case DNS_QTYPE_TXT:
-		printf("TXT ");
-		break;
-	case DNS_QTYPE_ANY:
-		printf("ANY ");
-		break;
-	case DNS_QTYPE_AXFR:
-		printf("AXFR ");
-		break;
-	case DNS_QTYPE_IXFR:
-		printf("IXFR ");
-		break;
-	case DNS_QTYPE_OPT:
-		printf("OPT ");
-		break;
-	default:
-		printf("UNKNOWN TYPE ");
-	}
-
-	printf("%s\n", qname);
-
-	return ERV_OK;
+void usage(void)
+{
+	printf("Extensible Ethernet Monitor (eemo) version %s\n\n", VERSION);
+	printf("Usage:\n");
+	printf("\teemo [-i <if>] [-f] [-c <config>] [-p <pidfile>]\n");
+	printf("\teemo -h\n");
+	printf("\teemo -v\n");
+	printf("\n");
+	printf("\t-i <if>      Capture package on interface <if>; defaults to standard packet\n");
+	printf("\t             capturing interface reported by libpcap, see pcap_lookupdev(3)\n");
+	printf("\t-f           Run in the foreground rather than forking as a daemon\n");
+	printf("\t-c <config>  Use <config> as configuration file\n");
+	printf("\t             Defaults to %s\n", DEFAULT_EEMO_CONF);
+	printf("\t-p <pidfile> Specify the PID file to write the daemon process ID to\n");
+	printf("\t             Defaults to %s\n", DEFAULT_EEMO_PIDFILE);
+	printf("\n");
+	printf("\t-h           Print this help message\n");
+	printf("\n");
+	printf("\t-v           Print the version number\n");
 }
 
 int main(int argc, char* argv[])
 {
+	char* interface = NULL;
+	char* config_path = NULL;
+	char* pid_path = NULL;
+	int daemon = 1;
+	int c = 0;
+	
+	while ((c = getopt(argc, argv, "i:fc:p:hv")) != -1)
+	{
+		switch(c)
+		{
+		case 'i':
+			interface = strdup(optarg);
+
+			if (interface == NULL)
+			{
+				fprintf(stderr, "Error allocating memory, exiting\n");
+				return ERV_MEMORY;
+			}
+
+			break;
+		case 'f':
+			daemon = 0;
+			break;
+		case 'c':
+			config_path = strdup(optarg);
+
+			if (config_path == NULL)
+			{
+				fprintf(stderr, "Error allocating memory, exiting\n");
+				return ERV_MEMORY;
+			}
+
+			break;
+		case 'p':
+			pid_path = strdup(optarg);
+
+			if (pid_path == NULL)
+			{
+				fprintf(stderr, "Error allocating memory, exiting\n");
+				return ERV_MEMORY;
+			}
+
+			break;
+		case 'h':
+			usage();
+			return 0;
+		case 'v':
+			version();
+			return 0;
+		}
+	}
+
+	if (config_path == NULL)
+	{
+		config_path = strdup(DEFAULT_EEMO_CONF);
+
+		if (config_path == NULL)
+		{
+			fprintf(stderr, "Error allocating memory, exiting\n");
+			return ERV_MEMORY;
+		}
+	}
+
+	if (pid_path == NULL)
+	{
+		pid_path = strdup(DEFAULT_EEMO_PIDFILE);
+
+		if (pid_path == NULL)
+		{
+			fprintf(stderr, "Error allocating memory, exiting\n");
+			return ERV_MEMORY;
+		}
+	}
+
+	/* Load the configuration */
+	if (eemo_init_config_handling(config_path) != ERV_OK)
+	{
+		fprintf(stderr, "Failed to load the configuration, exiting\n");
+
+		return ERV_CONFIG_ERROR;
+	}
+
+	/* Initialise logging */
+	if (eemo_init_log() != ERV_OK)
+	{
+		fprintf(stderr, "Failed to initialise logging, exiting\n");
+
+		return ERV_LOG_INIT_FAIL;
+	}
+
+	INFO_MSG("Starting the Extensible Ethernet Monitor (eemo) version %s", VERSION);
+
+	if (eemo_init_ether_handler() != ERV_OK)
+	{
+		ERROR_MSG("Failed to initialise the Ethernet packet handler");
+
+		return ERV_GENERAL_ERROR;
+	}
+
 	if (eemo_init_ip_handler() != ERV_OK)
 	{
-		fprintf(stderr, "Failed to initialise the IP packet handler\n");
+		ERROR_MSG("Failed to initialise the IP packet handler");
 
-		return -1;
+		return ERV_GENERAL_ERROR;
 	}
 
 	if (eemo_init_udp_handler() != ERV_OK)
 	{
-		fprintf(stderr, "Failed to initialise the UDP packet handler\n");
+		ERROR_MSG("Failed to initialise the UDP packet handler");
 	}
 
 	if (eemo_init_tcp_handler() != ERV_OK)
 	{
-		fprintf(stderr, "Failed to initialise the TCP packet handler\n");
+		ERROR_MSG("Failed to initialise the TCP packet handler");
 	}
 
 	if (eemo_init_dns_qhandler() != ERV_OK)
 	{
-		fprintf(stderr, "Failed to initialise the DNS query handler\n");
+		ERROR_MSG("Failed to initialise the DNS query handler");
 	}
 
-	if (eemo_reg_dns_qhandler(DNS_QCLASS_UNSPECIFIED, DNS_QTYPE_UNSPECIFIED, &handle_any_dns_query) != ERV_OK)
+	/* Load an initialise modules */
+	if (eemo_conf_load_modules() != ERV_OK)
 	{
-		fprintf(stderr, "Failed to register generic DNS query handler\n");
+		ERROR_MSG("Failed to load modules");
 
-		return -1;
+		return ERV_NO_MODULES;
 	}
 
-	if (eemo_capture_and_handle(NULL, -1, NULL) != ERV_OK)
+	/*if (eemo_capture_and_handle(NULL, -1, NULL) != ERV_OK)
 	{
-		fprintf(stderr, "Failed to start packet capture\n");
+		ERROR_MSG("Failed to start packet capture");
 
-		return -1;
+		return ERV_GENERAL_ERROR;
+	}*/
+
+	/* Unload and uninitialise modules */
+	if (eemo_conf_unload_modules() != ERV_OK)
+	{
+		ERROR_MSG("Failed to unload modules");
+	}
+
+	/* Unload the configuration */
+	if (eemo_uninit_config_handling() != ERV_OK)
+	{
+		ERROR_MSG("Failed to uninitialise configuration handling");
+	}
+
+	/* Uninitialise logging */
+	if (eemo_uninit_log() != ERV_OK)
+	{
+		fprintf(stderr, "Failed to uninitialise logging\n");
 	}
 
 	return 0;

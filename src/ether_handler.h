@@ -86,6 +86,9 @@ eemo_rv eemo_unreg_ether_handler(u_short which_eth_type);
 /* Handle an Ethernet packet */
 eemo_rv eemo_handle_ether_packet(eemo_packet_buf* packet);
 
+/* Initialise Ethernet handling */
+eemo_rv eemo_init_ether_handler(void);
+
 /* Clean up */
 void eemo_ether_handler_cleanup(void);
 
