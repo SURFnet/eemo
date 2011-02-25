@@ -1,0 +1,336 @@
+/* $Id$ */
+
+/*
+ * Copyright (c) 2010-2011 SURFnet bv
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in the
+ *    documentation and/or other materials provided with the distribution.
+ * 3. Neither the name of SURFnet bv nor the names of its contributors 
+ *    may be used to endorse or promote products derived from this 
+ *    software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE AUTHOR ``AS IS'' AND ANY EXPRESS OR
+ * IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+ * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY
+ * DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
+ * GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
+ * IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+ * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
+ * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
+ */
+
+/*
+ * The Extensible Ethernet Monitor (EEMO)
+ * DNS statistics plug-in query counter code
+ */
+
+#include "config.h"
+#include "eemo.h"
+#include "eemo_log.h"
+#include "eemo_dnsstats_stats.h"
+#include <string.h>
+#include <stdlib.h>
+
+/* The counters */
+
+/* Query classes */
+struct
+{
+	unsigned long long IN;
+	unsigned long long CS;
+	unsigned long long CH;
+	unsigned long long HS;
+	unsigned long long ANY;
+	unsigned long long UNSPECIFIED;
+	unsigned long long UNKNOWN;
+}
+qclass_ctr;
+
+/* Query types */
+struct
+{
+	unsigned long long UNSPECIFIED;
+	unsigned long long A;
+	unsigned long long AAAA;
+	unsigned long long AFSDB;
+	unsigned long long APL;
+	unsigned long long CERT;
+	unsigned long long CNAME;
+	unsigned long long DHCID;
+	unsigned long long DLV;
+	unsigned long long DNAME;
+	unsigned long long DNSKEY;
+	unsigned long long DS;
+	unsigned long long HIP;
+	unsigned long long IPSECKEY;
+	unsigned long long KEY;
+	unsigned long long KX;
+	unsigned long long LOC;
+	unsigned long long MX;
+	unsigned long long NAPTR;
+	unsigned long long NS;
+	unsigned long long NSEC;
+	unsigned long long NSEC3;
+	unsigned long long NSEC3PARAM;
+	unsigned long long PTR;
+	unsigned long long RRSIG;
+	unsigned long long RP;
+	unsigned long long SIG;
+	unsigned long long SOA;
+	unsigned long long SPF;
+	unsigned long long SRV;
+	unsigned long long SSHFP;
+	unsigned long long TA;
+	unsigned long long TKEY;
+	unsigned long long TSIG;
+	unsigned long long TXT;
+	unsigned long long ANY;
+	unsigned long long AXFR;
+	unsigned long long IXFR;
+	unsigned long long OPT;
+	unsigned long long UNKNOWN;
+}
+qtype_ctr;
+
+/* IP types */
+struct
+{
+	unsigned long long V4;
+	unsigned long long V6;
+}
+iptype_ctr;
+
+/* Transmission protocol types */
+struct
+{
+	unsigned long long UDP;
+	unsigned long long TCP;
+}
+proto_ctr;
+
+/* Configuration */
+char** 	stat_ips 		= NULL;
+int 	stat_ipcount 		= 0;
+int	stat_emit_interval	= 0;
+char*	stat_file		= NULL;
+int	stat_append		= 0;
+int	stat_reset		= 1;
+
+/* Statistics file */
+FILE*	stat_fp			= NULL;
+
+/* Reset statistics */
+void eemo_dnsstats_stats_reset(void)
+{
+	memset(&qclass_ctr, 0, sizeof(qclass_ctr));
+	memset(&qtype_ctr, 0, sizeof(qtype_ctr));
+	memset(&iptype_ctr, 0, sizeof(iptype_ctr));
+	memset(&proto_ctr, 0, sizeof(proto_ctr));
+}
+
+/* Initialise the DNS query counter module */
+void eemo_dnsstats_stats_init(char** ips, int ip_count, int emit_interval, char* stats_file, int append_file, int reset)
+{
+	stat_ips = ips;
+	stat_ipcount = ip_count;
+	stat_emit_interval = emit_interval;
+	stat_file = stats_file;
+	stat_append = append_file;
+	stat_reset = reset;
+
+	if (!stat_append)
+	{
+		stat_fp = fopen(stat_file, "w");
+	}
+
+	eemo_dnsstats_stats_reset();
+}
+
+/* Handle DNS query packets and log the statistics */
+eemo_rv eemo_dnsstats_stats_handleq(eemo_ip_packet_info ip_info, u_short qclass, u_short qtype, u_short flags, char* qname, int is_tcp)
+{
+	/* Log query class */
+	switch(qclass)
+	{
+	case DNS_QCLASS_UNSPECIFIED:
+		qclass_ctr.UNSPECIFIED++;
+		break;
+	case DNS_QCLASS_IN:
+		qclass_ctr.IN++;
+		break;
+	case DNS_QCLASS_CS:
+		qclass_ctr.CS++;
+		break;
+	case DNS_QCLASS_CH:
+		qclass_ctr.CH++;
+		break;
+	case DNS_QCLASS_HS:
+		qclass_ctr.HS++;
+		break;
+	case DNS_QCLASS_ANY:
+		qclass_ctr.ANY++;
+		break;
+	default:
+		qclass_ctr.UNKNOWN++;
+	}
+
+	/* Log query type */
+	switch(qtype)
+	{
+	case DNS_QTYPE_UNSPECIFIED:
+		qtype_ctr.UNSPECIFIED++;
+		break;
+	case DNS_QTYPE_A:
+		qtype_ctr.A++;
+		break;
+	case DNS_QTYPE_AAAA:
+		qtype_ctr.AAAA++;
+		break;
+	case DNS_QTYPE_AFSDB:
+		qtype_ctr.AFSDB++;
+		break;
+	case DNS_QTYPE_APL:
+		qtype_ctr.APL++;
+		break;
+	case DNS_QTYPE_CERT:
+		qtype_ctr.CERT++;
+		break;
+	case DNS_QTYPE_CNAME:
+		qtype_ctr.CNAME++;
+		break;
+	case DNS_QTYPE_DHCID:
+		qtype_ctr.DHCID++;
+		break;
+	case DNS_QTYPE_DLV:
+		qtype_ctr.DLV++;
+		break;
+	case DNS_QTYPE_DNAME:
+		qtype_ctr.DNAME++;
+		break;
+	case DNS_QTYPE_DNSKEY:
+		qtype_ctr.DNSKEY++;
+		break;
+	case DNS_QTYPE_DS:
+		qtype_ctr.DS++;
+		break;
+	case DNS_QTYPE_HIP:
+		qtype_ctr.HIP++;
+		break;
+	case DNS_QTYPE_IPSECKEY:
+		qtype_ctr.IPSECKEY++;
+		break;
+	case DNS_QTYPE_KEY:
+		qtype_ctr.KEY++;
+		break;
+	case DNS_QTYPE_KX:
+		qtype_ctr.KX++;
+		break;
+	case DNS_QTYPE_LOC:
+		qtype_ctr.LOC++;
+		break;
+	case DNS_QTYPE_MX:
+		qtype_ctr.MX++;
+		break;
+	case DNS_QTYPE_NAPTR:
+		qtype_ctr.NAPTR++;
+		break;
+	case DNS_QTYPE_NS:
+		qtype_ctr.NS++;
+		break;
+	case DNS_QTYPE_NSEC:
+		qtype_ctr.NSEC++;
+		break;
+	case DNS_QTYPE_NSEC3:
+		qtype_ctr.NSEC3++;
+		break;
+	case DNS_QTYPE_NSEC3PARAM:
+		qtype_ctr.NSEC3PARAM++;
+		break;
+	case DNS_QTYPE_PTR:
+		qtype_ctr.PTR++;
+		break;
+	case DNS_QTYPE_RRSIG:
+		qtype_ctr.RRSIG++;
+		break;
+	case DNS_QTYPE_RP:
+		qtype_ctr.RP++;
+		break;
+	case DNS_QTYPE_SIG:
+		qtype_ctr.SIG++;
+		break;
+	case DNS_QTYPE_SOA:
+		qtype_ctr.SOA++;
+		break;
+	case DNS_QTYPE_SPF:
+		qtype_ctr.SPF++;
+		break;
+	case DNS_QTYPE_SRV:
+		qtype_ctr.SRV++;
+		break;
+	case DNS_QTYPE_SSHFP:
+		qtype_ctr.SSHFP++;
+		break;
+	case DNS_QTYPE_TA:
+		qtype_ctr.TA++;
+		break;
+	case DNS_QTYPE_TKEY:
+		qtype_ctr.TKEY++;
+		break;
+	case DNS_QTYPE_TSIG:
+		qtype_ctr.TSIG++;
+		break;
+	case DNS_QTYPE_TXT:
+		qtype_ctr.TXT++;
+		break;
+	case DNS_QTYPE_ANY:
+		qtype_ctr.ANY++;
+		break;
+	case DNS_QTYPE_AXFR:
+		qtype_ctr.AXFR++;
+		break;
+	case DNS_QTYPE_IXFR:
+		qtype_ctr.IXFR++;
+		break;
+	case DNS_QTYPE_OPT:
+		qtype_ctr.OPT++;
+		break;
+	default:
+		qtype_ctr.UNKNOWN++;
+	}
+
+	/* Log IP type */
+	switch(ip_info.ip_type)
+	{
+	case IP_TYPE_V4:
+		iptype_ctr.V4++;
+		break;
+	case IP_TYPE_V6:
+		iptype_ctr.V6++;
+		break;
+	}
+
+	/* Log protocol type */
+	if (is_tcp)
+	{
+		proto_ctr.TCP++;
+	}
+	else
+	{
+		proto_ctr.UDP++;
+	}
+
+	return ERV_OK;
+
+}
+
