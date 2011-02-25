@@ -42,6 +42,7 @@
 #include <arpa/inet.h>
 #include "eemo.h"
 #include "eemo_list.h"
+#include "eemo_log.h"
 #include "ip_handler.h"
 #include "ether_handler.h"
 
@@ -340,6 +341,8 @@ eemo_rv eemo_init_ip_handler(void)
 		eemo_unreg_ether_handler(ETHER_IPV4);
 	}
 
+	INFO_MSG("Initialised IP handling");
+
 	return rv;
 }
 
@@ -349,11 +352,13 @@ void eemo_ip_handler_cleanup(void)
 	/* Clean up the list of IP packet handlers */
 	if (eemo_ll_free(&ip_handlers) != ERV_OK)
 	{
-		/* FIXME: log this */
+		ERROR_MSG("Failed to free list of IP handlers");
 	}
 
 	/* Unregister the Ethernet handler for IPv4 and IPv6 packets */
 	eemo_unreg_ether_handler(ETHER_IPV4);
 	eemo_unreg_ether_handler(ETHER_IPV6);
+
+	INFO_MSG("Uninitialised IP handling");
 }
 

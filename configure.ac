@@ -21,6 +21,11 @@ define([PACKAGE_SUFFIX], [])
 # Interface added:                   <PLUGIN>_VERSION_AGE++
 # Interface removed:                 <PLUGIN>_VERSION_AGE=0
 
+# Demo plugin
+define([EEMO_DEMO_CURRENT], [1])
+define([EEMO_DEMO_REVISION], [0])
+define([EEMO_DEMO_AGE], [0])
+
 # DNS statistics plugin
 define([EEMO_DNSSTATS_CURRENT], [1])
 define([EEMO_DNSSTATS_REVISION], [0])
@@ -42,6 +47,8 @@ ACX_PREFIXHACK
 # Variable substitutions
 EEMO_DNSSTATS_VERSION_INFO="EEMO_DNSSTATS_CURRENT:EEMO_DNSSTATS_REVISION:EEMO_DNSSTATS_AGE"
 AC_SUBST(EEMO_DNSSTATS_VERSION_INFO)
+EEMO_DEMO_VERSION_INFO="EEMO_DEMO_CURRENT:EEMO_DEMO_REVISION:EEMO_DEMO_AGE"
+AC_SUBST(EEMO_DEMO_VERSION_INFO)
 
 # Checks for compilers and other programs
 AC_PROG_CC_C99
@@ -73,6 +80,7 @@ AC_CHECK_HEADERS([ifaddrs.h])
 AC_CHECK_HEADERS([sys/socket.h])
 AC_CHECK_HEADERS([unistd.h])
 AC_CHECK_HEADERS([syslog.h])
+AC_CHECK_HEADERS([signal.h])
 AC_HEADER_STDC
 
 # Check for functions
@@ -124,6 +132,7 @@ AC_CONFIG_FILES([
 	Makefile
 	src/Makefile
 	src/plugins/Makefile
+	src/plugins/demo/Makefile
 	src/plugins/dnsstats/Makefile
 ])
 

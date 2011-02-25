@@ -40,6 +40,7 @@
 #include <string.h>
 #include "eemo.h"
 #include "eemo_list.h"
+#include "eemo_log.h"
 #include "ip_handler.h"
 #include "udp_handler.h"
 
@@ -195,7 +196,16 @@ eemo_rv eemo_init_udp_handler(void)
 	udp_handlers = NULL;
 
 	/* Register UDP packet handler */
-	return eemo_reg_ip_handler(IP_UDP, &eemo_handle_udp_packet);
+	if (eemo_reg_ip_handler(IP_UDP, &eemo_handle_udp_packet) != ERV_OK)
+	{
+		ERROR_MSG("Failed to register UDP packet handler");
+
+		return ERV_GENERAL_ERROR;
+	}
+
+	INFO_MSG("Initialised UDP handling");
+
+	return ERV_OK;
 }
 
 /* Clean up */
@@ -204,11 +214,12 @@ void eemo_udp_handler_cleanup(void)
 	/* Clean up the list of UDP packet handlers */
 	if (eemo_ll_free(&udp_handlers) != ERV_OK)
 	{
-		/* FIXME: log this */
+		ERROR_MSG("Failed to free the list of UDP handlers");
 	}
 
-	/* Clean up the list of UDP packet handlers */
 	/* Unregister the IP handler for UDP packets */
 	eemo_unreg_ip_handler(IP_UDP);
+
+	INFO_MSG("Uninitialised UDP handling");
 }
 

@@ -78,6 +78,21 @@ void usage(void)
 	printf("\t-v           Print the version number\n");
 }
 
+void write_pid(const char* pid_path, pid_t pid)
+{
+	FILE* pid_file = fopen(pid_path, "w");
+
+	if (pid_file == NULL)
+	{
+		ERROR_MSG("Failed to write the pid file %s", pid_path);
+
+		return;
+	}
+
+	fprintf(pid_file, "%d\n", pid);
+	fclose(pid_file);
+}
+
 int main(int argc, char* argv[])
 {
 	char* interface = NULL;
@@ -85,6 +100,10 @@ int main(int argc, char* argv[])
 	char* pid_path = NULL;
 	int daemon = 1;
 	int c = 0;
+	int pid_path_set = 0;
+	int daemon_set = 0;
+	int interface_set = 0;
+	pid_t pid = 0;
 	
 	while ((c = getopt(argc, argv, "i:fc:p:hv")) != -1)
 	{
@@ -99,9 +118,12 @@ int main(int argc, char* argv[])
 				return ERV_MEMORY;
 			}
 
+			interface_set = 1;
+
 			break;
 		case 'f':
 			daemon = 0;
+			daemon_set = 1;
 			break;
 		case 'c':
 			config_path = strdup(optarg);
@@ -121,7 +143,8 @@ int main(int argc, char* argv[])
 				fprintf(stderr, "Error allocating memory, exiting\n");
 				return ERV_MEMORY;
 			}
-
+			
+			pid_path_set = 1;
 			break;
 		case 'h':
 			usage();
@@ -170,6 +193,77 @@ int main(int argc, char* argv[])
 		return ERV_LOG_INIT_FAIL;
 	}
 
+	/* Determine configuration settings that were not specified on the command line */
+	if (!pid_path_set)
+	{
+		char* conf_pid_path = NULL;
+
+		if (eemo_conf_get_string("daemon", "pidfile", &conf_pid_path, NULL) != ERV_OK)
+		{
+			ERROR_MSG("Failed to retrieve pidfile information from the configuration");
+		}
+		else
+		{
+			if (conf_pid_path != NULL)
+			{
+				free(pid_path);
+				pid_path = conf_pid_path;
+			}
+		}
+	}
+
+	if (!daemon_set)
+	{
+		if (eemo_conf_get_bool("daemon", "fork", &daemon, 1) != ERV_OK)
+		{
+			ERROR_MSG("Failed to retrieve daemon information from the configuration");
+		}
+	}
+
+	if (!interface_set)
+	{
+		if (eemo_conf_get_string("capture", "interface", &interface, NULL) != ERV_OK)
+		{
+			ERROR_MSG("Failed to retrieve interface information from the configuration");
+		}
+	}
+
+	/* Now fork if that was requested */
+	if (daemon)
+	{
+		pid = fork();
+
+		if (pid != 0)
+		{
+			/* This is the parent process; write the PID file and exit */
+			write_pid(pid_path, pid);
+
+			/* Unload the configuration */
+			if (eemo_uninit_config_handling() != ERV_OK)
+			{
+				ERROR_MSG("Failed to uninitialise configuration handling");
+			}
+		
+			/* Uninitialise logging */
+			if (eemo_uninit_log() != ERV_OK)
+			{
+				fprintf(stderr, "Failed to uninitialise logging\n");
+			}
+		
+			free(pid_path);
+			free(config_path);
+		
+			if (interface != NULL)
+			{
+				free(interface);
+			}
+
+			return ERV_OK;
+		}
+	}
+
+	/* If we forked, this is the child */
+
 	INFO_MSG("Starting the Extensible Ethernet Monitor (eemo) version %s", VERSION);
 
 	if (eemo_init_ether_handler() != ERV_OK)
@@ -209,18 +303,26 @@ int main(int argc, char* argv[])
 		return ERV_NO_MODULES;
 	}
 
-	/*if (eemo_capture_and_handle(NULL, -1, NULL) != ERV_OK)
+	/* Start capturing */
+	if (eemo_capture_and_handle(interface, -1, NULL) != ERV_OK)
 	{
 		ERROR_MSG("Failed to start packet capture");
+	}
 
-		return ERV_GENERAL_ERROR;
-	}*/
+	INFO_MSG("Stopping the Extensible Ethernet Monitor (eemo) version %s", VERSION);
 
 	/* Unload and uninitialise modules */
 	if (eemo_conf_unload_modules() != ERV_OK)
 	{
 		ERROR_MSG("Failed to unload modules");
 	}
+
+	/* Uninitialise all handlers */
+	eemo_dns_qhandler_cleanup();
+	eemo_tcp_handler_cleanup();
+	eemo_udp_handler_cleanup();
+	eemo_ip_handler_cleanup();
+	eemo_ether_handler_cleanup();
 
 	/* Unload the configuration */
 	if (eemo_uninit_config_handling() != ERV_OK)
@@ -232,6 +334,14 @@ int main(int argc, char* argv[])
 	if (eemo_uninit_log() != ERV_OK)
 	{
 		fprintf(stderr, "Failed to uninitialise logging\n");
+	}
+
+	free(pid_path);
+	free(config_path);
+
+	if (interface != NULL)
+	{
+		free(interface);
 	}
 
 	return 0;

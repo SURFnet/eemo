@@ -40,6 +40,7 @@
 #include <string.h>
 #include "eemo.h"
 #include "eemo_list.h"
+#include "eemo_log.h"
 #include "udp_handler.h"
 #include "tcp_handler.h"
 #include "dns_qhandler.h"
@@ -321,7 +322,7 @@ eemo_rv eemo_unreg_dns_qhandler(u_short qclass, u_short qtype)
 	return eemo_ll_remove(&dns_qhandlers, &eemo_dns_qhandler_compare, &comp);
 }
 
-/* Initialise IP handling */
+/* Initialise DNS query handling */
 eemo_rv eemo_init_dns_qhandler(void)
 {
 	eemo_rv rv = ERV_OK;
@@ -345,6 +346,8 @@ eemo_rv eemo_init_dns_qhandler(void)
 		return rv;
 	}
 
+	INFO_MSG("Initialised DNS query handling");
+
 	return rv;
 }
 
@@ -354,11 +357,13 @@ void eemo_dns_qhandler_cleanup(void)
 	/* Clean up list of DNS query handlers */
 	if (eemo_ll_free(&dns_qhandlers) != ERV_OK)
 	{
-		/* FIXME: log this */
+		ERROR_MSG("Failed to free list of DNS query handlers");
 	}
 
 	/* Unregister the DNS UDP and TCP handler */
 	eemo_unreg_udp_handler(UDP_ANY_PORT, DNS_PORT);
 	eemo_unreg_tcp_handler(TCP_ANY_PORT, DNS_PORT);
+
+	INFO_MSG("Uninitialised DNS query handling");
 }
 

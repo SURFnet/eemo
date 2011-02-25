@@ -85,7 +85,7 @@ eemo_rv eemo_unreg_dns_qhandler(u_short qclass, u_short qtype);
 eemo_rv eemo_init_dns_qhandler(void);
 
 /* Clean up */
-void eemo_dns_handler_cleanup(void);
+void eemo_dns_qhandler_cleanup(void);
 
 #endif /* !_EEMO_DNS_QHANDLER_H */
 

@@ -40,6 +40,7 @@
 #include <string.h>
 #include "eemo.h"
 #include "eemo_list.h"
+#include "eemo_log.h"
 #include "ip_handler.h"
 #include "tcp_handler.h"
 
@@ -226,7 +227,16 @@ eemo_rv eemo_init_tcp_handler(void)
 	tcp_handlers = NULL;
 
 	/* Register TCP packet handler */
-	return eemo_reg_ip_handler(IP_TCP, &eemo_handle_tcp_packet);
+	if (eemo_reg_ip_handler(IP_TCP, &eemo_handle_tcp_packet) != ERV_OK)
+	{
+		ERROR_MSG("Failed to register handler for TCP packets");
+
+		return ERV_GENERAL_ERROR;
+	}
+
+	INFO_MSG("Initialised TCP handling");
+
+	return ERV_OK;
 }
 
 /* Clean up */
@@ -235,10 +245,12 @@ void eemo_tcp_handler_cleanup(void)
 	/* Clean up the list of TCP packet handlers */
 	if (eemo_ll_free(&tcp_handlers) != ERV_OK)
 	{
-		/* FIXME: log this */
+		ERROR_MSG("Failed to free list of TCP handlers");
 	}
 
 	/* Unregister the IP handler for TCP packets */
 	eemo_unreg_ip_handler(IP_TCP);
+
+	INFO_MSG("Uninitialised TCP handling");
 }
 

@@ -36,11 +36,24 @@
  */
 
 #include "config.h"
+#include "eemo_log.h"
 #include "ether_capture.h"
 #include "ether_handler.h"
 #include <stdio.h>
+#include <signal.h>
 
 #define SNAPLEN		65535
+
+/* Global PCAP handle */
+pcap_t* handle = NULL;
+
+/* Signal handler for exit signal */
+void signal_handler(int signum)
+{
+	INFO_MSG("Received request to exit");
+
+	pcap_breakloop(handle);
+}
 
 /* PCAP callback handler */
 void eemo_pcap_callback(u_char* user_ptr, const struct pcap_pkthdr* hdr, const u_char* capture_data)
@@ -62,8 +75,8 @@ eemo_rv eemo_capture_and_handle(const char* interface, int packet_count, const c
 {
 	const char* cap_if = NULL;
 	char errbuf[PCAP_ERRBUF_SIZE];
-	pcap_t* handle = NULL;
 	struct bpf_program packet_filter;
+	handle = NULL;
 
 	/* Determine the default interface if none was specified */
 	cap_if = (interface == NULL) ? pcap_lookupdev(errbuf) : interface;
@@ -102,18 +115,27 @@ eemo_rv eemo_capture_and_handle(const char* interface, int packet_count, const c
 
 			return ERV_INVALID_FILTER;
 		}
+
+		pcap_freecode(&packet_filter);
 	}
+
+	/* Register the signal handler for termination */
+	signal(SIGINT, signal_handler);
+	signal(SIGHUP, signal_handler);
+	signal(SIGTERM, signal_handler);
 
 	/* Capture the specified number of packets */
 	if (pcap_loop(handle, packet_count, &eemo_pcap_callback, NULL) == -1)
 	{
-		pcap_freecode(&packet_filter);
 		pcap_close(handle);
 
 		return ERV_CAPTURE_ERROR;
 	}
 
-	pcap_freecode(&packet_filter);
+	signal(SIGINT, SIG_DFL);
+	signal(SIGHUP, SIG_DFL);
+	signal(SIGTERM, SIG_DFL);
+
 	pcap_close(handle);
 
 	return ERV_OK;

@@ -42,6 +42,7 @@
 #include <arpa/inet.h>
 #include "eemo.h"
 #include "eemo_list.h"
+#include "eemo_log.h"
 #include "ether_handler.h"
 
 /* The linked list of Ethernet packet handlers */
@@ -196,6 +197,8 @@ eemo_rv eemo_init_ether_handler(void)
 {
 	ether_handlers = NULL;
 
+	INFO_MSG("Initialised Ethernet handling");
+
 	return ERV_OK;
 }
 
@@ -205,7 +208,9 @@ void eemo_ether_handler_cleanup(void)
 	/* Clean up the list of Ethernet packet handlers */
 	if (eemo_ll_free(&ether_handlers) != ERV_OK)
 	{
-		/* FIXME: log this */
+		ERROR_MSG("Failed to free list of Ethernet handlers");
 	}
+
+	INFO_MSG("Uninitialised Ethernet handling");
 }
 
