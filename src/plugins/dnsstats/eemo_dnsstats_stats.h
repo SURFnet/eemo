@@ -41,14 +41,21 @@
 #include "config.h"
 #include "eemo.h"
 #include "eemo_log.h"
+#include "eemo_api.h"
 #include "dns_qhandler.h"
 #include "dns_types.h"
 
 /* Initialise the DNS query counter module */
 void eemo_dnsstats_stats_init(char** ips, int ip_count, int emit_interval, char* stats_file, int append_file, int reset);
 
+/* Uninitialise the DNS query counter module */
+void eemo_dnsstats_stats_uninit(eemo_conf_free_string_array_fn free_strings);
+
 /* Handle DNS query packets and log the statistics */
 eemo_rv eemo_dnsstats_stats_handleq(eemo_ip_packet_info ip_info, u_short qclass, u_short qtype, u_short flags, char* qname, int is_tcp);
+
+/* Reset statistics */
+void eemo_dnsstats_stats_reset(void);
 
 #endif /* !_EEMO_DNSSTATS_STATS_H */
 

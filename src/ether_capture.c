@@ -125,6 +125,8 @@ eemo_rv eemo_capture_and_handle(const char* interface, int packet_count, const c
 	signal(SIGTERM, signal_handler);
 
 	/* Capture the specified number of packets */
+	INFO_MSG("Starting packet capture");
+
 	if (pcap_loop(handle, packet_count, &eemo_pcap_callback, NULL) == -1)
 	{
 		pcap_close(handle);

@@ -40,16 +40,65 @@
 #include "eemo.h"
 #include "eemo_api.h"
 #include "eemo_plugin_log.h"
+#include "eemo_dnsstats_stats.h"
 
 const static char* plugin_description = "EEMO DNS statistics plugin " PACKAGE_VERSION;
 
 /* Plugin initialisation */
 eemo_rv eemo_dnsstats_init(eemo_export_fn_table_ptr eemo_fn, const char* conf_base_path)
 {
+	char** 	ips 		= NULL;
+	int 	ipcount 	= 0;
+	int	emit_interval	= 0;
+	char*	file		= NULL;
+	int	append		= 0;
+	int	reset		= 1;
+	eemo_rv rv		= ERV_OK;
+
 	/* Initialise logging for the plugin */
 	eemo_init_plugin_log(eemo_fn->log);
 
-	INFO_MSG("In module");
+	/* Retrieve configuration */
+	if ((eemo_fn->conf_get_int)(conf_base_path, "emit_interval", &emit_interval, 60) != ERV_OK)
+	{
+		return ERV_CONFIG_ERROR;
+	}
+
+	if ((eemo_fn->conf_get_bool)(conf_base_path, "append_file", &append, 0) != ERV_OK)
+	{
+		return ERV_CONFIG_ERROR;
+	}
+
+	if ((eemo_fn->conf_get_bool)(conf_base_path, "reset", &reset, 1) != ERV_OK)
+	{
+		return ERV_CONFIG_ERROR;
+	}
+
+	if (((eemo_fn->conf_get_string)(conf_base_path, "stats_file", &file, NULL) != ERV_OK) ||
+	    (file == NULL))
+	{
+		return ERV_CONFIG_ERROR;
+	}
+
+	if ((eemo_fn->conf_get_string_array)(conf_base_path, "listen_ips", &ips, &ipcount) != ERV_OK)
+	{
+		free(file);
+
+		return ERV_CONFIG_ERROR;
+	}
+
+	/* Initialise the DNS statistics counter */
+	eemo_dnsstats_stats_init(ips, ipcount, emit_interval, file, append, reset);
+
+	/* Register DNS query handler */
+	rv = (eemo_fn->reg_dns_qhandler)(DNS_QCLASS_UNSPECIFIED, DNS_QTYPE_UNSPECIFIED, &eemo_dnsstats_stats_handleq);
+
+	if (rv != ERV_OK)
+	{
+		ERROR_MSG("Failed to register DNS query handler");
+
+		return rv;
+	}
 
 	return ERV_OK;
 }
@@ -57,6 +106,14 @@ eemo_rv eemo_dnsstats_init(eemo_export_fn_table_ptr eemo_fn, const char* conf_ba
 /* Plugin uninitialisation */
 eemo_rv eemo_dnsstats_uninit(eemo_export_fn_table_ptr eemo_fn)
 {
+	/* Unregister DNS query handler */
+	if ((eemo_fn->unreg_dns_qhandler)(DNS_QCLASS_UNSPECIFIED, DNS_QTYPE_UNSPECIFIED) != ERV_OK)
+	{
+		ERROR_MSG("Failed to unregister DNS query handler");
+	}
+
+	eemo_dnsstats_stats_uninit(eemo_fn->conf_free_string_array);
+
 	return ERV_OK;
 }
 

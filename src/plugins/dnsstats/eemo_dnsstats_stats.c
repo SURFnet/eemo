@@ -41,6 +41,8 @@
 #include "eemo_dnsstats_stats.h"
 #include <string.h>
 #include <stdlib.h>
+#include <signal.h>
+#include <unistd.h>
 
 /* The counters */
 
@@ -130,6 +132,153 @@ int	stat_reset		= 1;
 /* Statistics file */
 FILE*	stat_fp			= NULL;
 
+/* Signal handler for alarms & user signals */
+void signal_handler(int signum)
+{
+	if (signum == SIGUSR1)
+	{
+		DEBUG_MSG("Received user signal to dump statistics");
+	}
+	else if (signum == SIGALRM)
+	{
+		DEBUG_MSG("Received automated alarm to dump statistics");
+	}
+
+	/* Open the file for writing if necessary */
+	if (!stat_append)
+	{
+		stat_fp = fopen(stat_file, "w");
+	}
+
+	if (stat_fp != NULL)
+	{
+		/* Write the statistics to the file */
+		fprintf(stat_fp, ""
+		"qclass_ctr_UNSPECIFIED:%llu "
+		"qclass_ctr_IN:%llu "
+		"qclass_ctr_CS:%llu "
+		"qclass_ctr_CH:%llu "
+		"qclass_ctr_HS:%llu "
+		"qclass_ctr_ANY:%llu "
+		"qclass_ctr_UNKNOWN:%llu "
+		"qtype_ctr_UNSPECIFIED:%llu "
+		"qtype_ctr_A:%llu "
+		"qtype_ctr_AAAA:%llu "
+		"qtype_ctr_AFSDB:%llu "
+		"qtype_ctr_APL:%llu "
+		"qtype_ctr_CERT:%llu "
+		"qtype_ctr_CNAME:%llu "
+		"qtype_ctr_DHCID:%llu "
+		"qtype_ctr_DLV:%llu "
+		"qtype_ctr_DNAME:%llu "
+		"qtype_ctr_DNSKEY:%llu "
+		"qtype_ctr_DS:%llu "
+		"qtype_ctr_HIP:%llu "
+		"qtype_ctr_IPSECKEY:%llu "
+		"qtype_ctr_KEY:%llu "
+		"qtype_ctr_KX:%llu "
+		"qtype_ctr_LOC:%llu "
+		"qtype_ctr_MX:%llu "
+		"qtype_ctr_NAPTR:%llu "
+		"qtype_ctr_NS:%llu "
+		"qtype_ctr_NSEC:%llu "
+		"qtype_ctr_NSEC3:%llu "
+		"qtype_ctr_NSEC3PARAM:%llu "
+		"qtype_ctr_PTR:%llu "
+		"qtype_ctr_RRSIG:%llu "
+		"qtype_ctr_RP:%llu "
+		"qtype_ctr_SIG:%llu "
+		"qtype_ctr_SOA:%llu "
+		"qtype_ctr_SPF:%llu "
+		"qtype_ctr_SRV:%llu "
+		"qtype_ctr_SSHFP:%llu "
+		"qtype_ctr_TA:%llu "
+		"qtype_ctr_TKEY:%llu "
+		"qtype_ctr_TSIG:%llu "
+		"qtype_ctr_TXT:%llu "
+		"qtype_ctr_ANY:%llu "
+		"qtype_ctr_AXFR:%llu "
+		"qtype_ctr_IXFR:%llu "
+		"qtype_ctr_OPT:%llu "
+		"qtype_ctr_UNKNOWN:%llu "
+		"iptype_ctr_V4:%llu "
+		"iptype_ctr_V6:%llu "
+		"proto_ctr_TCP:%llu "
+		"proto_ctr_UDP:%llu\n",
+		qclass_ctr.UNSPECIFIED,
+		qclass_ctr.IN,
+		qclass_ctr.CS,
+		qclass_ctr.CH,
+		qclass_ctr.HS,
+		qclass_ctr.ANY,
+		qclass_ctr.UNKNOWN,
+		qtype_ctr.UNSPECIFIED,
+		qtype_ctr.A,
+		qtype_ctr.AAAA,
+		qtype_ctr.AFSDB,
+		qtype_ctr.APL,
+		qtype_ctr.CERT,
+		qtype_ctr.CNAME,
+		qtype_ctr.DHCID,
+		qtype_ctr.DLV,
+		qtype_ctr.DNAME,
+		qtype_ctr.DNSKEY,
+		qtype_ctr.DS,
+		qtype_ctr.HIP,
+		qtype_ctr.IPSECKEY,
+		qtype_ctr.KEY,
+		qtype_ctr.KX,
+		qtype_ctr.LOC,
+		qtype_ctr.MX,
+		qtype_ctr.NAPTR,
+		qtype_ctr.NS,
+		qtype_ctr.NSEC,
+		qtype_ctr.NSEC3,
+		qtype_ctr.NSEC3PARAM,
+		qtype_ctr.PTR,
+		qtype_ctr.RRSIG,
+		qtype_ctr.RP,
+		qtype_ctr.SIG,
+		qtype_ctr.SOA,
+		qtype_ctr.SPF,
+		qtype_ctr.SRV,
+		qtype_ctr.SSHFP,
+		qtype_ctr.TA,
+		qtype_ctr.TKEY,
+		qtype_ctr.TSIG,
+		qtype_ctr.TXT,
+		qtype_ctr.ANY,
+		qtype_ctr.AXFR,
+		qtype_ctr.IXFR,
+		qtype_ctr.OPT,
+		qtype_ctr.UNKNOWN,
+		iptype_ctr.V4,
+		iptype_ctr.V6,
+		proto_ctr.TCP,
+		proto_ctr.UDP);
+
+		fflush(stat_fp);
+
+		/* Reset the statistics if necessary */
+		if (stat_reset)
+		{
+			eemo_dnsstats_stats_reset();
+		}
+	}
+
+	/* Close the file if necessary */
+	if (!stat_append && (stat_fp != NULL))
+	{
+		fclose(stat_fp);
+	}
+
+	/* Set the new alarm if necessary */
+	if (signum == SIGALRM)
+	{
+		alarm(stat_emit_interval);
+	}
+}
+
 /* Reset statistics */
 void eemo_dnsstats_stats_reset(void)
 {
@@ -137,29 +286,110 @@ void eemo_dnsstats_stats_reset(void)
 	memset(&qtype_ctr, 0, sizeof(qtype_ctr));
 	memset(&iptype_ctr, 0, sizeof(iptype_ctr));
 	memset(&proto_ctr, 0, sizeof(proto_ctr));
+
+	DEBUG_MSG("DNS statistics reset");
 }
 
 /* Initialise the DNS query counter module */
 void eemo_dnsstats_stats_init(char** ips, int ip_count, int emit_interval, char* stats_file, int append_file, int reset)
 {
+	int i = 0;
+
 	stat_ips = ips;
 	stat_ipcount = ip_count;
+
+	DEBUG_MSG("Listening to %d IP addresses", stat_ipcount);
+
+	for (i = 0; i < stat_ipcount; i++)
+	{
+		DEBUG_MSG("Listening for queries to IP %s", ips[i]);
+	}
+
 	stat_emit_interval = emit_interval;
+
+	DEBUG_MSG("Emitting statistics every %d seconds", emit_interval);
+
 	stat_file = stats_file;
+
+	DEBUG_MSG("Writing statistics to the file called %s", stat_file);
+
 	stat_append = append_file;
+
+	DEBUG_MSG("Will %soverwrite the file when new statistics are available", stat_append ? "not " : "");
+
 	stat_reset = reset;
 
-	if (!stat_append)
+	DEBUG_MSG("Will %sreset statistics once they have been written to file", stat_reset ? "" : "not ");
+
+	if (stat_append)
 	{
 		stat_fp = fopen(stat_file, "w");
+
+		if (stat_fp != NULL)
+		{
+			DEBUG_MSG("Opened %s to write statistics to", stat_file);
+		}
+		else
+		{
+			ERROR_MSG("Failed to open %s for writing", stat_file);
+		}
 	}
 
 	eemo_dnsstats_stats_reset();
+	
+	/* Register signal handler */
+	signal(SIGUSR1, signal_handler);
+	signal(SIGALRM, signal_handler);
+
+	/* Set the alarm */
+	alarm(stat_emit_interval);
+}
+
+/* Uninitialise the DNS query counter module */
+void eemo_dnsstats_stats_uninit(eemo_conf_free_string_array_fn free_strings)
+{
+	/* Unregister signal handlers */
+	alarm(0);
+	signal(SIGUSR1, SIG_DFL);
+	signal(SIGALRM, SIG_DFL);
+
+	/* Close the file */
+	if (stat_fp != NULL)
+	{
+		fclose(stat_fp);
+
+		DEBUG_MSG("Closed %s", stat_file);
+	}
+	else
+	{
+		ERROR_MSG("Statistics file %s was not open", stat_file);
+	}
+
+	(free_strings)(stat_ips, stat_ipcount);
+	free(stat_file);
 }
 
 /* Handle DNS query packets and log the statistics */
 eemo_rv eemo_dnsstats_stats_handleq(eemo_ip_packet_info ip_info, u_short qclass, u_short qtype, u_short flags, char* qname, int is_tcp)
 {
+	int i = 0;
+	int ip_match = 0;
+
+	/* Check if this query is directed at the server we're supposed to monitor */
+	for (i = 0; i < stat_ipcount; i++)
+	{
+		if (!strcmp(stat_ips[i], ip_info.ip_dst))
+		{
+			ip_match = 1;
+			break;
+		}
+	}
+
+	if (!ip_match)
+	{
+		return ERV_SKIPPED;
+	}
+
 	/* Log query class */
 	switch(qclass)
 	{
@@ -331,6 +561,5 @@ eemo_rv eemo_dnsstats_stats_handleq(eemo_ip_packet_info ip_info, u_short qclass,
 	}
 
 	return ERV_OK;
-
 }
 

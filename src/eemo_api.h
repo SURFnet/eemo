@@ -54,6 +54,8 @@
 typedef eemo_rv (*eemo_conf_get_int_fn)(const char*, const char*, int*, int);
 typedef eemo_rv (*eemo_conf_get_bool_fn)(const char*, const char*, int*, int);
 typedef eemo_rv (*eemo_conf_get_string_fn)(const char*, const char*, char**, char*);
+typedef eemo_rv (*eemo_conf_get_string_array_fn)(const char*, const char*, char***, int*);
+typedef eemo_rv (*eemo_conf_free_string_array_fn)(char**, int);
 
 typedef struct
 {
@@ -67,6 +69,8 @@ typedef struct
 	eemo_conf_get_int_fn		conf_get_int;
 	eemo_conf_get_bool_fn		conf_get_bool;
 	eemo_conf_get_string_fn		conf_get_string;
+	eemo_conf_get_string_array_fn	conf_get_string_array;
+	eemo_conf_free_string_array_fn	conf_free_string_array;
 	
 	/* Ethernet handler administration */
 	eemo_reg_ether_handler_fn	reg_ether_handler;

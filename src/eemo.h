@@ -71,6 +71,8 @@ typedef unsigned long eemo_rv;
 #define ERV_CONFIG_ERROR	0x8000000C	/* An error occurred while reading the configuration file */
 #define ERV_LOG_INIT_FAIL	0x8000000D	/* Failed to initialise logging */
 #define ERV_NO_MODULES		0x8000000E	/* No modules were configured */
+#define ERV_CONFIG_NO_ARRAY	0x8000000F	/* The requested configuration item is not an array */
+#define ERV_CONFIG_NO_STRING	0x80000010	/* The requested configuration item is not a string */
 
 #endif /* !_EEMO_H */
 

@@ -60,6 +60,8 @@ eemo_export_fn_table eemo_function_table =
 	&eemo_conf_get_int,
 	&eemo_conf_get_bool,
 	&eemo_conf_get_string,
+	&eemo_conf_get_string_array,
+	&eemo_conf_free_string_array,
 	&eemo_reg_ether_handler,
 	&eemo_unreg_ether_handler,
 	&eemo_reg_ip_handler,
@@ -186,6 +188,81 @@ eemo_rv eemo_conf_get_string(const char* base_path, const char* sub_path, char**
 	{
 		*value = strdup(conf_val);
 	}
+
+	return ERV_OK;
+}
+
+/* Get an array of string values; note: caller must free the array by calling the function below */
+eemo_rv eemo_conf_get_string_array(const char* base_path, const char* sub_path, char*** value, int* count)
+{
+	config_setting_t* array = NULL;
+	static char path_buf[8192];
+
+	if ((base_path == NULL) || (sub_path == NULL) || (value == NULL) || (count == NULL))
+	{
+		return ERV_PARAM_INVALID;
+	}
+
+	snprintf(path_buf, 8192, "%s.%s", base_path, sub_path);
+
+	*count = 0;
+
+	array = config_lookup(&configuration, path_buf);
+
+	if (array != NULL)
+	{
+		int elem_count = 0;
+		int i = 0;
+
+		/* Check if it is an array */
+		if (config_setting_is_array(array) == CONFIG_FALSE)
+		{
+			return ERV_CONFIG_NO_ARRAY;
+		}
+
+		/* The array was found, retrieve the strings */
+		elem_count = config_setting_length(array);
+
+		/* Now allocate memory for the string array */
+		*value = (char**) malloc(elem_count * sizeof(char**));
+
+		if (*value == NULL)
+		{
+			return ERV_MEMORY;
+		}
+
+		for (i = 0; i < elem_count; i++)
+		{
+			/* Retrieve the individual element */
+			const char* string_value = config_setting_get_string_elem(array, i);
+
+			if (string_value != NULL)
+			{
+				(*value)[i] = strdup(string_value);
+			}
+			else
+			{
+				(*value)[i] = strdup("");
+			}
+		}
+
+		*count = elem_count;
+	}
+
+	return ERV_OK;
+}
+
+/* Free an array of string values */
+eemo_rv eemo_conf_free_string_array(char** array, int count)
+{
+	int i = 0;
+
+	for (i = 0; i < count; i++)
+	{
+		free(array[i]);
+	}
+
+	free(array);
 
 	return ERV_OK;
 }

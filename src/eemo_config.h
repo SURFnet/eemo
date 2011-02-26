@@ -64,6 +64,12 @@ eemo_rv eemo_conf_get_bool(const char* base_path, const char* sub_path, int* val
 /* Get a string value; note: caller must free string returned in value! */
 eemo_rv eemo_conf_get_string(const char* base_path, const char* sub_path, char** value, char* def_val);
 
+/* Get an array of string values; note: caller must free the array by calling the function below */
+eemo_rv eemo_conf_get_string_array(const char* base_path, const char* sub_path, char*** value, int* count);
+
+/* Free an array of string values */
+eemo_rv eemo_conf_free_string_array(char** array, int count);
+
 /* Load and initialise the modules */
 eemo_rv eemo_conf_load_modules(void);
 
