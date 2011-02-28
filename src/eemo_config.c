@@ -113,7 +113,13 @@ eemo_rv eemo_uninit_config_handling(void)
 /* Get an integer value */
 eemo_rv eemo_conf_get_int(const char* base_path, const char* sub_path, int* value, int def_val)
 {
+	/* Unfortunately, the kludge below is necessary since the interface for config_lookup_int changed between
+	 * libconfig version 1.3 and 1.4 */
+#ifndef LIBCONFIG_VER_MAJOR /* this means it is a pre 1.4 version */
 	long conf_val = 0;
+#else
+	int conf_val = 0;
+#endif /* libconfig API kludge */
 	static char path_buf[8192];
 
 	if ((base_path == NULL) || (sub_path == NULL) || (value == NULL))
