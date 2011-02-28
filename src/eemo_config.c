@@ -113,7 +113,7 @@ eemo_rv eemo_uninit_config_handling(void)
 /* Get an integer value */
 eemo_rv eemo_conf_get_int(const char* base_path, const char* sub_path, int* value, int def_val)
 {
-	long int conf_val = 0;
+	long conf_val = 0;
 	static char path_buf[8192];
 
 	if ((base_path == NULL) || (sub_path == NULL) || (value == NULL))
