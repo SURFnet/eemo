@@ -11,4 +11,16 @@ MAINTAINERCLEANFILES = \
         $(srcdir)/depcomp $(srcdir)/aclocal.m4 $(srcdir)/compile \
         $(srcdir)/config.guess $(srcdir)/config.sub
 
-SUBDIRS = src
+EXTRA_DIST = 	AUTHORS \
+		ChangeLog \
+		LICENSE \
+		NEWS \
+		README
+
+doc_DATA =	AUTHORS \
+		ChangeLog \
+		LICENSE \
+		NEWS \
+		README
+
+SUBDIRS = src config

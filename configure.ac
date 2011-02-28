@@ -52,12 +52,15 @@ AC_SUBST(EEMO_DEMO_VERSION_INFO)
 
 # Checks for compilers and other programs
 AC_PROG_CC_C99
-AC_PROG_LIBTOOL
 AC_PROG_INSTALL
 
 # Compiler flags
 ACX_PEDANTIC
 ACX_STRICT
+
+# Libtool settings
+AC_DISABLE_STATIC
+AC_PROG_LIBTOOL
 
 # Log level
 AC_ARG_WITH(
@@ -134,6 +137,7 @@ AC_CONFIG_FILES([
 	src/plugins/Makefile
 	src/plugins/demo/Makefile
 	src/plugins/dnsstats/Makefile
+	config/Makefile
 ])
 
 AC_OUTPUT
