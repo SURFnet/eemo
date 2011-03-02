@@ -48,9 +48,16 @@ rm -rf %{buildroot}
 
 %files
 %defattr(-,root,root,-)
-%{_bindir}/eemo
-%{_docdir}/eemo/*
+%{_sbindir}/eemo
+%{_docdir}/eemo/AUTHORS
+%{_docdir}/eemo/ChangeLog
+%{_docdir}/eemo/LICENSE
+%{_docdir}/eemo/NEWS
+%{_docdir}/eemo/README
+%{_docdir}/eemo/sample-eemo.conf
 
 %files plugins
 %defattr(-,root,root,-)
 %{_libdir}/*
+%{_sbindir}/dnsstats_cacti.sh
+%{_docdir}/README-dnsstats

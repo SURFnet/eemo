@@ -2,7 +2,7 @@
 
 MAINTAINERCLEANFILES =	$(srcdir)/Makefile.in
 
-bin_PROGRAMS = 		eemo
+sbin_PROGRAMS = 	eemo
 
 eemo_SOURCES =		dns_qhandler.c \
 			dns_qhandler.h \

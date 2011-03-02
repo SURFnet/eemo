@@ -1,0 +1,73 @@
+$Id$
+
+Copyright (c) 2010-2011 SURFnet bv
+http://www.surfnet.nl/en
+
+All rights reserved. This tool is distributed under a BSD-style license. For
+more information, see the file LICENSE included in the distribution.
+
+1. INTRODUCTION
+===============
+
+The DNS statistics module comes with a script that can help you integrate
+the module in a Cacti setup. This README files describes how to call the
+script and how to configure your SNMP daemon such that the included Cacti
+templates will work.
+
+2. PREREQUISITES
+================
+
+The following prerequisites need to be met:
+
+* You must have root privileges on the system on which you wish to install
+  this plugin
+* You must have a recent version of the SNMP daemon installed on your system
+* You must install eemo including the DNS statistics plugin
+
+3. INSTALLING AND CONFIGURING
+=============================
+
+By default, calling 'make install' in the main eemo source directory will
+ensure that the script dnsstats_cacti.sh is installed in an appropriate
+location (usually /usr/local/sbin). If it is not installed, you may install
+it manually at a location of your choice.
+
+Next, you should add a rule to the cron table for the root user. This rule
+should invoke the dnsstats_cacti.sh script at regular intervals. The length
+of the interval depends on your Cacti configuration and should correspond to
+the Cacti polling interval (default: 5 minutes). The cron rule could look
+like this (for 5 minute intervals, script installed in the default location):
+
+*/5 * * * * /usr/local/sbin/dnsstats_cacti.sh
+
+Finally, you should add the follow line to your snmp.conf configuration file:
+
+extend .1.3.6.1.4.1.1076.101.101.109.111 dnsstats /bin/cat /var/local/eemo/eemo_dnsstats
+
+In the example above, it is assumed that the DNS statistics are output to the
+file /var/local/eemo/eemo_dnsstats.
+
+4. USING THE TOOL
+=================
+
+Once you have installed and configured the tool as described in section 3,
+you can start eemo and install the cron job. Wait the appropriate amount of
+time and check that the statistics file is duely updated. If it is, you can
+check if the SNMP data is available by invoking the following command:
+
+$ snmpwalk -v2c -c <yourcommunity> <yourhostname> .1.3.6.1.4.1.1076.101.101.109.111
+
+You should see the following entry in the list:
+
+.1.3.6.1.4.1.1076.101.101.109.111.8.100.110.115.115.116.97.116.115
+
+If you now install the Cacti template included in the distribution you
+should be able to view DNS statistics gather by the eemo DNS statistics plugin
+for your host.
+
+6. CONTACT
+==========
+
+Questions/remarks/suggestions/praise on this tool can be sent to:
+
+Roland van Rijswijk <roland.vanrijswijk@surfnet.nl>

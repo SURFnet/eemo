@@ -137,6 +137,7 @@ AC_CONFIG_FILES([
 	src/plugins/Makefile
 	src/plugins/demo/Makefile
 	src/plugins/dnsstats/Makefile
+	src/plugins/dnsstats/cacti/Makefile
 	config/Makefile
 ])
 
