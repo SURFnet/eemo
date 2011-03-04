@@ -26,6 +26,8 @@ doc_DATA =		AUTHORS \
 
 noinst_SCRIPTS =	eemo.spec
 
+dist_noinst_SCRIPTS =	eemo.spec
+
 eemo.spec: eemo.spec.in
 	sed -e 's/_EEMO_VERSION_/@VERSION@/g' < $(srcdir)/eemo.spec.in > eemo.spec
 
