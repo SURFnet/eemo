@@ -47,6 +47,12 @@
 /* Global PCAP handle */
 pcap_t* handle = NULL;
 
+/* Total packet counter */
+unsigned long long capture_ctr = 0;
+
+/* Handled packet counter */
+unsigned long long handled_ctr = 0;
+
 /* Signal handler for exit signal */
 void signal_handler(int signum)
 {
@@ -60,11 +66,20 @@ void eemo_pcap_callback(u_char* user_ptr, const struct pcap_pkthdr* hdr, const u
 {
 	eemo_rv rv;
 
+	/* Count the packet */
+	capture_ctr++;
+
 	/* Copy the captured data */
 	eemo_packet_buf* packet = eemo_pbuf_new((u_char*) capture_data, hdr->len);
 
 	/* Run it through the Ethernet handlers */
 	rv = eemo_handle_ether_packet(packet);
+
+	/* Conditionally increment the handled packet counter */
+	if (rv == ERV_HANDLED)
+	{
+		handled_ctr++;
+	}
 
 	/* Free the packet data */
 	eemo_pbuf_free(packet);
@@ -78,6 +93,9 @@ eemo_rv eemo_capture_and_handle(const char* interface, int packet_count, const c
 	struct bpf_program packet_filter;
 	handle = NULL;
 
+	/* Reset counters */
+	capture_ctr = handled_ctr = 0;
+
 	/* Determine the default interface if none was specified */
 	cap_if = (interface == NULL) ? pcap_lookupdev(errbuf) : interface;
 
@@ -86,6 +104,8 @@ eemo_rv eemo_capture_and_handle(const char* interface, int packet_count, const c
 		/* No capture interface available or specified */
 		return ERV_ETH_NOT_EXIST;
 	}
+
+	INFO_MSG("Opening device %s for packet capture", cap_if);
 
 	/* Open the device in promiscuous mode */
 	handle = pcap_open_live(cap_if, SNAPLEN, 1, 1000, errbuf);
@@ -137,6 +157,8 @@ eemo_rv eemo_capture_and_handle(const char* interface, int packet_count, const c
 	signal(SIGINT, SIG_DFL);
 	signal(SIGHUP, SIG_DFL);
 	signal(SIGTERM, SIG_DFL);
+
+	INFO_MSG("Packet capture ended, captured %llu packets of which %llu were handled", capture_ctr, handled_ctr);
 
 	pcap_close(handle);
 

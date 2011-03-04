@@ -560,6 +560,6 @@ eemo_rv eemo_dnsstats_stats_handleq(eemo_ip_packet_info ip_info, u_short qclass,
 		proto_ctr.UDP++;
 	}
 
-	return ERV_OK;
+	return ERV_HANDLED;
 }
 
