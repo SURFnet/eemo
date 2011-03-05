@@ -24,9 +24,11 @@ doc_DATA =		AUTHORS \
 			NEWS \
 			README
 
-noinst_SCRIPTS =	eemo.spec
+noinst_SCRIPTS =	eemo.spec \
+			eemo.rc
 
-dist_noinst_SCRIPTS =	eemo.spec.in
+dist_noinst_SCRIPTS =	eemo.spec.in \
+			eemo.rc
 
 eemo.spec: eemo.spec.in
 	sed -e 's/_EEMO_VERSION_/@VERSION@/g' < $(srcdir)/eemo.spec.in > eemo.spec

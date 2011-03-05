@@ -43,11 +43,16 @@ rm -rf %{buildroot}
 
 make install
 
+# Install RC script
+install -d %{buildroot}%{_initrddir}
+install -m0755 eemo.rc %{buildroot}%{_initrddir}/eemo
+
 %clean
 rm -rf %{buildroot}
 
 %files
 %defattr(-,root,root,-)
+%{_initrddir}/eemo
 %{_sbindir}/eemo
 %{_docdir}/eemo/AUTHORS
 %{_docdir}/eemo/ChangeLog
@@ -61,3 +66,4 @@ rm -rf %{buildroot}
 %{_libdir}/*
 %{_sbindir}/dnsstats_cacti.sh
 %{_docdir}/eemo/README-dnsstats
+%{_docdir}/eemo/*.xml

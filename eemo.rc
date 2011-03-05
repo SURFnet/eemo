@@ -1,0 +1,92 @@
+#!/bin/sh
+#
+# $Id$
+#
+# eemo		This shell script takes care of starting and stopping
+#		the Extensible Ethernet Monitor
+#
+# chkconfig:   	- 99 99
+
+### BEGIN INIT INFO
+# Provides: $eemo
+# Required-Start: $network $local_fs
+# Required-Stop: $network $local_fs
+# Should-Start: $syslog
+# Should-Stop: $syslog
+# Short-Description: The Extensible Ethernet Monitor
+# Description: The Extensible Ethernet Monitor
+### END INIT INFO
+
+# Source function library.
+. /etc/rc.d/init.d/functions
+
+prog="eemo"
+exec="/usr/sbin/eemo"
+config="/etc/eemo.conf"
+pidfile="/var/run/eemo.pid"
+
+[ -e /etc/sysconfig/$prog ] && . /etc/sysconfig/$prog
+
+lockfile=/var/lock/subsys/$prog
+
+start() {
+    [ -x $exec ] || exit 5
+    [ -f $config ] || exit 6
+    echo -n $"Starting $prog: "
+
+    # if not running, start it up here
+    daemon --pidfile=$pidfile $exec -c $config -p $pidfile
+    retval=$?
+    echo
+    [ $retval -eq 0 ] && touch $lockfile
+    return $retval
+}
+
+stop() {
+    echo -n $"Stopping $prog: "
+    # stop it here, often "killproc $prog"
+    killproc -p $pidfile $prog
+    retval=$?
+    echo
+    [ $retval -eq 0 ] && rm -f $lockfile
+    return $retval
+}
+
+restart() {
+    stop
+    start
+}
+
+rh_status() {
+    # run checks to determine if the service is running or use generic status
+    status -p $pidfile $prog
+}
+
+rh_status_q() {
+    rh_status -p $pidfile >/dev/null 2>&1
+}
+
+case "$1" in
+    start)
+        rh_status_q && exit 0
+        $1
+        ;;
+    stop)
+        rh_status_q || exit 0
+        $1
+        ;;
+    restart)
+        $1
+        ;;
+    status)
+        rh_status
+        ;;
+    condrestart|try-restart)
+        rh_status_q || exit 0
+        restart
+        ;;
+    *)
+        echo $"Usage: $0 {start|stop|status|restart|condrestart|try-restart}"
+        exit 2
+esac
+exit $?
