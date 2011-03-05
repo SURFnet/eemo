@@ -354,7 +354,7 @@ void eemo_dnsstats_stats_uninit(eemo_conf_free_string_array_fn free_strings)
 	signal(SIGALRM, SIG_DFL);
 
 	/* Close the file */
-	if (stat_fp != NULL)
+	if (stat_append && (stat_fp != NULL))
 	{
 		fclose(stat_fp);
 
