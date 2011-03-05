@@ -60,4 +60,4 @@ rm -rf %{buildroot}
 %defattr(-,root,root,-)
 %{_libdir}/*
 %{_sbindir}/dnsstats_cacti.sh
-%{_docdir}/README-dnsstats
+%{_docdir}/eemo/README-dnsstats
