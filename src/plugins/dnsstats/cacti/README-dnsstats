@@ -40,7 +40,8 @@ like this (for 5 minute intervals, script installed in the default location):
 
 */5 * * * * /usr/local/sbin/dnsstats_cacti.sh
 
-Finally, you should add the follow line to your snmp.conf configuration file:
+Finally, you should add the following line to your snmpd.conf configuration 
+file:
 
 extend .1.3.6.1.4.1.1076.101.101.109.111 dnsstats /bin/cat /var/local/eemo/eemo_dnsstats
 
@@ -64,6 +65,12 @@ You should see the following entry in the list:
 If you now install the Cacti template included in the distribution you
 should be able to view DNS statistics gather by the eemo DNS statistics plugin
 for your host.
+
+5. GRAPH TEMPLATES FOR CACTI
+============================
+
+Graph templates for Cacti are included in the distribution in the form of XML
+templates that you can import to Cacti.
 
 6. CONTACT
 ==========
