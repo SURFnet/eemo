@@ -132,7 +132,7 @@ eemo_rv eemo_ll_find(const eemo_ll_entry* list, void** found_data, eemo_ll_elem_
 	const eemo_ll_entry* it = NULL;
 
 	/* Check input parameters */
-	if ((list == NULL) || (found_data == NULL) || (compare == NULL) || (compare_data == NULL))
+	if ((found_data == NULL) || (compare == NULL) || (compare_data == NULL))
 	{
 		return ERV_PARAM_INVALID;
 	}
@@ -153,6 +153,59 @@ eemo_rv eemo_ll_find(const eemo_ll_entry* list, void** found_data, eemo_ll_elem_
 	}
 
 	return ERV_NOT_FOUND;
+}
+
+/* Search for multiple list entries */
+eemo_rv eemo_ll_find_multi(const eemo_ll_entry* list, eemo_ll_entry** found_data, eemo_ll_elem_compare_fn compare, void* compare_data,
+                           eemo_ll_elem_clone_fn clone)
+{
+	const eemo_ll_entry* it = NULL;
+	eemo_ll_entry* result = NULL;
+
+	/* Check input parameters */
+	if ((found_data == NULL) || (compare == NULL) || (compare_data == NULL) || (clone == NULL))
+	{
+		return ERV_PARAM_INVALID;
+	}
+
+	/* Search for the requested data */
+	it = list;
+
+	while (it != NULL)
+	{
+		if ((compare)(it->elem_data, compare_data))
+		{
+			eemo_rv rv = ERV_OK;
+			void* new_elem_data = (clone)(it->elem_data);
+
+			if (new_elem_data == NULL)
+			{
+				eemo_ll_free(&result);
+
+				return ERV_MEMORY;
+			}
+
+			if ((rv = eemo_ll_append(&result, new_elem_data)) != ERV_OK)
+			{
+				eemo_ll_free(&result);
+
+				return rv;
+			}
+		}
+
+		it = it->next;
+	}
+
+	if (result == NULL)
+	{
+		return ERV_NOT_FOUND;
+	}
+	else
+	{
+		*found_data = result;
+
+		return ERV_OK;
+	}
 }
 
 /* Free the space taken up by a list */

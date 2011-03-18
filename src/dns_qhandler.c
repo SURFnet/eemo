@@ -77,16 +77,38 @@ int eemo_dns_qhandler_compare(void* elem_data, void* comp_data)
 	return 0;
 }
 
-/* Find a DNS query handler for the specified type */
-eemo_dns_qhandler* eemo_find_dns_qhandler(u_short qclass, u_short qtype)
+/* DNS query handler entry cloning */
+void* eemo_dns_qhandler_clone(const void* elem_data)
 {
-	eemo_dns_qhandler* rv = NULL;
+	const eemo_dns_qhandler* elem = (const eemo_dns_qhandler*) elem_data;
+	eemo_dns_qhandler* new_elem = NULL;
+
+	if (elem_data == NULL)
+	{
+		return NULL;
+	}
+
+	new_elem = (eemo_dns_qhandler*) malloc(sizeof(eemo_dns_qhandler));
+
+	if (new_elem != NULL)
+	{
+		/* Clone element, no deep copy required in this case */
+		memcpy(new_elem, elem, sizeof(eemo_dns_qhandler));
+	}
+
+	return (void*) new_elem;
+}
+
+/* Find DNS query handlers for the specified type */
+eemo_ll_entry* eemo_find_dns_qhandlers(u_short qclass, u_short qtype)
+{
+	eemo_ll_entry* rv = NULL;
 	eemo_dns_qhandler_comp_t comp;
 
 	comp.qclass = qclass;
 	comp.qtype = qtype;
 
-	eemo_ll_find(dns_qhandlers, (void*) &rv, &eemo_dns_qhandler_compare, &comp);
+	eemo_ll_find_multi(dns_qhandlers, &rv, &eemo_dns_qhandler_compare, &comp, &eemo_dns_qhandler_clone);
 
 	return rv;
 }
@@ -113,9 +135,11 @@ eemo_rv eemo_handle_dns_qpayload(eemo_packet_buf* packet, eemo_ip_packet_info ip
 	u_char* 		qdata 			= NULL;
 	int 			root_label_found 	= 0;
 	char* 			query_name 		= NULL;
-	eemo_dns_qhandler* 	handler 		= NULL;
+	eemo_ll_entry* 		handlers 		= NULL;
+	eemo_ll_entry*		handler_it		= NULL;
 	u_short			qclass			= DNS_QCLASS_UNSPECIFIED;
 	u_short			qtype			= DNS_QTYPE_UNSPECIFIED;
+	eemo_rv			rv			= ERV_SKIPPED;
 
 	/* Check minimum length */
 	if (packet->len < sizeof(eemo_hdr_dns))
@@ -208,19 +232,35 @@ eemo_rv eemo_handle_dns_qpayload(eemo_packet_buf* packet, eemo_ip_packet_info ip
 	ofs += 2;
 	qclass = ntohs(*((u_short*) &qdata[ofs]));
 
-	/* See if there is a handler given the source and destination port for this packet */
-	handler = eemo_find_dns_qhandler(qclass, qtype); 
+	/* See if there are query handlers for this query class & type */
+	handlers = eemo_find_dns_qhandlers(qclass, qtype); 
+	handler_it = handlers;
 
-	if ((handler != NULL) && (handler->handler_fn != NULL))
+	while (handler_it != NULL)
 	{
-		eemo_rv rv = (handler->handler_fn)(ip_info, qclass, qtype, hdr->dns_flags, query_name, is_tcp);
+		eemo_dns_qhandler* handler = (eemo_dns_qhandler*) handler_it->elem_data;
 
-		free(query_name);
+		if (handler != NULL)
+		{
+			eemo_rv handler_rv = ERV_SKIPPED;
+			
+			if (handler->handler_fn != NULL)
+			{
+				handler_rv = (handler->handler_fn)(ip_info, qclass, qtype, hdr->dns_flags, query_name, is_tcp);
+			}
 
-		return rv;
+			if (rv != ERV_HANDLED)
+			{
+				rv = handler_rv;
+			}
+		}
+
+		handler_it = handler_it->next;
 	}
 
-	return ERV_SKIPPED;
+	free(query_name);
+
+	return rv;
 }
 
 /* Handle a UDP DNS packet */
@@ -283,7 +323,7 @@ eemo_rv eemo_reg_dns_qhandler(u_short qclass, u_short qtype, eemo_dns_qhandler_f
 	eemo_rv rv = ERV_OK;
 
 	/* Check if a handler for the specified ports already exists */
-	if (eemo_find_dns_qhandler(qclass, qtype) != NULL)
+	if (eemo_find_dns_qhandlers(qclass, qtype) != NULL)
 	{
 		/* A handler for this type has already been registered */
 		return ERV_HANDLER_EXISTS;

@@ -44,6 +44,8 @@
 #include <signal.h>
 #include <unistd.h>
 
+#define IP_ANY	"*"
+
 /* The counters */
 
 /* Query classes */
@@ -378,7 +380,7 @@ eemo_rv eemo_dnsstats_stats_handleq(eemo_ip_packet_info ip_info, u_short qclass,
 	/* Check if this query is directed at the server we're supposed to monitor */
 	for (i = 0; i < stat_ipcount; i++)
 	{
-		if (!strcmp(stat_ips[i], ip_info.ip_dst))
+		if (!strcmp(stat_ips[i], ip_info.ip_dst) || !strcmp(stat_ips[i], IP_ANY))
 		{
 			ip_match = 1;
 			break;

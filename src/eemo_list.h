@@ -51,6 +51,9 @@ eemo_ll_entry;
 /* Element comparison function */
 typedef int (*eemo_ll_elem_compare_fn) (void* /*elem_data*/, void* /*compare_data*/);
 
+/* Element clone function */
+typedef void* (*eemo_ll_elem_clone_fn) (const void* /*elem_data*/);
+
 /* Append a new list entry */
 eemo_rv eemo_ll_append(eemo_ll_entry** list, void* elem_data);
 
@@ -59,6 +62,10 @@ eemo_rv eemo_ll_remove(eemo_ll_entry** list, eemo_ll_elem_compare_fn compare, vo
 
 /* Search for a list entry */
 eemo_rv eemo_ll_find(const eemo_ll_entry* list, void** found_data, eemo_ll_elem_compare_fn compare, void* compare_data);
+
+/* Search for multiple list entries */
+eemo_rv eemo_ll_find_multi(const eemo_ll_entry* list, eemo_ll_entry** found_data, eemo_ll_elem_compare_fn compare, void* compare_data,
+                           eemo_ll_elem_clone_fn clone);
 
 /* Free the space taken up by a list */
 eemo_rv eemo_ll_free(eemo_ll_entry** list);
