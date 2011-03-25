@@ -31,6 +31,11 @@ define([EEMO_DNSSTATS_CURRENT], [1])
 define([EEMO_DNSSTATS_REVISION], [0])
 define([EEMO_DNSSTATS_AGE], [0])
 
+# DNSSEC validating resolver monitoring
+define([EEMO_DNSQFW_CURRENT], [1])
+define([EEMO_DNSQFW_REVISION], [0])
+define([EEMO_DNSQFW_AGE], [0])
+
 ################################################################################
 # Configuration functions                                                      #
 ################################################################################
@@ -49,6 +54,8 @@ EEMO_DNSSTATS_VERSION_INFO="EEMO_DNSSTATS_CURRENT:EEMO_DNSSTATS_REVISION:EEMO_DN
 AC_SUBST(EEMO_DNSSTATS_VERSION_INFO)
 EEMO_DEMO_VERSION_INFO="EEMO_DEMO_CURRENT:EEMO_DEMO_REVISION:EEMO_DEMO_AGE"
 AC_SUBST(EEMO_DEMO_VERSION_INFO)
+EEMO_DNSQFW_VERSION_INFO="EEMO_DNSQFW_CURRENT:EEMO_DNSQFW_REVISION:EEMO_DNSQFW_AGE"
+AC_SUBST(EEMO_DNSQFW_VERSION_INFO)
 
 # Checks for compilers and other programs
 AC_PROG_CC_C99
@@ -136,6 +143,8 @@ AC_CONFIG_FILES([
 	src/Makefile
 	src/plugins/Makefile
 	src/plugins/demo/Makefile
+	src/plugins/dnsqfw/Makefile
+	src/plugins/dnsqfw/testsink/Makefile
 	src/plugins/dnsstats/Makefile
 	src/plugins/dnsstats/cacti/Makefile
 	config/Makefile

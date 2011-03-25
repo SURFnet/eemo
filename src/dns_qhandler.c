@@ -77,6 +77,25 @@ int eemo_dns_qhandler_compare(void* elem_data, void* comp_data)
 	return 0;
 }
 
+/* DNS query handler entry comparison with exact match */
+int eemo_dns_qhandler_compare_exact(void* elem_data, void* comp_data)
+{
+	eemo_dns_qhandler* elem = (eemo_dns_qhandler*) elem_data;
+	eemo_dns_qhandler_comp_t* comp = (eemo_dns_qhandler_comp_t*) comp_data;
+
+	if ((elem_data == NULL) || (comp_data == NULL))
+	{
+		return 0;
+	}
+
+	if ((elem->qclass == comp->qclass) && (elem->qtype == comp->qtype))
+	{
+		return 1;
+	}
+
+	return 0;
+}
+
 /* DNS query handler entry cloning */
 void* eemo_dns_qhandler_clone(const void* elem_data)
 {
@@ -111,6 +130,18 @@ eemo_ll_entry* eemo_find_dns_qhandlers(u_short qclass, u_short qtype)
 	eemo_ll_find_multi(dns_qhandlers, &rv, &eemo_dns_qhandler_compare, &comp, &eemo_dns_qhandler_clone);
 
 	return rv;
+}
+
+/* Check if a handler exists for the specified type/class */
+int eemo_dns_qhandler_exists(u_short qclass, u_short qtype)
+{
+	void* rv = NULL;
+	eemo_dns_qhandler_comp_t comp;
+
+	comp.qclass = qclass;
+	comp.qtype = qtype;
+
+	return (eemo_ll_find(dns_qhandlers, &rv, &eemo_dns_qhandler_compare_exact, &comp) != ERV_NOT_FOUND);
 }
 
 /* Convert DNS packet header to host byte order */
@@ -258,6 +289,7 @@ eemo_rv eemo_handle_dns_qpayload(eemo_packet_buf* packet, eemo_ip_packet_info ip
 		handler_it = handler_it->next;
 	}
 
+	eemo_ll_free(&handlers);
 	free(query_name);
 
 	return rv;
@@ -323,11 +355,17 @@ eemo_rv eemo_reg_dns_qhandler(u_short qclass, u_short qtype, eemo_dns_qhandler_f
 	eemo_rv rv = ERV_OK;
 
 	/* Check if a handler for the specified ports already exists */
-	if (eemo_find_dns_qhandlers(qclass, qtype) != NULL)
+
+	/* RvR: disabled this check, multiple handlers can be registered. Note that
+	 *      this does mean that unregistering a handler may unregister the handler
+	 *      registered by someone else, so this should only be done when exiting
+	 *      the program!
+	 *
+	if (eemo_dns_qhandler_exists(qclass, qtype))
 	{
-		/* A handler for this type has already been registered */
 		return ERV_HANDLER_EXISTS;
 	}
+	 */
 
 	/* Create a new handler entry */
 	new_handler = (eemo_dns_qhandler*) malloc(sizeof(eemo_dns_qhandler));
