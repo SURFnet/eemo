@@ -50,7 +50,7 @@
 int main(int argc, char* argv[])
 {
 	int sock = -1;
-	unsigned char buf[QFW_UDP_MAXSIZE];
+	unsigned char buf[65536];
 
 	/* Create socket */
 	if (INET_FAMILY == AF_INET)
@@ -115,11 +115,12 @@ int main(int argc, char* argv[])
 		struct sockaddr sender;
 		socklen_t sender_len = 0;
 
-		ssize_t received = recvfrom(sock, (void*) buf, QFW_UDP_MAXSIZE, 0, &sender, &sender_len);
+		ssize_t received = recvfrom(sock, (void*) buf, 65536, 0, &sender, &sender_len);
 
 		if (received > 0)
 		{
 			int ofs = 0;
+			int qcount = 0;
 
 			printf("Received %d bytes\n", (int) received);
 
@@ -130,7 +131,9 @@ int main(int argc, char* argv[])
 				unsigned short qclass = 0;
 				unsigned char is_tcp = 0;
 				unsigned short qname_len = 0;
+				unsigned char ip_len = 0;
 				char qname[2048];
+				char client_ip[257];
 
 				qclass += buf[ofs++] << 8;
 				qclass += buf[ofs++];
@@ -142,13 +145,22 @@ int main(int argc, char* argv[])
 				memset(qname, 0, 2048);
 				memcpy(qname, &buf[ofs], qname_len);
 				ofs += qname_len;
+				ip_len = buf[ofs++];
+				memset(client_ip, 0, 257);
+				memcpy(client_ip, &buf[ofs], ip_len);
+				ofs += ip_len;
 
-				printf("class = %5u, type = %5u, tcp = %d, name = %s\n",
+				printf("class = %5u, type = %5u, tcp = %d, client = %s, name = %s\n",
 					qclass,
 					qtype,
 					is_tcp,
+					client_ip,
 					qname);
+
+				qcount++;
 			}
+
+			printf("\nReported on %d queries\n\n", qcount);
 		}
 	}
 

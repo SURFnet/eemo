@@ -300,28 +300,28 @@ void eemo_dnsstats_stats_init(char** ips, int ip_count, int emit_interval, char*
 	stat_ips = ips;
 	stat_ipcount = ip_count;
 
-	DEBUG_MSG("Listening to %d IP addresses", stat_ipcount);
+	INFO_MSG("Listening to %d IP addresses", stat_ipcount);
 
 	for (i = 0; i < stat_ipcount; i++)
 	{
-		DEBUG_MSG("Listening for queries to IP %s", ips[i]);
+		INFO_MSG("Listening for queries to IP %s", ips[i]);
 	}
 
 	stat_emit_interval = emit_interval;
 
-	DEBUG_MSG("Emitting statistics every %d seconds", emit_interval);
+	INFO_MSG("Emitting statistics every %d seconds", emit_interval);
 
 	stat_file = stats_file;
 
-	DEBUG_MSG("Writing statistics to the file called %s", stat_file);
+	INFO_MSG("Writing statistics to the file called %s", stat_file);
 
 	stat_append = append_file;
 
-	DEBUG_MSG("Will %soverwrite the file when new statistics are available", stat_append ? "not " : "");
+	INFO_MSG("Will %soverwrite the file when new statistics are available", stat_append ? "not " : "");
 
 	stat_reset = reset;
 
-	DEBUG_MSG("Will %sreset statistics once they have been written to file", stat_reset ? "" : "not ");
+	INFO_MSG("Will %sreset statistics once they have been written to file", stat_reset ? "" : "not ");
 
 	if (stat_append)
 	{
@@ -329,7 +329,7 @@ void eemo_dnsstats_stats_init(char** ips, int ip_count, int emit_interval, char*
 
 		if (stat_fp != NULL)
 		{
-			DEBUG_MSG("Opened %s to write statistics to", stat_file);
+			INFO_MSG("Opened %s to write statistics to", stat_file);
 		}
 		else
 		{
@@ -364,7 +364,7 @@ void eemo_dnsstats_stats_uninit(eemo_conf_free_string_array_fn free_strings)
 	}
 	else
 	{
-		ERROR_MSG("Statistics file %s was not open", stat_file);
+		INFO_MSG("Statistics file %s was not open", stat_file);
 	}
 
 	(free_strings)(stat_ips, stat_ipcount);

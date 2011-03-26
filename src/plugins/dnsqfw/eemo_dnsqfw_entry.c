@@ -51,6 +51,7 @@ eemo_rv eemo_dnsqfw_init(eemo_export_fn_table_ptr eemo_fn, const char* conf_base
 	int 	ipcount 	= 0;
 	char*	server		= NULL;
 	int	port		= 0;
+	int	max_packet_size	= 0;
 	eemo_rv rv		= ERV_OK;
 
 	/* Initialise logging for the plugin */
@@ -69,6 +70,11 @@ eemo_rv eemo_dnsqfw_init(eemo_export_fn_table_ptr eemo_fn, const char* conf_base
 		return ERV_CONFIG_ERROR;
 	}
 
+	if ((eemo_fn->conf_get_int)(conf_base_path, "max_packet_size", &max_packet_size, QFW_UDP_MAXSIZE) != ERV_OK)
+	{
+		return ERV_CONFIG_ERROR;
+	}
+
 	if ((eemo_fn->conf_get_string_array)(conf_base_path, "listen_ips", &ips, &ipcount) != ERV_OK)
 	{
 		free(server);
@@ -77,7 +83,7 @@ eemo_rv eemo_dnsqfw_init(eemo_export_fn_table_ptr eemo_fn, const char* conf_base
 	}
 
 	/* Initialise the DNS statistics counter */
-	eemo_dnsqfw_aggr_init(ips, ipcount, server, port);
+	eemo_dnsqfw_aggr_init(ips, ipcount, server, port, max_packet_size);
 
 	/* Register DNS query handler */
 	rv = (eemo_fn->reg_dns_qhandler)(DNS_QCLASS_UNSPECIFIED, DNS_QTYPE_UNSPECIFIED, &eemo_dnsqfw_aggr_handleq);

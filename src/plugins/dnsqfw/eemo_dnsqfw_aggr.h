@@ -49,7 +49,7 @@
 #define QFW_UDP_MAXSIZE		2048
 
 /* Initialise the DNS query counter module */
-void eemo_dnsqfw_aggr_init(char** ips, int ip_count, char* server, int port);
+void eemo_dnsqfw_aggr_init(char** ips, int ip_count, char* server, int port, int max_packet_size);
 
 /* Uninitialise the DNS query counter module */
 void eemo_dnsqfw_aggr_uninit(eemo_conf_free_string_array_fn free_strings);

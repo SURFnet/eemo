@@ -54,6 +54,7 @@ char** 	qfw_ips 		= NULL;
 int	qfw_ipcount		= 0;
 char*	qfw_server		= NULL;
 int	qfw_port		= 0;
+int	qfw_max_packet_size	= 0;
 
 /* Communication socket */
 int		qfw_socket	= -1;
@@ -61,11 +62,8 @@ struct sockaddr	qfw_sockaddr;
 socklen_t	qfw_addrlen	= 0;
 
 /* UDP assembly buffer */
-unsigned char	qfw_buffer[QFW_UDP_MAXSIZE];
+unsigned char	qfw_buffer[65536];
 size_t		qfw_buffer_len	= 0;
-
-/* Start of connection transmission */
-static const unsigned char qfw_start_transmission[8] = { 'S', 'T', 'A', 'R', 'T', 0, 0, 1 };
 
 /* Transmit an UDP packet to the server */
 void eemo_dnsqfw_aggr_transmit(const unsigned char* send_buf, size_t buf_len)
@@ -79,22 +77,25 @@ void eemo_dnsqfw_aggr_transmit(const unsigned char* send_buf, size_t buf_len)
 }
 
 /* Aggregate DNS query data */
-void eemo_dnsqfw_aggr_add(ushort qclass, ushort qtype, const char* qname, int is_tcp)
+void eemo_dnsqfw_aggr_add(ushort qclass, ushort qtype, int is_tcp, const char* qname, const char* client_ip)
 {
 	size_t to_add = 0;
-	size_t qname_len = strlen(qname);
+	size_t qname_len = strlen(qname) & 0xffff;
+	size_t ip_len = strlen(client_ip) & 0xff;
 
 	/* Calculate size to add */
 	to_add += sizeof(ushort) * 3;
 	to_add += qname_len;
+	to_add += ip_len;
+	to_add += 2; /* ip addr len + is_tcp */
 	
-	if ((qfw_buffer_len + to_add) > QFW_UDP_MAXSIZE)
+	if ((qfw_buffer_len + to_add) > qfw_max_packet_size)
 	{
 		/* Emit the current buffer */
 		eemo_dnsqfw_aggr_transmit(qfw_buffer, qfw_buffer_len);
 
 		/* Clear the buffer */
-		memset(qfw_buffer, 0, QFW_UDP_MAXSIZE);
+		memset(qfw_buffer, 0, qfw_max_packet_size);
 		qfw_buffer_len = 0;
 	}
 
@@ -111,11 +112,17 @@ void eemo_dnsqfw_aggr_add(ushort qclass, ushort qtype, const char* qname, int is
 
 	qfw_buffer_len += qname_len;
 
+	qfw_buffer[qfw_buffer_len++] = (ip_len & 0x00ff);
+
+	memcpy(&qfw_buffer[qfw_buffer_len], client_ip, ip_len);
+
+	qfw_buffer_len += ip_len;
+
 	DEBUG_MSG("Buffer is now filled with %d byte(s) of data", qfw_buffer_len);
 }
 
 /* Initialise DNS query forwarding */
-void eemo_dnsqfw_aggr_init(char** ips, int ip_count, char* server, int port)
+void eemo_dnsqfw_aggr_init(char** ips, int ip_count, char* server, int port, int max_packet_size)
 {
 	int i = 0;
 	struct addrinfo* server_addrs = NULL;
@@ -125,21 +132,22 @@ void eemo_dnsqfw_aggr_init(char** ips, int ip_count, char* server, int port)
 
 	qfw_ips = ips;
 	qfw_ipcount = ip_count;
+	qfw_max_packet_size = (max_packet_size > 65536) ? 65536 : max_packet_size;
 
-	DEBUG_MSG("Listening to %d IP addresses", qfw_ipcount);
+	INFO_MSG("Listening to %d IP addresses", qfw_ipcount);
 
 	for (i = 0; i < qfw_ipcount; i++)
 	{
-		DEBUG_MSG("Listening for queries to IP %s", ips[i]);
+		INFO_MSG("Listening for queries to IP %s", ips[i]);
 	}
 
 	qfw_server = server;
 	qfw_port = port;
 
-	DEBUG_MSG("Sending data to %s:%d", qfw_server, qfw_port);
+	INFO_MSG("Sending data to %s:%d", qfw_server, qfw_port);
 
 	/* Clear data buffer */
-	memset(qfw_buffer, 0, QFW_UDP_MAXSIZE);
+	memset(qfw_buffer, 0, qfw_max_packet_size);
 	qfw_buffer_len = 0;
 
 	/* Resolve the destination server */
@@ -152,7 +160,7 @@ void eemo_dnsqfw_aggr_init(char** ips, int ip_count, char* server, int port)
 
 	if (getaddrinfo(qfw_server, port_str, &hints, &server_addrs) != 0)
 	{
-		DEBUG_MSG("Failed to resolve %s", qfw_server);
+		ERROR_MSG("Failed to resolve %s", qfw_server);
 		server_addrs = NULL;
 	}
 
@@ -182,8 +190,6 @@ void eemo_dnsqfw_aggr_init(char** ips, int ip_count, char* server, int port)
 	}
 
 	freeaddrinfo(server_addrs);
-
-	eemo_dnsqfw_aggr_transmit(qfw_start_transmission, 8);
 }
 
 /* Uninitialise DNS query forwarding */
@@ -221,7 +227,7 @@ eemo_rv eemo_dnsqfw_aggr_handleq(eemo_ip_packet_info ip_info, u_short qclass, u_
 	}
 
 	/* Add data to aggregation buffer */
-	eemo_dnsqfw_aggr_add(qclass, qtype, qname, is_tcp);
+	eemo_dnsqfw_aggr_add(qclass, qtype, is_tcp, qname, ip_info.ip_src);
 
 	return ERV_HANDLED;
 }
