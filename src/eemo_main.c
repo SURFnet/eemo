@@ -39,6 +39,7 @@
 #include "eemo_api.h"
 #include "eemo_packet.h"
 #include "ip_handler.h"
+#include "icmp_handler.h"
 #include "udp_handler.h"
 #include "tcp_handler.h"
 #include "dns_qhandler.h"
@@ -280,6 +281,11 @@ int main(int argc, char* argv[])
 		return ERV_GENERAL_ERROR;
 	}
 
+	if (eemo_init_icmp_handler() != ERV_OK)
+	{
+		ERROR_MSG("Failed to initialise the ICMP packet handler");
+	}
+
 	if (eemo_init_udp_handler() != ERV_OK)
 	{
 		ERROR_MSG("Failed to initialise the UDP packet handler");
@@ -321,6 +327,7 @@ int main(int argc, char* argv[])
 	eemo_dns_qhandler_cleanup();
 	eemo_tcp_handler_cleanup();
 	eemo_udp_handler_cleanup();
+	eemo_icmp_handler_cleanup();
 	eemo_ip_handler_cleanup();
 	eemo_ether_handler_cleanup();
 

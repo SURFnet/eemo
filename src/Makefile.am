@@ -22,6 +22,8 @@ eemo_SOURCES =		dns_qhandler.c \
 			ether_capture.h \
 			ether_handler.c \
 			ether_handler.h \
+			icmp_handler.c \
+			icmp_handler.h \
 			ifaddr_lookup.c \
 			ifaddr_lookup.h \
 			ip_handler.c \

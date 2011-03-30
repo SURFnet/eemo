@@ -36,6 +36,11 @@ define([EEMO_DNSQFW_CURRENT], [1])
 define([EEMO_DNSQFW_REVISION], [0])
 define([EEMO_DNSQFW_AGE], [0])
 
+# ICMP fragment reassembly timeout monitoring
+define([EEMO_ICMPFRAGMON_CURRENT], [1])
+define([EEMO_ICMPFRAGMON_REVISION], [0])
+define([EEMO_ICMPFRAGMON_AGE], [0])
+
 ################################################################################
 # Configuration functions                                                      #
 ################################################################################
@@ -56,6 +61,8 @@ EEMO_DEMO_VERSION_INFO="EEMO_DEMO_CURRENT:EEMO_DEMO_REVISION:EEMO_DEMO_AGE"
 AC_SUBST(EEMO_DEMO_VERSION_INFO)
 EEMO_DNSQFW_VERSION_INFO="EEMO_DNSQFW_CURRENT:EEMO_DNSQFW_REVISION:EEMO_DNSQFW_AGE"
 AC_SUBST(EEMO_DNSQFW_VERSION_INFO)
+EEMO_ICMPFRAGMON_VERSION_INFO="EEMO_ICMPFRAGMON_CURRENT:EEMO_ICMPFRAGMON_REVISION:EEMO_ICMPFRAGMON_AGE"
+AC_SUBST(EEMO_ICMPFRAGMON_VERSION_INFO)
 
 # Checks for compilers and other programs
 AC_PROG_CC_C99
@@ -147,6 +154,7 @@ AC_CONFIG_FILES([
 	src/plugins/dnsqfw/testsink/Makefile
 	src/plugins/dnsstats/Makefile
 	src/plugins/dnsstats/cacti/Makefile
+	src/plugins/icmpfragmon/Makefile
 	config/Makefile
 ])
 

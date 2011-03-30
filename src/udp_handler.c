@@ -190,7 +190,7 @@ eemo_rv eemo_unreg_udp_handler(u_short srcport, u_short dstport)
 	return eemo_ll_remove(&udp_handlers, &eemo_udp_handler_compare, (void*) &comp);
 }
 
-/* Initialise IP handling */
+/* Initialise UDP handling */
 eemo_rv eemo_init_udp_handler(void)
 {
 	udp_handlers = NULL;

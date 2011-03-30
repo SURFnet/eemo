@@ -44,11 +44,12 @@
 #include "dns_qhandler.h"
 #include "ether_handler.h"
 #include "ip_handler.h"
+#include "icmp_handler.h"
 #include "tcp_handler.h"
 #include "udp_handler.h"
 
 /* Function table exported by EEMO; always check version before using */
-#define EEMO_EXPORT_FN_VERSION		1
+#define EEMO_EXPORT_FN_VERSION		2
 
 /* Configuration functions need to be defined here, otherwise we get cross-referencing headers */
 typedef eemo_rv (*eemo_conf_get_int_fn)(const char*, const char*, int*, int);
@@ -79,6 +80,10 @@ typedef struct
 	/* IP handler administration */
 	eemo_reg_ip_handler_fn		reg_ip_handler;
 	eemo_unreg_ip_handler_fn	unreg_ip_handler;
+
+	/* ICMP handler administration */
+	eemo_reg_icmp_handler_fn	reg_icmp_handler;
+	eemo_unreg_icmp_handler_fn	unreg_icmp_handler;
 
 	/* TCP handler administration */
 	eemo_reg_tcp_handler_fn		reg_tcp_handler;

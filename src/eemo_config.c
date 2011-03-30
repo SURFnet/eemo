@@ -66,6 +66,8 @@ eemo_export_fn_table eemo_function_table =
 	&eemo_unreg_ether_handler,
 	&eemo_reg_ip_handler,
 	&eemo_unreg_ip_handler,
+	&eemo_reg_icmp_handler,
+	&eemo_unreg_icmp_handler,
 	&eemo_reg_tcp_handler,
 	&eemo_unreg_tcp_handler,
 	&eemo_reg_udp_handler,
