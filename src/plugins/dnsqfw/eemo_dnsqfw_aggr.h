@@ -48,8 +48,11 @@
 /* Maximum UDP packet size for forwarding */
 #define QFW_UDP_MAXSIZE		2048
 
+/* Message types */
+#define QFW_MSG_QDATA		1		/* This message contains query data */
+
 /* Initialise the DNS query counter module */
-void eemo_dnsqfw_aggr_init(char** ips, int ip_count, char* server, int port, int max_packet_size);
+void eemo_dnsqfw_aggr_init(char** ips, int ip_count, char* server, int port, int max_packet_size, int sensor_id);
 
 /* Uninitialise the DNS query counter module */
 void eemo_dnsqfw_aggr_uninit(eemo_conf_free_string_array_fn free_strings);

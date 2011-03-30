@@ -55,6 +55,7 @@ int	qfw_ipcount		= 0;
 char*	qfw_server		= NULL;
 int	qfw_port		= 0;
 int	qfw_max_packet_size	= 0;
+int	qfw_sensor_id		= 0;
 
 /* Communication socket */
 int		qfw_socket	= -1;
@@ -76,27 +77,44 @@ void eemo_dnsqfw_aggr_transmit(const unsigned char* send_buf, size_t buf_len)
 	}
 }
 
+/* Initialise the message buffer */
+void eemo_dnsqfw_aggr_init_msg(void)
+{
+	/* Clear the buffer */
+	memset(qfw_buffer, 0, qfw_max_packet_size);
+	qfw_buffer_len = 0;
+	
+	/* Set the sensor ID */
+	qfw_buffer[qfw_buffer_len++] = (qfw_sensor_id & 0xff000000) >> 24;
+	qfw_buffer[qfw_buffer_len++] = (qfw_sensor_id & 0x00ff0000) >> 16;
+	qfw_buffer[qfw_buffer_len++] = (qfw_sensor_id & 0x0000ff00) >> 8;
+	qfw_buffer[qfw_buffer_len++] = (qfw_sensor_id & 0x000000ff);
+
+	/* Set the message type */
+	qfw_buffer[qfw_buffer_len++] = QFW_MSG_QDATA;
+}
+
 /* Aggregate DNS query data */
 void eemo_dnsqfw_aggr_add(ushort qclass, ushort qtype, int is_tcp, const char* qname, const char* client_ip)
 {
 	size_t to_add = 0;
 	size_t qname_len = strlen(qname) & 0xffff;
 	size_t ip_len = strlen(client_ip) & 0xff;
+	unsigned char is_dnssec = ((qtype == DNS_QTYPE_DS) || (qtype == DNS_QTYPE_DNSKEY)) ? 1 : 0;
 
 	/* Calculate size to add */
 	to_add += sizeof(ushort) * 3;
 	to_add += qname_len;
 	to_add += ip_len;
-	to_add += 2; /* ip addr len + is_tcp */
+	to_add += 3; /* ip addr len + is_tcp + is_dnssec */
 	
 	if ((qfw_buffer_len + to_add) > qfw_max_packet_size)
 	{
 		/* Emit the current buffer */
 		eemo_dnsqfw_aggr_transmit(qfw_buffer, qfw_buffer_len);
 
-		/* Clear the buffer */
-		memset(qfw_buffer, 0, qfw_max_packet_size);
-		qfw_buffer_len = 0;
+		/* Reset the buffer */
+		eemo_dnsqfw_aggr_init_msg();
 	}
 
 	/* Append the new data in network byte order */
@@ -105,6 +123,7 @@ void eemo_dnsqfw_aggr_add(ushort qclass, ushort qtype, int is_tcp, const char* q
 	qfw_buffer[qfw_buffer_len++] = (qtype & 0xff00) >> 8;
 	qfw_buffer[qfw_buffer_len++] = (qtype & 0x00ff);
 	qfw_buffer[qfw_buffer_len++] = is_tcp ? 1 : 0;
+	qfw_buffer[qfw_buffer_len++] = is_dnssec;
 	qfw_buffer[qfw_buffer_len++] = (qname_len & 0xff00) >> 8;
 	qfw_buffer[qfw_buffer_len++] = (qname_len & 0x00ff);
 	
@@ -122,7 +141,7 @@ void eemo_dnsqfw_aggr_add(ushort qclass, ushort qtype, int is_tcp, const char* q
 }
 
 /* Initialise DNS query forwarding */
-void eemo_dnsqfw_aggr_init(char** ips, int ip_count, char* server, int port, int max_packet_size)
+void eemo_dnsqfw_aggr_init(char** ips, int ip_count, char* server, int port, int max_packet_size, int sensor_id)
 {
 	int i = 0;
 	struct addrinfo* server_addrs = NULL;
@@ -133,6 +152,11 @@ void eemo_dnsqfw_aggr_init(char** ips, int ip_count, char* server, int port, int
 	qfw_ips = ips;
 	qfw_ipcount = ip_count;
 	qfw_max_packet_size = (max_packet_size > 65536) ? 65536 : max_packet_size;
+	qfw_sensor_id = sensor_id;
+
+	INFO_MSG("Initialising sensor with ID 0x%08X", sensor_id);
+
+	INFO_MSG("Maximum forwarding packet size is %d bytes", qfw_max_packet_size);
 
 	INFO_MSG("Listening to %d IP addresses", qfw_ipcount);
 
@@ -147,8 +171,7 @@ void eemo_dnsqfw_aggr_init(char** ips, int ip_count, char* server, int port, int
 	INFO_MSG("Sending data to %s:%d", qfw_server, qfw_port);
 
 	/* Clear data buffer */
-	memset(qfw_buffer, 0, qfw_max_packet_size);
-	qfw_buffer_len = 0;
+	eemo_dnsqfw_aggr_init_msg();
 
 	/* Resolve the destination server */
 	hints.ai_family = AF_UNSPEC;	/* return IPv4 or IPv6 address */
@@ -182,6 +205,8 @@ void eemo_dnsqfw_aggr_init(char** ips, int ip_count, char* server, int port, int
 
 				continue;
 			}
+
+			INFO_MSG("Transmitting data over IPv%d", (addr_it->ai_family == AF_INET) ? 4 : 6);
 
 			break;
 		}

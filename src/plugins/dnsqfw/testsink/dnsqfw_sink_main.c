@@ -121,46 +121,70 @@ int main(int argc, char* argv[])
 		{
 			int ofs = 0;
 			int qcount = 0;
+			unsigned char msg_type = 0;
+			unsigned int sensor_id = 0;
 
 			printf("Received %d bytes\n", (int) received);
 
-			/* Print the data */
-			while (ofs < received)
+			/* Determine the sensor ID */
+			sensor_id += buf[ofs++] << 24;
+			sensor_id += buf[ofs++] << 16;
+			sensor_id += buf[ofs++] << 8;
+			sensor_id += buf[ofs++];
+
+			/* Determine the message type */
+			msg_type = buf[ofs++];
+
+			printf("Sending sensor ID is 0x%08X\n\n", sensor_id);
+
+			if (msg_type == QFW_MSG_QDATA)
 			{
-				unsigned short qtype = 0;
-				unsigned short qclass = 0;
-				unsigned char is_tcp = 0;
-				unsigned short qname_len = 0;
-				unsigned char ip_len = 0;
-				char qname[2048];
-				char client_ip[257];
-
-				qclass += buf[ofs++] << 8;
-				qclass += buf[ofs++];
-				qtype += buf[ofs++] << 8;
-				qtype += buf[ofs++];
-				is_tcp = buf[ofs++];
-				qname_len += buf[ofs++] << 8;
-				qname_len += buf[ofs++];
-				memset(qname, 0, 2048);
-				memcpy(qname, &buf[ofs], qname_len);
-				ofs += qname_len;
-				ip_len = buf[ofs++];
-				memset(client_ip, 0, 257);
-				memcpy(client_ip, &buf[ofs], ip_len);
-				ofs += ip_len;
-
-				printf("class = %5u, type = %5u, tcp = %d, client = %s, name = %s\n",
-					qclass,
-					qtype,
-					is_tcp,
-					client_ip,
-					qname);
-
-				qcount++;
+				printf("Received data is query data\n\n");
+				/* Print the data */
+				while (ofs < received)
+				{
+					unsigned short qtype = 0;
+					unsigned short qclass = 0;
+					unsigned char is_tcp = 0;
+					unsigned char is_dnssec = 0;
+					unsigned short qname_len = 0;
+					unsigned char ip_len = 0;
+					char qname[2048];
+					char client_ip[257];
+	
+					qclass += buf[ofs++] << 8;
+					qclass += buf[ofs++];
+					qtype += buf[ofs++] << 8;
+					qtype += buf[ofs++];
+					is_tcp = buf[ofs++];
+					is_dnssec = buf[ofs++];
+					qname_len += buf[ofs++] << 8;
+					qname_len += buf[ofs++];
+					memset(qname, 0, 2048);
+					memcpy(qname, &buf[ofs], qname_len);
+					ofs += qname_len;
+					ip_len = buf[ofs++];
+					memset(client_ip, 0, 257);
+					memcpy(client_ip, &buf[ofs], ip_len);
+					ofs += ip_len;
+	
+					printf("class = %5u, type = %5u, tcp = %d, dnssec = %d, client = %s, name = %s\n",
+						qclass,
+						qtype,
+						is_tcp,
+						is_dnssec,
+						client_ip,
+						qname);
+	
+					qcount++;
+				}
+	
+				printf("\nReported on %d queries\n\n", qcount);
 			}
-
-			printf("\nReported on %d queries\n\n", qcount);
+			else
+			{
+				printf("\nUnknown message type, skipping\n\n");
+			}
 		}
 	}
 
