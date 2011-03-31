@@ -4,7 +4,8 @@ MAINTAINERCLEANFILES =	$(srcdir)/Makefile.in
 
 AM_CFLAGS =			-I$(srcdir)/.. \
 				-I$(srcdir)/../.. \
-				-I$(srcdir)/../../..
+				-I$(srcdir)/../../.. \
+				-I$(srcdir)/../../icmpfragmon
 
 noinst_PROGRAMS = 	dnsqfw_sink
 

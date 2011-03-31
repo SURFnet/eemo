@@ -41,6 +41,7 @@
 #include <errno.h>
 #include "dns_types.h"
 #include "eemo_dnsqfw_aggr.h"
+#include "eemo_icmpfragmon_aggr.h"
 
 #define QFW_TEST_SINK_PORT	53535
 
@@ -180,6 +181,30 @@ int main(int argc, char* argv[])
 				}
 	
 				printf("\nReported on %d queries\n\n", qcount);
+			}
+			else if (msg_type == IFM_MSG_FRAGDATA)
+			{
+				int hcount = 0;
+
+				printf("Received data is fragmentation monitoring data\n\n");
+
+				/* Print the data */
+				while (ofs < received)
+				{
+					char client_ip[257];
+					unsigned char ip_len = 0;
+
+					ip_len = buf[ofs++];
+					memset(client_ip, 0, 257);
+					memcpy(client_ip, &buf[ofs], ip_len);
+					ofs += ip_len;
+
+					printf("host = %s\n", client_ip);
+
+					hcount++;
+				}
+
+				printf("\nReported on %d hosts\n\n", hcount);
 			}
 			else
 			{
