@@ -126,6 +126,19 @@ void eemo_dnsqfw_aggr_add(ushort qclass, ushort qtype, int is_tcp, const char* q
 	qfw_buffer[qfw_buffer_len++] = is_dnssec;
 	qfw_buffer[qfw_buffer_len++] = (qname_len & 0xff00) >> 8;
 	qfw_buffer[qfw_buffer_len++] = (qname_len & 0x00ff);
+
+	DEBUG_MSG("Appended: %02X%02X%02X%02X%02X%02X%02X%02X %s %02X %s",
+		qfw_buffer[qfw_buffer_len-8],
+		qfw_buffer[qfw_buffer_len-7],
+		qfw_buffer[qfw_buffer_len-6],
+		qfw_buffer[qfw_buffer_len-5],
+		qfw_buffer[qfw_buffer_len-4],
+		qfw_buffer[qfw_buffer_len-3],
+		qfw_buffer[qfw_buffer_len-2],
+		qfw_buffer[qfw_buffer_len-1],
+		qname,
+		ip_len & 0x00ff,
+		client_ip);
 	
 	memcpy(&qfw_buffer[qfw_buffer_len], qname, qname_len);
 
