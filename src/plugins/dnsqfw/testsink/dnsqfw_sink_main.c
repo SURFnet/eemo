@@ -140,7 +140,16 @@ int main(int argc, char* argv[])
 
 			if (msg_type == QFW_MSG_QDATA)
 			{
+				unsigned short pkt_ctr = 0;
+
 				printf("Received data is query data\n\n");
+
+				/* Retrieve packet counter */
+				pkt_ctr += buf[ofs++] << 8;
+				pkt_ctr += buf[ofs++];
+
+				printf("Packet sequence number is %d\n", pkt_ctr);
+
 				/* Print the data */
 				while (ofs < received)
 				{

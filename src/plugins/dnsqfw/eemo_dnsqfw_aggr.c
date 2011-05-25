@@ -66,6 +66,9 @@ socklen_t	qfw_addrlen	= 0;
 unsigned char	qfw_buffer[65536];
 size_t		qfw_buffer_len	= 0;
 
+/* Packet counter */
+unsigned short	qfw_pkt_ctr	= 0;
+
 /* Transmit an UDP packet to the server */
 void eemo_dnsqfw_aggr_transmit(const unsigned char* send_buf, size_t buf_len)
 {
@@ -92,6 +95,11 @@ void eemo_dnsqfw_aggr_init_msg(void)
 
 	/* Set the message type */
 	qfw_buffer[qfw_buffer_len++] = QFW_MSG_QDATA;
+
+	/* Set the packet counter */
+	qfw_buffer[qfw_buffer_len++] = (qfw_pkt_ctr & 0xff00) >> 8;
+	qfw_buffer[qfw_buffer_len++] = (qfw_pkt_ctr & 0x00ff);
+	qfw_pkt_ctr++;
 }
 
 /* Aggregate DNS query data */
