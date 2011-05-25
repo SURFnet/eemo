@@ -76,7 +76,7 @@ eemo_rv eemo_init_log(void)
 
 	if (log_file_path != NULL)
 	{
-		log_file = fopen(log_file_path, "w");
+		log_file = fopen(log_file_path, "a");
 
 		if (log_file == NULL)
 		{
