@@ -56,6 +56,8 @@ char*	qfw_server		= NULL;
 int	qfw_port		= 0;
 int	qfw_max_packet_size	= 0;
 int	qfw_sensor_id		= 0;
+char**	qfw_domains		= NULL;
+int	qfw_domaincount		= 0;
 
 /* Communication socket */
 int		qfw_socket	= -1;
@@ -162,7 +164,7 @@ void eemo_dnsqfw_aggr_add(ushort qclass, ushort qtype, int is_tcp, const char* q
 }
 
 /* Initialise DNS query forwarding */
-void eemo_dnsqfw_aggr_init(char** ips, int ip_count, char* server, int port, int max_packet_size, int sensor_id)
+void eemo_dnsqfw_aggr_init(char** ips, int ip_count, char* server, int port, int max_packet_size, int sensor_id, char** domains, int domain_count)
 {
 	int i = 0;
 	struct addrinfo* server_addrs = NULL;
@@ -172,6 +174,8 @@ void eemo_dnsqfw_aggr_init(char** ips, int ip_count, char* server, int port, int
 
 	qfw_ips = ips;
 	qfw_ipcount = ip_count;
+	qfw_domains = domains;
+	qfw_domaincount = domain_count;
 	qfw_max_packet_size = (max_packet_size > 65536) ? 65536 : max_packet_size;
 	qfw_sensor_id = sensor_id;
 
@@ -184,6 +188,18 @@ void eemo_dnsqfw_aggr_init(char** ips, int ip_count, char* server, int port, int
 	for (i = 0; i < qfw_ipcount; i++)
 	{
 		INFO_MSG("Listening for queries to IP %s", ips[i]);
+	}
+
+	if (qfw_domaincount > 0)
+	{
+		for (i = 0; i < qfw_domaincount; i++)
+		{
+			INFO_MSG("Forwarding queries for domain %s", qfw_domains[i]);
+		}
+	}
+	else
+	{
+		INFO_MSG("Forwarding queries for ALL domains");
 	}
 
 	qfw_server = server;
@@ -248,6 +264,7 @@ void eemo_dnsqfw_aggr_uninit(eemo_conf_free_string_array_fn free_strings)
 	}
 
 	(free_strings)(qfw_ips, qfw_ipcount);
+	(free_strings)(qfw_domains, qfw_domaincount);
 	free(qfw_server);
 }
 
@@ -256,6 +273,9 @@ eemo_rv eemo_dnsqfw_aggr_handleq(eemo_ip_packet_info ip_info, u_short qclass, u_
 {
 	int i = 0;
 	int ip_match = 0;
+	int domain_match = 0;
+	size_t comp_index = 0;
+	size_t comp_len = 0;
 
 	/* Check if this query is directed at the server we're supposed to monitor */
 	for (i = 0; i < qfw_ipcount; i++)
@@ -270,6 +290,38 @@ eemo_rv eemo_dnsqfw_aggr_handleq(eemo_ip_packet_info ip_info, u_short qclass, u_
 	if (!ip_match)
 	{
 		return ERV_SKIPPED;
+	}
+
+	if (qfw_domaincount > 0)
+	{
+		/* Check if this query matches one of the domains for which we're forwarding queries */
+		for (i = 0; i < qfw_domaincount; i++)
+		{
+			/* If the length of the query name is less than the domain name length skip it */
+			if (strlen(qname) < strlen(qfw_domains[i]))
+			{
+				continue;
+			}
+
+			/* Compare the last <domainnamelen> characters to check for a match */
+			comp_len = strlen(qfw_domains[i]);
+			comp_index = strlen(qname) - comp_len;
+
+			if (!strncasecmp(&qname[comp_index], qfw_domains[i], comp_len))
+			{
+				domain_match = 1;
+				break;
+			}
+		}
+
+		if (!domain_match)
+		{
+			/*DEBUG_MSG("Skipped query for %s", qname);*/
+
+			return ERV_SKIPPED;
+		}
+
+		/*DEBUG_MSG("Matched query for %s to domain %s", qname, qfw_domains[i]);*/
 	}
 
 	/* Add data to aggregation buffer */

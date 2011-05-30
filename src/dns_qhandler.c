@@ -251,6 +251,9 @@ eemo_rv eemo_handle_dns_qpayload(eemo_packet_buf* packet, eemo_ip_packet_info ip
 	}
 	while (ofs < qdata_len);
 
+	/* Remove trailing dot */
+	query_name[qname_ofs - 1] = '\0';
+
 	/* Retrieve the query type and class */
 	if ((qdata_len - ofs) < 4)
 	{

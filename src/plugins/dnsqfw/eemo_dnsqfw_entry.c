@@ -49,6 +49,8 @@ eemo_rv eemo_dnsqfw_init(eemo_export_fn_table_ptr eemo_fn, const char* conf_base
 {
 	char** 	ips 		= NULL;
 	int 	ipcount 	= 0;
+	char**	domains		= NULL;
+	int	domcount	= 0;
 	char*	server		= NULL;
 	int	port		= 0;
 	int	max_packet_size	= 0;
@@ -89,15 +91,25 @@ eemo_rv eemo_dnsqfw_init(eemo_export_fn_table_ptr eemo_fn, const char* conf_base
 		return ERV_CONFIG_ERROR;
 	}
 
+	if ((eemo_fn->conf_get_string_array)(conf_base_path, "forward_domains", &domains, &domcount) != ERV_OK)
+	{
+		free(server);
+		(eemo_fn->conf_free_string_array)(ips, ipcount);
+
+		return ERV_CONFIG_ERROR;
+	}
+
 	if ((eemo_fn->conf_get_int)(conf_base_path, "sensor", &sensor_id, 0) != ERV_OK)
 	{
 		free(server);
+		(eemo_fn->conf_free_string_array)(ips, ipcount);
+		(eemo_fn->conf_free_string_array)(domains, domcount);
 
 		return ERV_CONFIG_ERROR;
 	}
 
 	/* Initialise the DNS statistics counter */
-	eemo_dnsqfw_aggr_init(ips, ipcount, server, port, max_packet_size, sensor_id);
+	eemo_dnsqfw_aggr_init(ips, ipcount, server, port, max_packet_size, sensor_id, domains, domcount);
 
 	/* Register DNS query handler */
 	rv = (eemo_fn->reg_dns_qhandler)(DNS_QCLASS_UNSPECIFIED, DNS_QTYPE_UNSPECIFIED, &eemo_dnsqfw_aggr_handleq);

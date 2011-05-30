@@ -52,7 +52,7 @@
 #define QFW_MSG_QDATA		1		/* This message contains query data */
 
 /* Initialise the DNS query counter module */
-void eemo_dnsqfw_aggr_init(char** ips, int ip_count, char* server, int port, int max_packet_size, int sensor_id);
+void eemo_dnsqfw_aggr_init(char** ips, int ip_count, char* server, int port, int max_packet_size, int sensor_id, char** domains, int domain_count);
 
 /* Uninitialise the DNS query counter module */
 void eemo_dnsqfw_aggr_uninit(eemo_conf_free_string_array_fn free_strings);
