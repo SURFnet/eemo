@@ -41,6 +41,11 @@ define([EEMO_ICMPFRAGMON_CURRENT], [1])
 define([EEMO_ICMPFRAGMON_REVISION], [0])
 define([EEMO_ICMPFRAGMON_AGE], [0])
 
+# IP/ICMP to DNS sensor forwarder
+define([EEMO_DNSSENSORFW_CURRENT], [1])
+define([EEMO_DNSSENSORFW_REVISION], [0])
+define([EEMO_DNSSENSORFW_AGE], [0])
+
 ################################################################################
 # Configuration functions                                                      #
 ################################################################################
@@ -63,6 +68,8 @@ EEMO_DNSQFW_VERSION_INFO="EEMO_DNSQFW_CURRENT:EEMO_DNSQFW_REVISION:EEMO_DNSQFW_A
 AC_SUBST(EEMO_DNSQFW_VERSION_INFO)
 EEMO_ICMPFRAGMON_VERSION_INFO="EEMO_ICMPFRAGMON_CURRENT:EEMO_ICMPFRAGMON_REVISION:EEMO_ICMPFRAGMON_AGE"
 AC_SUBST(EEMO_ICMPFRAGMON_VERSION_INFO)
+EEMO_DNSSENSORFW_VERSION_INFO="EEMO_DNSSENSORFW_CURRENT:EEMO_DNSSENSORFW_REVISION:EEMO_DNSSENSORFW_AGE"
+AC_SUBST(EEMO_DNSSENSORFW_VERSION_INFO)
 
 # Checks for compilers and other programs
 AC_PROG_CC_C99
@@ -88,6 +95,7 @@ AC_ARG_WITH(
 ACX_DLOPEN
 ACX_PCAP
 PKG_CHECK_MODULES([LIBCONFIG], [libconfig >= 1.3.2],, AC_MSG_ERROR([libconfig 1.3.2 or newer not found]))
+ACX_PTHREAD
 
 # Check for headers
 AC_CHECK_HEADERS([pcap.h])
@@ -154,6 +162,8 @@ AC_CONFIG_FILES([
 	src/plugins/dnsqfw/testsink/Makefile
 	src/plugins/dnsstats/Makefile
 	src/plugins/dnsstats/cacti/Makefile
+	src/plugins/dnssensorfw/Makefile
+	src/plugins/dnssensorfw/testsink/Makefile
 	src/plugins/icmpfragmon/Makefile
 	config/Makefile
 ])

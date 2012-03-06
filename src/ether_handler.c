@@ -48,6 +48,28 @@
 /* The linked list of Ethernet packet handlers */
 static eemo_ll_entry* ether_handlers = NULL;
 
+/* Ethernet handler cloning */
+void* eemo_ether_handler_clone(const void* elem_data)
+{
+	const eemo_ether_handler* elem = (const eemo_ether_handler*) elem_data;
+	eemo_ether_handler* new_elem = NULL;
+
+	if (elem_data == NULL)
+	{
+		return NULL;
+	}
+
+	new_elem = (eemo_ether_handler*) malloc(sizeof(eemo_ether_handler));
+
+	if (new_elem != NULL)
+	{
+		/* Clone element, no deep copy required in this case */
+		memcpy(new_elem, elem, sizeof(eemo_ether_handler));
+	}
+
+	return (void*) new_elem;
+}
+
 /* Ethernet handler comparison */
 int eemo_ether_handler_compare(void* elem_data, void* comp_data)
 {
@@ -70,11 +92,11 @@ int eemo_ether_handler_compare(void* elem_data, void* comp_data)
 }
 
 /* Find an Ethernet handler for the specified type */
-eemo_ether_handler* eemo_find_ether_handler(u_short which_eth_type)
+eemo_ll_entry* eemo_find_ether_handlers(u_short which_eth_type)
 {
-	eemo_ether_handler* rv = NULL;
+	eemo_ll_entry* rv = NULL;
 
-	if (eemo_ll_find(ether_handlers, (void*) &rv, &eemo_ether_handler_compare, (void*) &which_eth_type) != ERV_OK)
+	if (eemo_ll_find_multi(ether_handlers, &rv, &eemo_ether_handler_compare, (void*) &which_eth_type, &eemo_ether_handler_clone) != ERV_OK)
 	{
 		/* FIXME: log this */
 	}
@@ -89,11 +111,18 @@ eemo_rv eemo_reg_ether_handler(u_short which_eth_type, eemo_ether_handler_fn han
 	eemo_rv rv = ERV_OK;
 
 	/* Check if a handler for the specified type already exists */
+
+	/* RvR: disabled this check, multiple handlers can be registered. Note that
+	 *      this does mean that unregistering a handler may unregister the handler
+	 *      registered by someone else, so this should only be done when exiting
+	 *      the program!
+	 *
+
 	if (eemo_find_ether_handler(which_eth_type) != NULL)
 	{
-		/* A handler for this type has already been registered */
 		return ERV_HANDLER_EXISTS;
 	}
+	 */
 
 	/* Create a new handler entry */
 	new_handler = (eemo_ether_handler*) malloc(sizeof(eemo_ether_handler));
@@ -133,8 +162,10 @@ void eemo_ether_ntoh(eemo_hdr_raw_ether* hdr)
 eemo_rv eemo_handle_ether_packet(eemo_packet_buf* packet)
 {
 	eemo_hdr_raw_ether* hdr = NULL;
-	eemo_ether_handler* handler = NULL;
 	eemo_ether_packet_info packet_info;
+	eemo_ll_entry* handlers = NULL;
+	eemo_ll_entry* handler_it = NULL;
+	eemo_rv rv = ERV_SKIPPED;
 
 	/* Check the packet size */
 	if (packet->len < sizeof(eemo_hdr_raw_ether))
@@ -168,28 +199,47 @@ eemo_rv eemo_handle_ether_packet(eemo_packet_buf* packet)
 		hdr->eth_dest[4],
 		hdr->eth_dest[5]);
 
-	/* See if there is a handler for this type of packet */
-	handler = eemo_find_ether_handler(hdr->eth_type);
+	/* See if there are any handlers for this type of packet */
+	handlers = eemo_find_ether_handlers(hdr->eth_type);
+	handler_it = handlers;
 
-	if ((handler != NULL) && (handler->handler_fn != NULL))
+	while (handler_it != NULL)
 	{
-		eemo_rv rv = ERV_OK;
-		eemo_packet_buf* ether_data = 
-			eemo_pbuf_new(&packet->data[sizeof(eemo_hdr_raw_ether)], packet->len - sizeof(eemo_hdr_raw_ether));
+		eemo_ether_handler* handler = (eemo_ether_handler*) handler_it->elem_data;
 
-		if (ether_data == NULL)
+		if (handler != NULL)
 		{
-			return ERV_MEMORY;
+			eemo_rv handler_rv = ERV_SKIPPED;
+
+			if (handler->handler_fn != NULL)
+			{
+				eemo_packet_buf* ether_data =
+					eemo_pbuf_new(&packet->data[sizeof(eemo_hdr_raw_ether)], packet->len - sizeof(eemo_hdr_raw_ether));
+
+				if (ether_data != NULL)
+				{
+					handler_rv = (handler->handler_fn)(ether_data, packet_info);
+
+					eemo_pbuf_free(ether_data);
+				}
+				else
+				{
+					handler_rv = ERV_MEMORY;
+				}
+			}
+
+			if (rv != ERV_HANDLED)
+			{
+				rv = handler_rv;
+			}
 		}
 
-		rv = (handler->handler_fn)(ether_data, packet_info);
-
-		eemo_pbuf_free(ether_data);
-
-		return rv;
+		handler_it = handler_it->next;
 	}
 
-	return ERV_SKIPPED;
+	eemo_ll_free(&handlers);
+
+	return rv;
 }
 
 /* Initialise Ethernet handling */
