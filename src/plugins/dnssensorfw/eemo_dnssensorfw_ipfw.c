@@ -58,7 +58,6 @@ int	reconn_interval	= 1;
 
 /* Sensor connection */
 int		sensor_socket		= -1;
-pthread_mutex_t	conn_mutex;
 int		stop_conn_thread	= 0;
 int		sensor_connected	= 0;
 pthread_t	conn_thread_handle;
@@ -111,6 +110,8 @@ void* sensor_conn_thread(void* thread_args)
 		{
 			if ((addr_it->ai_family == AF_INET) || (addr_it->ai_family == AF_INET6))
 			{
+				struct timeval socket_timeout = { 1, 0}; /* socket time-out is 1 second */
+
 				INFO_MSG("Attempting to connect to %s:%d over IPv%d", 
 					sensor_hostname, sensor_port,
 					addr_it->ai_family == AF_INET ? 4 : 6);
@@ -121,6 +122,17 @@ void* sensor_conn_thread(void* thread_args)
 				{
 					ERROR_MSG("Failed to open a new socket");
 					continue;
+				}
+
+				/* Set socket time-out value for both sending as well as receiving */
+				if (setsockopt(sensor_socket, SOL_SOCKET, SO_RCVTIMEO, (char*) &socket_timeout, sizeof(socket_timeout)) != 0)
+				{
+					ERROR_MSG("Failed to set receive time-out on sensor socket");
+				}
+
+				if (setsockopt(sensor_socket, SOL_SOCKET, SO_SNDTIMEO, (char*) &socket_timeout, sizeof(socket_timeout)) != 0)
+				{
+					ERROR_MSG("Failed to set send time-out on sensor socket");
 				}
 
 				/* Attempt to connect the socket */
@@ -134,12 +146,9 @@ void* sensor_conn_thread(void* thread_args)
 
 				INFO_MSG("Established a connection to %s:%d", sensor_hostname, sensor_port);
 
-				pthread_mutex_lock(&conn_mutex);
-
 				sensor_connected = 1;
 				reconn_interval = 1;
 				
-				pthread_mutex_unlock(&conn_mutex);
 				break;
 			}
 
@@ -160,12 +169,9 @@ void* sensor_conn_thread(void* thread_args)
 					/* The connection was closed */
 					ERROR_MSG("Connection to %s:%d lost", sensor_hostname, sensor_port);
 
-					pthread_mutex_lock(&conn_mutex);
-
 					sensor_connected = 0;
 					close(sensor_socket);
 
-					pthread_mutex_unlock(&conn_mutex);
 					break;
 				}
 			}
@@ -176,12 +182,8 @@ void* sensor_conn_thread(void* thread_args)
 
 	if (sensor_socket >= 0)
 	{
-		pthread_mutex_lock(&conn_mutex);
-
 		close(sensor_socket);
 		sensor_connected = 0;
-
-		pthread_mutex_unlock(&conn_mutex);
 	}
 
 	/* FIXME: debug message */
@@ -198,8 +200,6 @@ void eemo_dnssensorfw_ipfw_init(const char* hostname, const int port, const int 
 	reconn_maxinterval = maxinterval;
 
 	/* Initialise sensor connection thread */
-	pthread_mutex_init(&conn_mutex, NULL);
-
 	if (pthread_create(&conn_thread_handle, NULL, &sensor_conn_thread, NULL) != 0)
 	{
 		ERROR_MSG("Failed to start the sensor connection thread");
@@ -213,8 +213,6 @@ void eemo_dnssensorfw_ipfw_uninit(eemo_conf_free_string_array_fn free_strings)
 	stop_conn_thread = 1;
 
 	pthread_join(conn_thread_handle, NULL);
-
-	pthread_mutex_destroy(&conn_mutex);
 }
 
 /* Handle all packets */
@@ -230,6 +228,12 @@ eemo_rv eemo_dnssensorfw_ipfw_handle_pkt(eemo_packet_buf* packet, eemo_ether_pac
 	
 	eemo_hdr_ipv4* v4hdr = (eemo_hdr_ipv4*) packet->data;
 	eemo_hdr_ipv6* v6hdr = (eemo_hdr_ipv6*) packet->data;
+
+	/* Check if a sensor connection exists; we don't lock here since this isn't a critical check */
+	if (!sensor_connected)
+	{
+		return ERV_SKIPPED;
+	}
 
 	/* Check packet length */
 	if (packet->len < sizeof(eemo_hdr_ipv4))
@@ -316,12 +320,10 @@ eemo_rv eemo_dnssensorfw_ipfw_handle_pkt(eemo_packet_buf* packet, eemo_ether_pac
 	memcpy(send_packet.buf, packet->data, packet->len);
 	send_packet.pkt_len = packet->len;
 
-	pthread_mutex_lock(&conn_mutex);
 	if (sensor_connected)
 	{
 		send(sensor_socket, &send_packet, packet->len + 2, 0);
 	}
-	pthread_mutex_unlock(&conn_mutex);
 
 	return ERV_HANDLED;
 }
