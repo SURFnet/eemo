@@ -322,7 +322,7 @@ eemo_rv eemo_dnssensorfw_ipfw_handle_pkt(eemo_packet_buf* packet, eemo_ether_pac
 
 	if (sensor_connected)
 	{
-		send(sensor_socket, &send_packet, packet->len + 2, 0);
+		send(sensor_socket, &send_packet, packet->len + 2, MSG_NOSIGNAL);
 	}
 
 	return ERV_HANDLED;
