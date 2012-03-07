@@ -39,6 +39,7 @@
 #include "eemo.h"
 #include "eemo_log.h"
 #include "eemo_dnssensorfw_ipfw.h"
+#include "ip_handler.h"
 #include <string.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -226,6 +227,81 @@ eemo_rv eemo_dnssensorfw_ipfw_handle_pkt(eemo_packet_buf* packet, eemo_ether_pac
 		unsigned char buf[65536];
 	} send_packet;
 #pragma pack(pop)
+	
+	eemo_hdr_ipv4* v4hdr = (eemo_hdr_ipv4*) packet->data;
+	eemo_hdr_ipv6* v6hdr = (eemo_hdr_ipv6*) packet->data;
+
+	/* Check packet length */
+	if (packet->len < sizeof(eemo_hdr_ipv4))
+	{
+		return ERV_MALFORMED;
+	}
+
+	/* Check the IP version */
+	if (IP_VER(v4hdr->ip4_ver_hl) == 4)
+	{
+		unsigned short* src_port = NULL;
+		unsigned short* dst_port = NULL;
+
+		/* Check protocol */
+		switch (v4hdr->ip4_proto)
+		{
+		case 0x01:	/* ICMP */
+			break;	/* packet will be forwarded */
+		case 0x06:	/* TCP */
+		case 0x11:	/* UDP */
+			/* Check destination port */
+			if (packet->len < ((IP_HDRLEN(v4hdr->ip4_ver_hl) << 2) + 4))
+			{
+				return ERV_MALFORMED;
+			}
+
+			src_port = (unsigned short*) &packet->data[IP_HDRLEN(v4hdr->ip4_ver_hl) << 2];
+			dst_port = src_port + 1;
+
+			if ((ntohs(*src_port) != 53) && (ntohs(*dst_port) != 53))
+			{
+				return ERV_SKIPPED;
+			}
+			break;	/* packet will be forwarded */
+		default:
+			return ERV_SKIPPED;
+		}
+	}
+	else if (IP_VER(v6hdr->ip6_ver_tc) == 6)
+	{
+		unsigned short* src_port = NULL;
+		unsigned short* dst_port = NULL;
+
+		/* Check protocol */
+		switch (v6hdr->ip6_next_hdr)
+		{
+		case 0x3a:	/* ICMPv6 */
+			break;	/* packet will be forwarded */
+		case 0x06:	/* TCP */
+		case 0x11:	/* UDP */
+			/* Check destination port */
+			if (packet->len < (sizeof(eemo_hdr_ipv6) + 4))
+			{
+				return ERV_MALFORMED;
+			}
+
+			src_port = (unsigned short*) &packet->data[sizeof(eemo_hdr_ipv6)];
+			dst_port = src_port + 1;
+
+			if ((ntohs(*src_port) != 53) && (ntohs(*dst_port) != 53))
+			{
+				return ERV_SKIPPED;
+			}
+			break;	/* packet will be forwarded */
+		default:
+			return ERV_SKIPPED;
+		}
+	}
+	else
+	{
+		return ERV_MALFORMED;
+	}
 
 	memcpy(send_packet.buf, packet->data, packet->len);
 	send_packet.pkt_len = packet->len;

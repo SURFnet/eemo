@@ -43,7 +43,6 @@
 #include "eemo_dnssensorfw_ipfw.h"
 #include "ether_handler.h"
 #include "ip_handler.h"
-#include "icmp_handler.h"
 
 const static char* plugin_description = "EEMO DNS IP/ICMP to sensor forwarding plugin " PACKAGE_VERSION;
 
