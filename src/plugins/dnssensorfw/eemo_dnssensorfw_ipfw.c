@@ -265,7 +265,15 @@ eemo_rv eemo_dnssensorfw_ipfw_handle_pkt(eemo_packet_buf* packet, eemo_ether_pac
 			}
 			break;	/* packet will be forwarded */
 		default:
-			return ERV_SKIPPED;
+			if (v4hdr->ip4_ofs > 0)
+			{
+				/* this is a fragment, forward it! */
+				break;
+			}
+			else
+			{
+				return ERV_SKIPPED;
+			}
 		}
 	}
 	else if (IP_VER(v6hdr->ip6_ver_tc) == 6)
@@ -294,6 +302,8 @@ eemo_rv eemo_dnssensorfw_ipfw_handle_pkt(eemo_packet_buf* packet, eemo_ether_pac
 				return ERV_SKIPPED;
 			}
 			break;	/* packet will be forwarded */
+		case 0x2C:	/* IPv6 fragment header */
+			break;	/* fragments will be forwarded */
 		default:
 			return ERV_SKIPPED;
 		}
