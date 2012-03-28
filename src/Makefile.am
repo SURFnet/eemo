@@ -11,6 +11,8 @@ eemo_SOURCES =		dns_qhandler.c \
 			eemo_api.h \
 			eemo_config.c \
 			eemo_config.h \
+			eemo_handlefactory.c \
+			eemo_handlefactory.h \
 			eemo_list.c \
 			eemo_list.h \
 			eemo_log.c \
