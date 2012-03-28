@@ -70,18 +70,22 @@ typedef struct eemo_ether_handler
 {
 	u_short				which_eth_type; /* which Ethernet types are handled by this module */
 	eemo_ether_handler_fn		handler_fn;	/* handler function */
+
+	/* Administrativia */
+	unsigned long			handle;		/* handle for this entry */
+	struct eemo_ether_handler*	next;		/* to create a linked list */
 }
 eemo_ether_handler;
 
 /* Register an Ethernet handler */
-typedef eemo_rv (*eemo_reg_ether_handler_fn) (u_short, eemo_ether_handler_fn);
+typedef eemo_rv (*eemo_reg_ether_handler_fn) (u_short, eemo_ether_handler_fn, unsigned long*);
 
-eemo_rv eemo_reg_ether_handler(u_short which_eth_type, eemo_ether_handler_fn handler_fn);
+eemo_rv eemo_reg_ether_handler(u_short which_eth_type, eemo_ether_handler_fn handler_fn, unsigned long* handle);
 
 /* Unregister an Ethernet handler */
-typedef eemo_rv (*eemo_unreg_ether_handler_fn) (u_short);
+typedef eemo_rv (*eemo_unreg_ether_handler_fn) (unsigned long);
 
-eemo_rv eemo_unreg_ether_handler(u_short which_eth_type);
+eemo_rv eemo_unreg_ether_handler(unsigned long handle);
 
 /* Handle an Ethernet packet */
 eemo_rv eemo_handle_ether_packet(eemo_packet_buf* packet);

@@ -49,6 +49,10 @@ const static char* plugin_description = "EEMO DNS IP/ICMP to sensor forwarding p
 /* Default reconnect time-out is 1800 seconds (half an hour) */
 #define DEFAULT_INTERVAL 1800
 
+/* The handle for the registered Ethernet handlers */
+unsigned long v4handler_handle = 0;
+unsigned long v6handler_handle = 0;
+
 /* Plugin initialisation */
 eemo_rv eemo_dnssensorfw_init(eemo_export_fn_table_ptr eemo_fn, const char* conf_base_path)
 {
@@ -82,7 +86,7 @@ eemo_rv eemo_dnssensorfw_init(eemo_export_fn_table_ptr eemo_fn, const char* conf
 	eemo_dnssensorfw_ipfw_init(sensor_hostname, sensor_port, reconn_maxinterval);
 
 	/* Register packet handler for IPv4 and IPv6 packets */
-	rv = (eemo_fn->reg_ether_handler)(ETHER_IPV4, &eemo_dnssensorfw_ipfw_handle_pkt);
+	rv = (eemo_fn->reg_ether_handler)(ETHER_IPV4, &eemo_dnssensorfw_ipfw_handle_pkt, &v4handler_handle);
 
 	if (rv != ERV_OK)
 	{
@@ -91,7 +95,7 @@ eemo_rv eemo_dnssensorfw_init(eemo_export_fn_table_ptr eemo_fn, const char* conf
 		return rv;
 	}
 
-	rv = (eemo_fn->reg_ether_handler)(ETHER_IPV6, &eemo_dnssensorfw_ipfw_handle_pkt);
+	rv = (eemo_fn->reg_ether_handler)(ETHER_IPV6, &eemo_dnssensorfw_ipfw_handle_pkt, &v6handler_handle);
 
 	if (rv != ERV_OK)
 	{
@@ -109,14 +113,14 @@ eemo_rv eemo_dnssensorfw_uninit(eemo_export_fn_table_ptr eemo_fn)
 	eemo_rv rv = ERV_OK;
 
 	/* Unregister packet handler for IPv4 and IPv6 packets */
-	rv = (eemo_fn->unreg_ether_handler)(ETHER_IPV4);
+	rv = (eemo_fn->unreg_ether_handler)(v4handler_handle);
 
 	if (rv != ERV_OK)
 	{
 		ERROR_MSG("Failed to unregister IPv4 packet handler");
 	}
 
-	rv = (eemo_fn->unreg_ether_handler)(ETHER_IPV6);
+	rv = (eemo_fn->unreg_ether_handler)(v6handler_handle);
 
 	if (rv != ERV_OK)
 	{

@@ -46,6 +46,10 @@
 #include "ip_handler.h"
 #include "ether_handler.h"
 
+/* The handles for the IPv4 and IPv6 Ethernet handlers */
+unsigned long ip4handler_handle = 0;
+unsigned long ip6handler_handle = 0;
+
 /* The linked list of IP packet handlers */
 static eemo_ll_entry* ip_handlers = NULL;
 
@@ -326,7 +330,7 @@ eemo_rv eemo_init_ip_handler(void)
 	ip_handlers = NULL;
 
 	/* Register IPv4 packet handler */
-	rv = eemo_reg_ether_handler(ETHER_IPV4, &eemo_handle_ipv4_packet);
+	rv = eemo_reg_ether_handler(ETHER_IPV4, &eemo_handle_ipv4_packet, &ip4handler_handle);
 
 	if (rv != ERV_OK)
 	{
@@ -334,11 +338,11 @@ eemo_rv eemo_init_ip_handler(void)
 	}
 
 	/* Register IPv6 packet handler */
-	rv = eemo_reg_ether_handler(ETHER_IPV6, &eemo_handle_ipv6_packet);
+	rv = eemo_reg_ether_handler(ETHER_IPV6, &eemo_handle_ipv6_packet, &ip6handler_handle);
 
 	if (rv != ERV_OK)
 	{
-		eemo_unreg_ether_handler(ETHER_IPV4);
+		eemo_unreg_ether_handler(ip4handler_handle);
 	}
 
 	INFO_MSG("Initialised IP handling");
@@ -356,8 +360,8 @@ void eemo_ip_handler_cleanup(void)
 	}
 
 	/* Unregister the Ethernet handler for IPv4 and IPv6 packets */
-	eemo_unreg_ether_handler(ETHER_IPV4);
-	eemo_unreg_ether_handler(ETHER_IPV6);
+	eemo_unreg_ether_handler(ip4handler_handle);
+	eemo_unreg_ether_handler(ip6handler_handle);
 
 	INFO_MSG("Uninitialised IP handling");
 }
