@@ -45,12 +45,16 @@
 
 const static char* plugin_description = "EEMO demo plugin " PACKAGE_VERSION;
 
+/* TCP and UDP handler handles */
+static unsigned long udp_handler_handle = 0;
+static unsigned long tcp_handler_handle = 0;
+
 /* Sample UDP handler */
 eemo_rv eemo_demo_udp_handler(eemo_packet_buf* pkt, eemo_ip_packet_info ip_info, u_short srcport, u_short dstport)
 {
 	INFO_MSG("UDPv%d packet from %s:%d to %s:%d", ip_info.ip_type, ip_info.ip_src, srcport, ip_info.ip_dst, dstport);
 
-	return ERV_OK;
+	return ERV_HANDLED;
 }
 
 /* Sample TCP handler */
@@ -58,7 +62,7 @@ eemo_rv eemo_demo_tcp_handler(eemo_packet_buf* pkt, eemo_ip_packet_info ip_info,
 {
 	INFO_MSG("TCPv%d packet from %s:%d to %s:%d", ip_info.ip_type, ip_info.ip_src, tcp_info.srcport, ip_info.ip_dst, tcp_info.dstport);
 
-	return ERV_OK;
+	return ERV_HANDLED;
 }
 
 /* Plugin initialisation */
@@ -70,7 +74,7 @@ eemo_rv eemo_demo_init(eemo_export_fn_table_ptr eemo_fn, const char* conf_base_p
 	INFO_MSG("Initialising demo plugin");
 
 	/* Register UDP handler */
-	if ((eemo_fn->reg_udp_handler)(UDP_ANY_PORT, UDP_ANY_PORT, &eemo_demo_udp_handler) != ERV_OK)
+	if ((eemo_fn->reg_udp_handler)(UDP_ANY_PORT, UDP_ANY_PORT, &eemo_demo_udp_handler, &udp_handler_handle) != ERV_OK)
 	{
 		ERROR_MSG("Failed to register demo UDP handler");
 
@@ -78,11 +82,11 @@ eemo_rv eemo_demo_init(eemo_export_fn_table_ptr eemo_fn, const char* conf_base_p
 	}
 
 	/* Register TCP handler */
-	if ((eemo_fn->reg_tcp_handler)(TCP_ANY_PORT, TCP_ANY_PORT, &eemo_demo_tcp_handler) != ERV_OK)
+	if ((eemo_fn->reg_tcp_handler)(TCP_ANY_PORT, TCP_ANY_PORT, &eemo_demo_tcp_handler, &tcp_handler_handle) != ERV_OK)
 	{
 		ERROR_MSG("Failed to register demo TCP handler");
 
-		(eemo_fn->unreg_udp_handler)(UDP_ANY_PORT, UDP_ANY_PORT);
+		(eemo_fn->unreg_udp_handler)(udp_handler_handle);
 
 		return ERV_GENERAL_ERROR;
 	}
@@ -98,13 +102,13 @@ eemo_rv eemo_demo_uninit(eemo_export_fn_table_ptr eemo_fn)
 	INFO_MSG("Uninitialising demo plugin");
 
 	/* Unregister UDP handler */
-	if ((eemo_fn->unreg_udp_handler)(UDP_ANY_PORT, UDP_ANY_PORT) != ERV_OK)
+	if ((eemo_fn->unreg_udp_handler)(udp_handler_handle) != ERV_OK)
 	{
 		ERROR_MSG("Failed to unregister demo UDP handler");
 	}
 
 	/* Unregister TCP handler */
-	if ((eemo_fn->unreg_tcp_handler)(TCP_ANY_PORT, TCP_ANY_PORT) != ERV_OK)
+	if ((eemo_fn->unreg_tcp_handler)(tcp_handler_handle) != ERV_OK)
 	{
 		ERROR_MSG("Failed to unregister demo TCP handler");
 	}

@@ -46,6 +46,10 @@
 #include "ip_handler.h"
 #include "icmp_handler.h"
 
+/* Handle for the registered IP handler */
+static unsigned long icmp_ip4_handler_handle = 0;
+static unsigned long icmp_ip6_handler_handle = 0;
+
 /* The linked list of IP packet handlers */
 static eemo_ll_entry* icmp_handlers = NULL;
 
@@ -193,7 +197,7 @@ eemo_rv eemo_init_icmp_handler(void)
 	icmp_handlers = NULL;
 
 	/* Register ICMPv4 packet handler */
-	if (eemo_reg_ip_handler(IP_ICMPv4, &eemo_handle_icmp_packet) != ERV_OK)
+	if (eemo_reg_ip_handler(IP_ICMPv4, &eemo_handle_icmp_packet, &icmp_ip4_handler_handle) != ERV_OK)
 	{
 		ERROR_MSG("Failed to register ICMPv4 packet handler");
 
@@ -203,11 +207,11 @@ eemo_rv eemo_init_icmp_handler(void)
 	INFO_MSG("Initialised ICMPv4 handling");
 
 	/* Register ICMPv6 packet handler */
-	if (eemo_reg_ip_handler(IP_ICMPv6, &eemo_handle_icmp_packet) != ERV_OK)
+	if (eemo_reg_ip_handler(IP_ICMPv6, &eemo_handle_icmp_packet, &icmp_ip6_handler_handle) != ERV_OK)
 	{
 		ERROR_MSG("Failed to register ICMPv6 packet handler");
 
-		eemo_unreg_ip_handler(IP_ICMPv4);
+		eemo_unreg_ip_handler(icmp_ip4_handler_handle);
 
 		return ERV_GENERAL_ERROR;
 	}
@@ -227,12 +231,12 @@ void eemo_icmp_handler_cleanup(void)
 	}
 
 	/* Unregister the IP handler for ICMPv4 packets */
-	eemo_unreg_ip_handler(IP_ICMPv4);
+	eemo_unreg_ip_handler(icmp_ip4_handler_handle);
 
 	INFO_MSG("Uninitialised ICMPv4 handling");
 
 	/* Unregister the IP handler for ICMPv6 packets */
-	eemo_unreg_ip_handler(IP_ICMPv6);
+	eemo_unreg_ip_handler(icmp_ip6_handler_handle);
 
 	INFO_MSG("Uninitialised ICMPv6 handling");
 }

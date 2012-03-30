@@ -1,7 +1,7 @@
 /* $Id$ */
 
 /*
- * Copyright (c) 2010-2011 SURFnet bv
+ * Copyright (c) 2010-2012 SURFnet bv
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -70,18 +70,22 @@ typedef struct eemo_udp_handler
 	u_short				srcport;	/* which source port, 0 = any */
 	u_short				dstport;	/* which destination port, 0 = any */
 	eemo_udp_handler_fn		handler_fn;	/* handler function */
+
+	/* Administrativia */
+	unsigned long			handle;		/* handler handle */
+	struct eemo_udp_handler*	next;		/* single LL next element */
 }
 eemo_udp_handler;
 
 /* Register an UDP handler */
-typedef eemo_rv (*eemo_reg_udp_handler_fn) (u_short, u_short, eemo_udp_handler_fn);
+typedef eemo_rv (*eemo_reg_udp_handler_fn) (u_short, u_short, eemo_udp_handler_fn, unsigned long*);
 
-eemo_rv eemo_reg_udp_handler(u_short srcport, u_short dstport, eemo_udp_handler_fn handler_fn);
+eemo_rv eemo_reg_udp_handler(u_short srcport, u_short dstport, eemo_udp_handler_fn handler_fn, unsigned long* handle);
 
 /* Unregister an UDP handler */
-typedef eemo_rv (*eemo_unreg_udp_handler_fn) (u_short, u_short);
+typedef eemo_rv (*eemo_unreg_udp_handler_fn) (unsigned long);
 
-eemo_rv eemo_unreg_udp_handler(u_short srcport, u_short dstport);
+eemo_rv eemo_unreg_udp_handler(unsigned long handle);
 
 /* Initialise UDP handling */
 eemo_rv eemo_init_udp_handler(void);

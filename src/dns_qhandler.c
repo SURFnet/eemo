@@ -49,6 +49,10 @@
 /* The linked list of DNS query handlers */
 static eemo_ll_entry* dns_qhandlers = NULL;
 
+/* UDP and TCP DNS handler handles */
+static unsigned long udp_dns_handler_handle = 0;
+static unsigned long tcp_dns_handler_handle = 0;
+
 /* DNS query handler entry comparison type */
 typedef struct
 {
@@ -410,7 +414,7 @@ eemo_rv eemo_init_dns_qhandler(void)
 	dns_qhandlers = NULL;
 
 	/* Register UDP packet handler */
-	rv = eemo_reg_udp_handler(UDP_ANY_PORT, DNS_PORT, &eemo_handle_dns_udp_qpacket);
+	rv = eemo_reg_udp_handler(UDP_ANY_PORT, DNS_PORT, &eemo_handle_dns_udp_qpacket, &udp_dns_handler_handle);
 
 	if (rv != ERV_OK)
 	{
@@ -418,11 +422,11 @@ eemo_rv eemo_init_dns_qhandler(void)
 	}
 
 	/* Register DNS packet handler */
-	rv = eemo_reg_tcp_handler(TCP_ANY_PORT, DNS_PORT, &eemo_handle_dns_tcp_qpacket);
+	rv = eemo_reg_tcp_handler(TCP_ANY_PORT, DNS_PORT, &eemo_handle_dns_tcp_qpacket, &tcp_dns_handler_handle);
 
 	if (rv != ERV_OK)
 	{
-		eemo_unreg_udp_handler(UDP_ANY_PORT, DNS_PORT);
+		eemo_unreg_udp_handler(udp_dns_handler_handle);
 		
 		return rv;
 	}
@@ -442,8 +446,8 @@ void eemo_dns_qhandler_cleanup(void)
 	}
 
 	/* Unregister the DNS UDP and TCP handler */
-	eemo_unreg_udp_handler(UDP_ANY_PORT, DNS_PORT);
-	eemo_unreg_tcp_handler(TCP_ANY_PORT, DNS_PORT);
+	eemo_unreg_udp_handler(udp_dns_handler_handle);
+	eemo_unreg_tcp_handler(tcp_dns_handler_handle);
 
 	INFO_MSG("Uninitialised DNS query handling");
 }

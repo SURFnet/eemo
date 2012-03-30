@@ -1,7 +1,7 @@
 /* $Id$ */
 
 /*
- * Copyright (c) 2010-2011 SURFnet bv
+ * Copyright (c) 2010-2012 SURFnet bv
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -112,18 +112,22 @@ typedef struct eemo_ip_handler
 {
 	u_short			which_ip_proto;	/* which IP protocol is handled by this module */
 	eemo_ip_handler_fn	handler_fn;	/* handler function */
+
+	/* Administrativia */
+	unsigned long		handle;		/* handler handle */
+	struct eemo_ip_handler*	next;		/* single LL next element */
 }
 eemo_ip_handler;
 
 /* Register an IP handler */
-typedef eemo_rv (*eemo_reg_ip_handler_fn) (u_short, eemo_ip_handler_fn);
+typedef eemo_rv (*eemo_reg_ip_handler_fn) (u_short, eemo_ip_handler_fn, unsigned long*);
 
-eemo_rv eemo_reg_ip_handler(u_short which_ip_proto, eemo_ip_handler_fn handler_fn);
+eemo_rv eemo_reg_ip_handler(u_short which_ip_proto, eemo_ip_handler_fn handler_fn, unsigned long* handle);
 
 /* Unregister an IP handler */
-typedef eemo_rv (*eemo_unreg_ip_handler_fn) (u_short);
+typedef eemo_rv (*eemo_unreg_ip_handler_fn) (unsigned long);
 
-eemo_rv eemo_unreg_ip_handler(u_short which_ip_proto);
+eemo_rv eemo_unreg_ip_handler(unsigned long handle);
 
 /* Initialise IP handling */
 eemo_rv eemo_init_ip_handler(void);

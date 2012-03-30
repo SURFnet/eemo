@@ -1,7 +1,7 @@
 /* $Id$ */
 
 /*
- * Copyright (c) 2010-2011 SURFnet bv
+ * Copyright (c) 2010-2012 SURFnet bv
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -98,18 +98,22 @@ typedef struct eemo_tcp_handler
 	u_short				srcport;	/* which source port, 0 = any */
 	u_short				dstport;	/* which destination port, 0 = any */
 	eemo_tcp_handler_fn		handler_fn;	/* handler function */
+
+	/* Administrativia */
+	unsigned long			handle;		/* handler handle */
+	struct eemo_tcp_handler*	next;		/* single LL next element */
 }
 eemo_tcp_handler;
 
-/* Register an TCP handler */
-typedef eemo_rv (*eemo_reg_tcp_handler_fn) (u_short, u_short, eemo_tcp_handler_fn);
+/* Register a TCP handler */
+typedef eemo_rv (*eemo_reg_tcp_handler_fn) (u_short, u_short, eemo_tcp_handler_fn, unsigned long*);
 
-eemo_rv eemo_reg_tcp_handler(u_short srcport, u_short dstport, eemo_tcp_handler_fn handler_fn);
+eemo_rv eemo_reg_tcp_handler(u_short srcport, u_short dstport, eemo_tcp_handler_fn handler_fn, unsigned long* handle);
 
-/* Unregister an TCP handler */
-typedef eemo_rv (*eemo_unreg_tcp_handler_fn) (u_short, u_short);
+/* Unregister a TCP handler */
+typedef eemo_rv (*eemo_unreg_tcp_handler_fn) (unsigned long);
 
-eemo_rv eemo_unreg_tcp_handler(u_short srcport, u_short dstport);
+eemo_rv eemo_unreg_tcp_handler(unsigned long handle);
 
 /* Initialise TCP handling */
 eemo_rv eemo_init_tcp_handler(void);

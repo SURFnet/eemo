@@ -104,6 +104,8 @@ eemo_rv eemo_unreg_ether_handler(unsigned long handle)
 	{
 		return ERV_NOT_FOUND;
 	}
+
+	eemo_recycle_handle(handle);
 }
 
 /* Convert the packet from network to host byte order */
