@@ -247,35 +247,31 @@ eemo_rv eemo_dnssensorfw_ipfw_handle_pkt(eemo_packet_buf* packet, eemo_ether_pac
 		unsigned short* src_port = NULL;
 		unsigned short* dst_port = NULL;
 
-		/* Check protocol */
-		switch (v4hdr->ip4_proto)
+		/* If it is a fragment, always forward it */
+		if (v4hdr->ip4_ofs == 0)
 		{
-		case 0x01:	/* ICMP */
-			break;	/* packet will be forwarded */
-		case 0x06:	/* TCP */
-		case 0x11:	/* UDP */
-			/* Check destination port */
-			if (packet->len < ((IP_HDRLEN(v4hdr->ip4_ver_hl) << 2) + 4))
+			/* Not a fragment, check protocol */
+			switch (v4hdr->ip4_proto)
 			{
-				return ERV_MALFORMED;
-			}
-
-			src_port = (unsigned short*) &packet->data[IP_HDRLEN(v4hdr->ip4_ver_hl) << 2];
-			dst_port = src_port + 1;
-
-			if ((ntohs(*src_port) != 53) && (ntohs(*dst_port) != 53))
-			{
-				return ERV_SKIPPED;
-			}
-			break;	/* packet will be forwarded */
-		default:
-			if (v4hdr->ip4_ofs > 0)
-			{
-				/* this is a fragment, forward it! */
-				break;
-			}
-			else
-			{
+			case 0x01:	/* ICMP */
+				break;	/* packet will be forwarded */
+			case 0x06:	/* TCP */
+			case 0x11:	/* UDP */
+				/* Check destination port */
+				if (packet->len < ((IP_HDRLEN(v4hdr->ip4_ver_hl) << 2) + 4))
+				{
+					return ERV_MALFORMED;
+				}
+	
+				src_port = (unsigned short*) &packet->data[IP_HDRLEN(v4hdr->ip4_ver_hl) << 2];
+				dst_port = src_port + 1;
+	
+				if ((ntohs(*src_port) != 53) && (ntohs(*dst_port) != 53))
+				{
+					return ERV_SKIPPED;
+				}
+				break;	/* packet will be forwarded */
+			default:
 				return ERV_SKIPPED;
 			}
 		}
