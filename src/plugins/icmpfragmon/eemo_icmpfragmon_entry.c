@@ -44,6 +44,10 @@
 
 const static char* plugin_description = "EEMO ICMP fragment reassembly time-out monitoring " PACKAGE_VERSION;
 
+/* ICMP handler handles */
+unsigned long icmp_ip4_handler_handle = 0;
+unsigned long icmp_ip6_handler_handle = 0;
+
 /* Plugin initialisation */
 eemo_rv eemo_icmpfragmon_init(eemo_export_fn_table_ptr eemo_fn, const char* conf_base_path)
 {
@@ -91,7 +95,7 @@ eemo_rv eemo_icmpfragmon_init(eemo_export_fn_table_ptr eemo_fn, const char* conf
 	eemo_icmpfragmon_aggr_init(server, port, max_packet_size, sensor_id);
 
 	/* Register ICMP handlers */
-	rv = (eemo_fn->reg_icmp_handler)(ICMPv4_TYPE_TIME_EXCEEDED, ICMPv4_CODE_REASSEMBLY_FAIL, IP_TYPE_V4, &eemo_icmpfragmon_handle_icmp);
+	rv = (eemo_fn->reg_icmp_handler)(ICMPv4_TYPE_TIME_EXCEEDED, ICMPv4_CODE_REASSEMBLY_FAIL, IP_TYPE_V4, &eemo_icmpfragmon_handle_icmp, &icmp_ip4_handler_handle);
 
 	if (rv != ERV_OK)
 	{
@@ -100,7 +104,7 @@ eemo_rv eemo_icmpfragmon_init(eemo_export_fn_table_ptr eemo_fn, const char* conf
 		return rv;
 	}
 
-	rv = (eemo_fn->reg_icmp_handler)(ICMPv6_TYPE_TIME_EXCEEDED, ICMPv6_CODE_REASSEMBLY_FAIL, IP_TYPE_V6, &eemo_icmpfragmon_handle_icmp);
+	rv = (eemo_fn->reg_icmp_handler)(ICMPv6_TYPE_TIME_EXCEEDED, ICMPv6_CODE_REASSEMBLY_FAIL, IP_TYPE_V6, &eemo_icmpfragmon_handle_icmp, &icmp_ip6_handler_handle);
 
 	if (rv != ERV_OK)
 	{
@@ -116,12 +120,12 @@ eemo_rv eemo_icmpfragmon_init(eemo_export_fn_table_ptr eemo_fn, const char* conf
 eemo_rv eemo_icmpfragmon_uninit(eemo_export_fn_table_ptr eemo_fn)
 {
 	/* Unregister ICMP handler */
-	if (eemo_fn->unreg_icmp_handler(ICMPv4_TYPE_TIME_EXCEEDED, ICMPv4_CODE_REASSEMBLY_FAIL, IP_TYPE_V4) != ERV_OK)
+	if (eemo_fn->unreg_icmp_handler(icmp_ip4_handler_handle) != ERV_OK)
 	{
 		ERROR_MSG("Failed to unregister ICMPv4 handler for fragment reassembly time-out");
 	}
 
-	if (eemo_fn->unreg_icmp_handler(ICMPv6_TYPE_TIME_EXCEEDED, ICMPv6_CODE_REASSEMBLY_FAIL, IP_TYPE_V6) != ERV_OK)
+	if (eemo_fn->unreg_icmp_handler(icmp_ip6_handler_handle) != ERV_OK)
 	{
 		ERROR_MSG("Failed to unregister ICMPv6 handler for fragment reassembly time-out");
 	}

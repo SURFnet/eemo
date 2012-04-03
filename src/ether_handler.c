@@ -97,6 +97,8 @@ eemo_rv eemo_unreg_ether_handler(unsigned long handle)
 		DEBUG_MSG("Unregistered Ethernet handler with handle 0x%08X and handler function at 0x%08X", handle, to_delete->handler_fn);
 
 		free(to_delete);
+		
+		eemo_recycle_handle(handle);
 
 		return ERV_OK;
 	}
@@ -104,8 +106,6 @@ eemo_rv eemo_unreg_ether_handler(unsigned long handle)
 	{
 		return ERV_NOT_FOUND;
 	}
-
-	eemo_recycle_handle(handle);
 }
 
 /* Convert the packet from network to host byte order */

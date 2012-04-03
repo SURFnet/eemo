@@ -69,18 +69,22 @@ typedef struct eemo_icmp_handler
 	u_char			icmp_code;	/* ICMP message code handled */
 	unsigned char		iptype;		/* IP type (v4 or v6) */
 	eemo_icmp_handler_fn	handler_fn;	/* Handler function */
+
+	/* Administrativia */
+	unsigned long		handle;		/* Handler handle */
+	struct eemo_icmp_handler* next;		/* Single LL next element */
 }
 eemo_icmp_handler;
 
 /* Register an ICMP handler */
-typedef eemo_rv (*eemo_reg_icmp_handler_fn) (u_char, u_char, unsigned char, eemo_icmp_handler_fn);
+typedef eemo_rv (*eemo_reg_icmp_handler_fn) (u_char, u_char, unsigned char, eemo_icmp_handler_fn, unsigned long*);
 
-eemo_rv eemo_reg_icmp_handler(u_char icmp_type, u_char icmp_code, unsigned char iptype, eemo_icmp_handler_fn handler_fn);
+eemo_rv eemo_reg_icmp_handler(u_char icmp_type, u_char icmp_code, unsigned char iptype, eemo_icmp_handler_fn handler_fn, unsigned long* handle);
 
 /* Unregister an ICMP handler */
-typedef eemo_rv (*eemo_unreg_icmp_handler_fn) (u_char, u_char, unsigned char);
+typedef eemo_rv (*eemo_unreg_icmp_handler_fn) (unsigned long);
 
-eemo_rv eemo_unreg_icmp_handler(u_char icmp_type, u_char icmp_code, unsigned char iptype);
+eemo_rv eemo_unreg_icmp_handler(unsigned long handle);
 
 /* Initialise ICMP handling */
 eemo_rv eemo_init_icmp_handler(void);
