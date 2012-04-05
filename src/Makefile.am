@@ -13,8 +13,6 @@ eemo_SOURCES =		dns_handler.c \
 			eemo_config.h \
 			eemo_handlefactory.c \
 			eemo_handlefactory.h \
-			eemo_list.c \
-			eemo_list.h \
 			eemo_log.c \
 			eemo_log.h \
 			eemo_main.c \
@@ -33,7 +31,8 @@ eemo_SOURCES =		dns_handler.c \
 			tcp_handler.c \
 			tcp_handler.h \
 			udp_handler.c \
-			udp_handler.h
+			udp_handler.h \
+			utlist.h
 
 eemo_LDADD =		-lpcap -lconfig
 

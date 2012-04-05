@@ -375,21 +375,26 @@ void eemo_dnsstats_stats_uninit(eemo_conf_free_string_array_fn free_strings)
 eemo_rv eemo_dnsstats_stats_handleq(eemo_ip_packet_info ip_info, u_short qclass, u_short qtype, u_short flags, char* qname, int is_tcp)
 {
 	int i = 0;
-	int ip_match = 0;
 
-	/* Check if this query is directed at the server we're supposed to monitor */
-	for (i = 0; i < stat_ipcount; i++)
+	/* Either count all messages or check whether this messages matches any of the IPs we're monitoring */
+	if (stat_ipcount > 0)
 	{
-		if (!strcmp(stat_ips[i], ip_info.ip_dst) || !strcmp(stat_ips[i], IP_ANY))
+		int ip_match = 0;
+	
+		/* Check if this query is directed at the server we're supposed to monitor */
+		for (i = 0; i < stat_ipcount; i++)
 		{
-			ip_match = 1;
-			break;
+			if (!strcmp(stat_ips[i], ip_info.ip_dst) || !strcmp(stat_ips[i], IP_ANY))
+			{
+				ip_match = 1;
+				break;
+			}
 		}
-	}
-
-	if (!ip_match)
-	{
-		return ERV_SKIPPED;
+	
+		if (!ip_match)
+		{
+			return ERV_SKIPPED;
+		}
 	}
 
 	/* Log query class */

@@ -38,7 +38,7 @@
 #include "config.h"
 #include "eemo.h"
 #include "eemo_config.h"
-#include "eemo_list.h"
+#include "utlist.h"
 #include "eemo_log.h"
 #include <libconfig.h>
 #include <string.h>
@@ -47,7 +47,7 @@
 #include <dlfcn.h>
 
 /* The list of modules */
-static eemo_ll_entry* modules = NULL;
+static eemo_module_spec* modules = NULL;
 
 /* The configuration */
 config_t configuration;
@@ -293,6 +293,9 @@ eemo_rv eemo_conf_load_modules(void)
 		return ERV_NO_MODULES;
 	}
 
+	/* Initialise list of modules */
+	modules = NULL;
+
 	/* Determine the number of configured modules */
 	mod_count = config_setting_length(modules_conf);
 
@@ -440,19 +443,7 @@ eemo_rv eemo_conf_load_modules(void)
 		INFO_MSG("Initialised module %s", (new_mod->mod_fn_table->plugin_getdescription)());
 
 		/* Add it to the list of modules */
-		if (eemo_ll_append(&modules, new_mod) != ERV_OK)
-		{
-			ERROR_MSG("Failed to append the module to the list");
-
-			(new_mod->mod_fn_table->plugin_uninit)(&eemo_function_table);
-
-			dlclose(new_mod->mod_handle);
-			free(new_mod->mod_path);
-			free(new_mod->mod_conf_base);
-			free(new_mod);
-
-			continue;
-		}
+		LL_APPEND(modules, new_mod);
 
 		loaded_modules++;
 	}
@@ -470,42 +461,40 @@ eemo_rv eemo_conf_load_modules(void)
 /* Unload and uninitialise the modules */
 eemo_rv eemo_conf_unload_modules(void)
 {
-	eemo_ll_entry* current = NULL;
+	eemo_module_spec* module_it = NULL;
+	eemo_module_spec* module_tmp = NULL;
 
 	/* Unload all loaded modules and clean up the list of modules */
-	current = modules;
-
-	while (current != NULL)
+	LL_FOREACH_SAFE(modules, module_it, module_tmp)
 	{
-		eemo_module_spec* module = (eemo_module_spec*) current->elem_data;
-
 		/* Uninitialise the module */
-		if (module->mod_fn_table->plugin_uninit(&eemo_function_table) != ERV_OK)
+		if (module_it->mod_fn_table->plugin_uninit(&eemo_function_table) != ERV_OK)
 		{
-			ERROR_MSG("Failed to uninitialise plugin module %s", module->mod_path);
+			ERROR_MSG("Failed to uninitialise plugin module %s", module_it->mod_path);
 		}
 		else
 		{
-			INFO_MSG("Uninitialised plugin module %s", module->mod_path);
+			INFO_MSG("Uninitialised plugin module %s", module_it->mod_path);
 		}
 
 		/* Unload the module */
-		if (dlclose(module->mod_handle) != 0)
+		if (dlclose(module_it->mod_handle) != 0)
 		{
-			ERROR_MSG("Failed to unload %s", module->mod_path);
+			ERROR_MSG("Failed to unload %s", module_it->mod_path);
 		}
 		else
 		{
-			INFO_MSG("Unloaded plugin module %s", module->mod_path);
+			INFO_MSG("Unloaded plugin module %s", module_it->mod_path);
 		}
 
 		/* Free up memory taken by the module path */
-		free(module->mod_path);
+		free(module_it->mod_path);
+	
+		LL_DELETE(modules, module_it);
 
-		current = current->next;
+		free(module_it);
 	}
 
-	/* Free the list of modules */
-	return eemo_ll_free(&modules);
+	return ERV_OK;
 }
 

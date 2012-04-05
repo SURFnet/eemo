@@ -43,12 +43,15 @@
 #include "eemo_api.h"
 
 /* Module specification */
-typedef struct
+typedef struct eemo_module_spec
 {
 	char* 				mod_path;	/* The path to the module's shared library */
 	char*				mod_conf_base;	/* Base configuration path for the module */
 	void*				mod_handle;	/* The module's shared library handle */
 	eemo_plugin_fn_table_ptr	mod_fn_table;	/* The module's function table */
+
+	/* Administrativia */
+	struct eemo_module_spec*	next;		/* single LL next element */
 }
 eemo_module_spec;
 

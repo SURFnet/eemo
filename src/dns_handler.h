@@ -68,18 +68,22 @@ typedef struct eemo_dns_qhandler
 	u_short				qclass;		/* query class */
 	u_short				qtype;		/* query type */
 	eemo_dns_qhandler_fn		handler_fn;	/* handler function */
+
+	/* Administrativia */
+	unsigned long			handle;		/* handler handle */
+	struct eemo_dns_qhandler*	next;		/* single LL next element */
 }
 eemo_dns_qhandler;
 
 /* Register a DNS query handler */
-typedef eemo_rv (*eemo_reg_dns_qhandler_fn) (u_short, u_short, eemo_dns_qhandler_fn);
+typedef eemo_rv (*eemo_reg_dns_qhandler_fn) (u_short, u_short, eemo_dns_qhandler_fn, unsigned long*);
 
-eemo_rv eemo_reg_dns_qhandler(u_short qclass, u_short qtype, eemo_dns_qhandler_fn handler_fn);
+eemo_rv eemo_reg_dns_qhandler(u_short qclass, u_short qtype, eemo_dns_qhandler_fn handler_fn, unsigned long* handle);
 
 /* Unregister a DNS query handler */
-typedef eemo_rv (*eemo_unreg_dns_qhandler_fn) (u_short, u_short);
+typedef eemo_rv (*eemo_unreg_dns_qhandler_fn) (unsigned long);
 
-eemo_rv eemo_unreg_dns_qhandler(u_short qclass, u_short qtype);
+eemo_rv eemo_unreg_dns_qhandler(unsigned long handle);
 
 /* Initialise DNS handling */
 eemo_rv eemo_init_dns_qhandler(void);

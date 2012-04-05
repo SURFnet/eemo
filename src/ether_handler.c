@@ -198,8 +198,8 @@ eemo_rv eemo_init_ether_handler(void)
 /* Clean up */
 void eemo_ether_handler_cleanup(void)
 {
-	eemo_ether_handler* handler_it;
-	eemo_ether_handler* handler_tmp;
+	eemo_ether_handler* handler_it = NULL;
+	eemo_ether_handler* handler_tmp = NULL;
 
 	/* Clean up the list of Ethernet packet handlers */
 	LL_FOREACH_SAFE(ether_handlers, handler_it, handler_tmp)

@@ -39,7 +39,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include "eemo.h"
-#include "eemo_list.h"
+#include "utlist.h"
+#include "eemo_handlefactory.h"
 #include "eemo_log.h"
 #include "udp_handler.h"
 #include "tcp_handler.h"
@@ -47,106 +48,11 @@
 #include "dns_types.h"
 
 /* The linked list of DNS query handlers */
-static eemo_ll_entry* dns_qhandlers = NULL;
+static eemo_dns_qhandler* dns_qhandlers = NULL;
 
 /* UDP and TCP DNS handler handles */
 static unsigned long udp_dns_handler_handle = 0;
 static unsigned long tcp_dns_handler_handle = 0;
-
-/* DNS query handler entry comparison type */
-typedef struct
-{
-	u_short qclass;
-	u_short qtype;
-}
-eemo_dns_qhandler_comp_t;
-
-/* DNS query handler entry comparison */
-int eemo_dns_qhandler_compare(void* elem_data, void* comp_data)
-{
-	eemo_dns_qhandler* elem = (eemo_dns_qhandler*) elem_data;
-	eemo_dns_qhandler_comp_t* comp = (eemo_dns_qhandler_comp_t*) comp_data;
-
-	if ((elem_data == NULL) || (comp_data == NULL))
-	{
-		return 0;
-	}
-
-	if (((elem->qclass == DNS_QCLASS_UNSPECIFIED) || (elem->qclass == comp->qclass)) &&
-	    ((elem->qtype == DNS_QTYPE_UNSPECIFIED) || (elem->qtype == comp->qtype)))
-	{
-		return 1;
-	}
-
-	return 0;
-}
-
-/* DNS query handler entry comparison with exact match */
-int eemo_dns_qhandler_compare_exact(void* elem_data, void* comp_data)
-{
-	eemo_dns_qhandler* elem = (eemo_dns_qhandler*) elem_data;
-	eemo_dns_qhandler_comp_t* comp = (eemo_dns_qhandler_comp_t*) comp_data;
-
-	if ((elem_data == NULL) || (comp_data == NULL))
-	{
-		return 0;
-	}
-
-	if ((elem->qclass == comp->qclass) && (elem->qtype == comp->qtype))
-	{
-		return 1;
-	}
-
-	return 0;
-}
-
-/* DNS query handler entry cloning */
-void* eemo_dns_qhandler_clone(const void* elem_data)
-{
-	const eemo_dns_qhandler* elem = (const eemo_dns_qhandler*) elem_data;
-	eemo_dns_qhandler* new_elem = NULL;
-
-	if (elem_data == NULL)
-	{
-		return NULL;
-	}
-
-	new_elem = (eemo_dns_qhandler*) malloc(sizeof(eemo_dns_qhandler));
-
-	if (new_elem != NULL)
-	{
-		/* Clone element, no deep copy required in this case */
-		memcpy(new_elem, elem, sizeof(eemo_dns_qhandler));
-	}
-
-	return (void*) new_elem;
-}
-
-/* Find DNS query handlers for the specified type */
-eemo_ll_entry* eemo_find_dns_qhandlers(u_short qclass, u_short qtype)
-{
-	eemo_ll_entry* rv = NULL;
-	eemo_dns_qhandler_comp_t comp;
-
-	comp.qclass = qclass;
-	comp.qtype = qtype;
-
-	eemo_ll_find_multi(dns_qhandlers, &rv, &eemo_dns_qhandler_compare, &comp, &eemo_dns_qhandler_clone);
-
-	return rv;
-}
-
-/* Check if a handler exists for the specified type/class */
-int eemo_dns_qhandler_exists(u_short qclass, u_short qtype)
-{
-	void* rv = NULL;
-	eemo_dns_qhandler_comp_t comp;
-
-	comp.qclass = qclass;
-	comp.qtype = qtype;
-
-	return (eemo_ll_find(dns_qhandlers, &rv, &eemo_dns_qhandler_compare_exact, &comp) != ERV_NOT_FOUND);
-}
 
 /* Convert DNS packet header to host byte order */
 void eemo_dns_ntoh(eemo_hdr_dns* hdr)
@@ -160,7 +66,7 @@ void eemo_dns_ntoh(eemo_hdr_dns* hdr)
 }
 
 /* Handle DNS payload */
-eemo_rv eemo_handle_dns_qpayload(eemo_packet_buf* packet, eemo_ip_packet_info ip_info, int is_tcp)
+eemo_rv eemo_handle_dns_payload(eemo_packet_buf* packet, eemo_ip_packet_info ip_info, int is_tcp)
 {
 	eemo_hdr_dns* 		hdr 			= NULL;
 	size_t 			ofs 			= 0;
@@ -170,8 +76,7 @@ eemo_rv eemo_handle_dns_qpayload(eemo_packet_buf* packet, eemo_ip_packet_info ip
 	u_char* 		qdata 			= NULL;
 	int 			root_label_found 	= 0;
 	char* 			query_name 		= NULL;
-	eemo_ll_entry* 		handlers 		= NULL;
-	eemo_ll_entry*		handler_it		= NULL;
+	eemo_dns_qhandler*	handler_it		= NULL;
 	u_short			qclass			= DNS_QCLASS_UNSPECIFIED;
 	u_short			qtype			= DNS_QTYPE_UNSPECIFIED;
 	eemo_rv			rv			= ERV_SKIPPED;
@@ -194,7 +99,7 @@ eemo_rv eemo_handle_dns_qpayload(eemo_packet_buf* packet, eemo_ip_packet_info ip
 	/* Parse the DNS packet */
 	if (FLAG_SET(hdr->dns_flags, DNS_QRFLAG))
 	{
-		/* This is a response packet(!) */
+		/* This is a response packet, we don't handle those yet */
 		return ERV_SKIPPED;
 	}
 
@@ -271,45 +176,36 @@ eemo_rv eemo_handle_dns_qpayload(eemo_packet_buf* packet, eemo_ip_packet_info ip
 	qclass = ntohs(*((u_short*) &qdata[ofs]));
 
 	/* See if there are query handlers for this query class & type */
-	handlers = eemo_find_dns_qhandlers(qclass, qtype); 
-	handler_it = handlers;
-
-	while (handler_it != NULL)
+	LL_FOREACH(dns_qhandlers, handler_it)
 	{
-		eemo_dns_qhandler* handler = (eemo_dns_qhandler*) handler_it->elem_data;
-
-		if (handler != NULL)
+		if ((handler_it->handler_fn != NULL) &&
+		    ((handler_it->qclass == DNS_QCLASS_UNSPECIFIED) || (handler_it->qclass == qclass)) &&
+		    ((handler_it->qtype == DNS_QTYPE_UNSPECIFIED) || (handler_it->qtype == qtype)))
 		{
 			eemo_rv handler_rv = ERV_SKIPPED;
 			
-			if (handler->handler_fn != NULL)
-			{
-				handler_rv = (handler->handler_fn)(ip_info, qclass, qtype, hdr->dns_flags, query_name, is_tcp);
-			}
+			handler_rv = (handler_it->handler_fn)(ip_info, qclass, qtype, hdr->dns_flags, query_name, is_tcp);
 
 			if (rv != ERV_HANDLED)
 			{
 				rv = handler_rv;
 			}
 		}
-
-		handler_it = handler_it->next;
 	}
 
-	eemo_ll_free(&handlers);
 	free(query_name);
 
 	return rv;
 }
 
 /* Handle a UDP DNS packet */
-eemo_rv eemo_handle_dns_udp_qpacket(eemo_packet_buf* packet, eemo_ip_packet_info ip_info, u_short srcport, u_short dstport)
+eemo_rv eemo_handle_dns_udp_packet(eemo_packet_buf* packet, eemo_ip_packet_info ip_info, u_short srcport, u_short dstport)
 {
-	return eemo_handle_dns_qpayload(packet, ip_info, 0);
+	return eemo_handle_dns_payload(packet, ip_info, 0);
 }
 
 /* Handle a TCP DNS packet */
-eemo_rv eemo_handle_dns_tcp_qpacket(eemo_packet_buf* packet, eemo_ip_packet_info ip_info, eemo_tcp_packet_info tcp_info)
+eemo_rv eemo_handle_dns_tcp_packet(eemo_packet_buf* packet, eemo_ip_packet_info ip_info, eemo_tcp_packet_info tcp_info)
 {
 	eemo_packet_buf* dns_data = NULL;
 	eemo_rv rv = ERV_OK;
@@ -348,31 +244,23 @@ eemo_rv eemo_handle_dns_tcp_qpacket(eemo_packet_buf* packet, eemo_ip_packet_info
 		return ERV_MEMORY;
 	}
 
-	rv = eemo_handle_dns_qpayload(dns_data, ip_info, 1);
+	rv = eemo_handle_dns_payload(dns_data, ip_info, 1);
 
 	eemo_pbuf_free(dns_data);
 
 	return rv;
 }
 
-/* Register an DNS handler */
-eemo_rv eemo_reg_dns_qhandler(u_short qclass, u_short qtype, eemo_dns_qhandler_fn handler_fn)
+/* Register a DNS handler */
+eemo_rv eemo_reg_dns_qhandler(u_short qclass, u_short qtype, eemo_dns_qhandler_fn handler_fn, unsigned long* handle)
 {
 	eemo_dns_qhandler* new_handler = NULL;
-	eemo_rv rv = ERV_OK;
 
-	/* Check if a handler for the specified ports already exists */
-
-	/* RvR: disabled this check, multiple handlers can be registered. Note that
-	 *      this does mean that unregistering a handler may unregister the handler
-	 *      registered by someone else, so this should only be done when exiting
-	 *      the program!
-	 *
-	if (eemo_dns_qhandler_exists(qclass, qtype))
+	/* Check parameters */
+	if ((handler_fn == NULL) || (handle == NULL))
 	{
-		return ERV_HANDLER_EXISTS;
+		return ERV_PARAM_INVALID;
 	}
-	 */
 
 	/* Create a new handler entry */
 	new_handler = (eemo_dns_qhandler*) malloc(sizeof(eemo_dns_qhandler));
@@ -386,25 +274,41 @@ eemo_rv eemo_reg_dns_qhandler(u_short qclass, u_short qtype, eemo_dns_qhandler_f
 	new_handler->qclass = qclass;
 	new_handler->qtype = qtype;
 	new_handler->handler_fn = handler_fn;
+	new_handler->handle = eemo_get_new_handle();
 
 	/* Register the new handler */
-	if ((rv = eemo_ll_append(&dns_qhandlers, (void*) new_handler)) != ERV_OK)
-	{
-		free(new_handler);
-	}
+	LL_APPEND(dns_qhandlers, new_handler);
 
-	return rv;
+	*handle = new_handler->handle;
+
+	DEBUG_MSG("Registered DNS query handler with handle 0x%08X and handler function at 0x%08X", *handle, handler_fn);
+
+	return ERV_OK;
 }
 
-/* Unregister an DNS handler */
-eemo_rv eemo_unreg_dns_qhandler(u_short qclass, u_short qtype)
+/* Unregister a DNS handler */
+eemo_rv eemo_unreg_dns_qhandler(unsigned long handle)
 {
-	eemo_dns_qhandler_comp_t comp;
-	
-	comp.qclass = qclass;
-	comp.qtype = qtype;
+	eemo_dns_qhandler* to_delete = NULL;
 
-	return eemo_ll_remove(&dns_qhandlers, &eemo_dns_qhandler_compare, &comp);
+	LL_SEARCH_SCALAR(dns_qhandlers, to_delete, handle, handle);
+
+	if (to_delete != NULL)
+	{
+		LL_DELETE(dns_qhandlers, to_delete);
+
+		DEBUG_MSG("Unregistered DNS query handler with handle 0x%08X and handler function at 0x%08X", handle, to_delete->handler_fn);
+
+		free(to_delete);
+
+		eemo_recycle_handle(handle);
+
+		return ERV_OK;
+	}
+	else
+	{
+		return ERV_NOT_FOUND;
+	}
 }
 
 /* Initialise DNS query handling */
@@ -414,7 +318,7 @@ eemo_rv eemo_init_dns_qhandler(void)
 	dns_qhandlers = NULL;
 
 	/* Register UDP packet handler */
-	rv = eemo_reg_udp_handler(UDP_ANY_PORT, DNS_PORT, &eemo_handle_dns_udp_qpacket, &udp_dns_handler_handle);
+	rv = eemo_reg_udp_handler(UDP_ANY_PORT, DNS_PORT, &eemo_handle_dns_udp_packet, &udp_dns_handler_handle);
 
 	if (rv != ERV_OK)
 	{
@@ -422,7 +326,7 @@ eemo_rv eemo_init_dns_qhandler(void)
 	}
 
 	/* Register DNS packet handler */
-	rv = eemo_reg_tcp_handler(TCP_ANY_PORT, DNS_PORT, &eemo_handle_dns_tcp_qpacket, &tcp_dns_handler_handle);
+	rv = eemo_reg_tcp_handler(TCP_ANY_PORT, DNS_PORT, &eemo_handle_dns_tcp_packet, &tcp_dns_handler_handle);
 
 	if (rv != ERV_OK)
 	{
@@ -439,10 +343,15 @@ eemo_rv eemo_init_dns_qhandler(void)
 /* Clean up */
 void eemo_dns_qhandler_cleanup(void)
 {
+	eemo_dns_qhandler* qhandler_it = NULL; 
+	eemo_dns_qhandler* qhandler_tmp = NULL;
+
 	/* Clean up list of DNS query handlers */
-	if (eemo_ll_free(&dns_qhandlers) != ERV_OK)
+	LL_FOREACH_SAFE(dns_qhandlers, qhandler_it, qhandler_tmp)
 	{
-		ERROR_MSG("Failed to free list of DNS query handlers");
+		LL_DELETE(dns_qhandlers, qhandler_it);
+
+		free(qhandler_it);
 	}
 
 	/* Unregister the DNS UDP and TCP handler */

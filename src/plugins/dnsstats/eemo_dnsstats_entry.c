@@ -44,6 +44,9 @@
 
 const static char* plugin_description = "EEMO DNS statistics plugin " PACKAGE_VERSION;
 
+/* Handler handle */
+static unsigned long stats_dns_handler_handle = 0;
+
 /* Plugin initialisation */
 eemo_rv eemo_dnsstats_init(eemo_export_fn_table_ptr eemo_fn, const char* conf_base_path)
 {
@@ -91,7 +94,7 @@ eemo_rv eemo_dnsstats_init(eemo_export_fn_table_ptr eemo_fn, const char* conf_ba
 	eemo_dnsstats_stats_init(ips, ipcount, emit_interval, file, append, reset);
 
 	/* Register DNS query handler */
-	rv = (eemo_fn->reg_dns_qhandler)(DNS_QCLASS_UNSPECIFIED, DNS_QTYPE_UNSPECIFIED, &eemo_dnsstats_stats_handleq);
+	rv = (eemo_fn->reg_dns_qhandler)(DNS_QCLASS_UNSPECIFIED, DNS_QTYPE_UNSPECIFIED, &eemo_dnsstats_stats_handleq, &stats_dns_handler_handle);
 
 	if (rv != ERV_OK)
 	{
@@ -107,7 +110,7 @@ eemo_rv eemo_dnsstats_init(eemo_export_fn_table_ptr eemo_fn, const char* conf_ba
 eemo_rv eemo_dnsstats_uninit(eemo_export_fn_table_ptr eemo_fn)
 {
 	/* Unregister DNS query handler */
-	if ((eemo_fn->unreg_dns_qhandler)(DNS_QCLASS_UNSPECIFIED, DNS_QTYPE_UNSPECIFIED) != ERV_OK)
+	if ((eemo_fn->unreg_dns_qhandler)(stats_dns_handler_handle) != ERV_OK)
 	{
 		ERROR_MSG("Failed to unregister DNS query handler");
 	}
