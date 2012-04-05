@@ -45,138 +45,33 @@
 #include "udp_handler.h"
 #include "tcp_handler.h"
 #include "dns_handler.h"
+#include "dns_parser.h"
 #include "dns_types.h"
 
 /* The linked list of DNS query handlers */
 static eemo_dns_qhandler* dns_qhandlers = NULL;
 
 /* UDP and TCP DNS handler handles */
-static unsigned long udp_dns_handler_handle = 0;
-static unsigned long tcp_dns_handler_handle = 0;
-
-/* Convert DNS packet header to host byte order */
-void eemo_dns_ntoh(eemo_hdr_dns* hdr)
-{
-	hdr->dns_qid		= ntohs(hdr->dns_qid);
-	hdr->dns_flags		= ntohs(hdr->dns_flags);
-	hdr->dns_qdcount	= ntohs(hdr->dns_qdcount);
-	hdr->dns_ancount	= ntohs(hdr->dns_ancount);
-	hdr->dns_nscount	= ntohs(hdr->dns_nscount);
-	hdr->dns_arcount	= ntohs(hdr->dns_arcount);
-}
+static unsigned long udp_dns_in_handler_handle = 0;
+static unsigned long udp_dns_out_handler_handle = 0;
+static unsigned long tcp_dns_in_handler_handle = 0;
+static unsigned long tcp_dns_out_handler_handle = 0;
 
 /* Handle DNS payload */
 eemo_rv eemo_handle_dns_payload(eemo_packet_buf* packet, eemo_ip_packet_info ip_info, int is_tcp)
 {
-	eemo_hdr_dns* 		hdr 			= NULL;
-	size_t 			ofs 			= 0;
-	size_t 			qname_len 		= 0;
-	size_t 			qdata_len 		= packet->len - sizeof(eemo_hdr_dns);
-	size_t 			qname_ofs 		= 0;
-	u_char* 		qdata 			= NULL;
-	int 			root_label_found 	= 0;
-	char* 			query_name 		= NULL;
-	eemo_dns_qhandler*	handler_it		= NULL;
-	u_short			qclass			= DNS_QCLASS_UNSPECIFIED;
-	u_short			qtype			= DNS_QTYPE_UNSPECIFIED;
-	eemo_rv			rv			= ERV_SKIPPED;
+	eemo_rv			rv 		= ERV_SKIPPED;
+	/*eemo_dns_qhandler*	handler_it 	= NULL;*/
+	eemo_dns_packet		dns_packet;
 
-	/* Check minimum length */
-	if (packet->len < sizeof(eemo_hdr_dns))
+	/* Parse the packet */
+	if ((rv = eemo_parse_dns_packet(packet, &dns_packet)) != ERV_OK)
 	{
-		/* UDP packet is malformed */
-		return ERV_MALFORMED;
+		return rv;
 	}
-
-	qdata = &packet->data[sizeof(eemo_hdr_dns)];
-
-	/* Take the header from the packet */
-	hdr = (eemo_hdr_dns*) packet->data;
-
-	/* Convert the header to host byte order */
-	eemo_dns_ntoh(hdr);
-
-	/* Parse the DNS packet */
-	if (FLAG_SET(hdr->dns_flags, DNS_QRFLAG))
-	{
-		/* This is a response packet, we don't handle those yet */
-		return ERV_SKIPPED;
-	}
-
-	if (((DNS_OPCODE(hdr->dns_flags) != 0) && (DNS_OPCODE(hdr->dns_flags) != 1)) ||
-	      FLAG_SET(hdr->dns_flags, DNS_AAFLAG) ||
-	      FLAG_SET(hdr->dns_flags, DNS_TCFLAG) ||
-	      FLAG_SET(hdr->dns_flags, DNS_RAFLAG) ||
-	      (DNS_RCODE(hdr->dns_flags) != 0) ||
-	      (hdr->dns_qdcount != 1) || /* according to Alan Clegg, *everybody* does it this way ;-) */
-	      (hdr->dns_ancount > 0) ||
-	      (hdr->dns_nscount > 0) ||
-	      (hdr->dns_arcount > 1)) /* has to accept 1 for EDNS buffer size */
-	{
-		return ERV_MALFORMED;
-	}
-
-	/* Determine the length of the query name */
-	ofs = 0;
-
-	do
-	{
-		if (qdata[ofs] == 0)
-		{
-			root_label_found = 1;
-			break;
-		}
-
-		qname_len += qdata[ofs] + 1;
-		ofs += qdata[ofs];
-	}
-	while (++ofs < qdata_len);
-
-	if (!root_label_found)
-	{
-		return ERV_MALFORMED;
-	}
-	
-	qname_len++; /* space for \0 */
-	query_name = (char*) malloc(qname_len * sizeof(char));
-	memset(query_name, 0, qname_len);
-
-	/* Retrieve the query name */
-	ofs = 0;
-
-	do
-	{
-		int elem_len = qdata[ofs++];
-
-		if (elem_len == 0) break; /* root label */
-
-		while ((elem_len > 0) && (ofs < qdata_len))
-		{
-			query_name[qname_ofs++] = qdata[ofs++];
-			elem_len--;
-		}
-
-		query_name[qname_ofs++] = '.';
-	}
-	while (ofs < qdata_len);
-
-	/* Remove trailing dot */
-	query_name[qname_ofs - 1] = '\0';
-
-	/* Retrieve the query type and class */
-	if ((qdata_len - ofs) < 4)
-	{
-		free(query_name);
-
-		return ERV_MALFORMED;
-	}
-
-	qtype = ntohs(*((u_short*) &qdata[ofs]));
-	ofs += 2;
-	qclass = ntohs(*((u_short*) &qdata[ofs]));
 
 	/* See if there are query handlers for this query class & type */
-	LL_FOREACH(dns_qhandlers, handler_it)
+	/*LL_FOREACH(dns_qhandlers, handler_it)
 	{
 		if ((handler_it->handler_fn != NULL) &&
 		    ((handler_it->qclass == DNS_QCLASS_UNSPECIFIED) || (handler_it->qclass == qclass)) &&
@@ -191,10 +86,10 @@ eemo_rv eemo_handle_dns_payload(eemo_packet_buf* packet, eemo_ip_packet_info ip_
 				rv = handler_rv;
 			}
 		}
-	}
+	}*/
 
-	free(query_name);
-
+	eemo_free_dns_packet(&dns_packet);
+	
 	return rv;
 }
 
@@ -317,20 +212,40 @@ eemo_rv eemo_init_dns_qhandler(void)
 	eemo_rv rv = ERV_OK;
 	dns_qhandlers = NULL;
 
-	/* Register UDP packet handler */
-	rv = eemo_reg_udp_handler(UDP_ANY_PORT, DNS_PORT, &eemo_handle_dns_udp_packet, &udp_dns_handler_handle);
+	/* Register UDP packet handlers */
+	rv = eemo_reg_udp_handler(UDP_ANY_PORT, DNS_PORT, &eemo_handle_dns_udp_packet, &udp_dns_in_handler_handle);
 
 	if (rv != ERV_OK)
 	{
 		return rv;
 	}
 
-	/* Register DNS packet handler */
-	rv = eemo_reg_tcp_handler(TCP_ANY_PORT, DNS_PORT, &eemo_handle_dns_tcp_packet, &tcp_dns_handler_handle);
+	rv = eemo_reg_udp_handler(DNS_PORT, UDP_ANY_PORT, &eemo_handle_dns_udp_packet, &udp_dns_out_handler_handle);
 
 	if (rv != ERV_OK)
 	{
-		eemo_unreg_udp_handler(udp_dns_handler_handle);
+		eemo_unreg_udp_handler(udp_dns_in_handler_handle);
+		return rv;
+	}
+
+	/* Register DNS packet handler */
+	rv = eemo_reg_tcp_handler(TCP_ANY_PORT, DNS_PORT, &eemo_handle_dns_tcp_packet, &tcp_dns_in_handler_handle);
+
+	if (rv != ERV_OK)
+	{
+		eemo_unreg_udp_handler(udp_dns_in_handler_handle);
+		eemo_unreg_udp_handler(udp_dns_out_handler_handle);
+		
+		return rv;
+	}
+
+	rv = eemo_reg_tcp_handler(TCP_ANY_PORT, DNS_PORT, &eemo_handle_dns_tcp_packet, &tcp_dns_out_handler_handle);
+
+	if (rv != ERV_OK)
+	{
+		eemo_unreg_udp_handler(udp_dns_in_handler_handle);
+		eemo_unreg_udp_handler(udp_dns_out_handler_handle);
+		eemo_unreg_udp_handler(tcp_dns_in_handler_handle);
 		
 		return rv;
 	}
@@ -355,8 +270,10 @@ void eemo_dns_qhandler_cleanup(void)
 	}
 
 	/* Unregister the DNS UDP and TCP handler */
-	eemo_unreg_udp_handler(udp_dns_handler_handle);
-	eemo_unreg_tcp_handler(tcp_dns_handler_handle);
+	eemo_unreg_udp_handler(udp_dns_in_handler_handle);
+	eemo_unreg_udp_handler(udp_dns_out_handler_handle);
+	eemo_unreg_tcp_handler(tcp_dns_in_handler_handle);
+	eemo_unreg_tcp_handler(tcp_dns_out_handler_handle);
 
 	INFO_MSG("Uninitialised DNS query handling");
 }

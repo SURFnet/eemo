@@ -43,21 +43,8 @@
 #include <netdb.h>
 #include "eemo.h"
 #include "eemo_packet.h"
+#include "dns_parser.h"
 #include "ip_handler.h"
-
-#pragma pack(push, 1)
-/* DNS query packet header */
-typedef struct
-{
-	u_short	dns_qid;	/* query ID */
-	u_short dns_flags;	/* query flags */
-	u_short dns_qdcount;	/* number of queries in packet */
-	u_short	dns_ancount;	/* number of answers in packet */
-	u_short	dns_nscount;	/* number of authority answers in packet */
-	u_short	dns_arcount;	/* number of additional records in packet */
-}
-eemo_hdr_dns;
-#pragma pack(pop)
 
 /* Defines a DNS query handler */
 typedef eemo_rv (*eemo_dns_qhandler_fn) (eemo_ip_packet_info, u_short /*qclass*/, u_short /*qtype*/, u_short /*flags*/, char* /*qname*/, int /*is_tcp*/);
