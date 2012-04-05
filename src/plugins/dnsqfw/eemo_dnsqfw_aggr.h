@@ -42,7 +42,7 @@
 #include "eemo.h"
 #include "eemo_log.h"
 #include "eemo_api.h"
-#include "dns_qhandler.h"
+#include "dns_handler.h"
 #include "dns_types.h"
 
 /* Maximum UDP packet size for forwarding */

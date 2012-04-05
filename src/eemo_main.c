@@ -42,7 +42,7 @@
 #include "icmp_handler.h"
 #include "udp_handler.h"
 #include "tcp_handler.h"
-#include "dns_qhandler.h"
+#include "dns_handler.h"
 #include "dns_types.h"
 #include "ifaddr_lookup.h"
 #include "ether_capture.h"

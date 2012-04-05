@@ -41,7 +41,7 @@
 #include "config.h"
 #include "eemo.h"
 #include "eemo_log.h"
-#include "dns_qhandler.h"
+#include "dns_handler.h"
 #include "ether_handler.h"
 #include "ip_handler.h"
 #include "icmp_handler.h"

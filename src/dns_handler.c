@@ -43,7 +43,7 @@
 #include "eemo_log.h"
 #include "udp_handler.h"
 #include "tcp_handler.h"
-#include "dns_qhandler.h"
+#include "dns_handler.h"
 #include "dns_types.h"
 
 /* The linked list of DNS query handlers */
