@@ -225,6 +225,8 @@ eemo_rv eemo_dnssensorfw_ipfw_handle_pkt(eemo_packet_buf* packet, eemo_ether_pac
 		unsigned char buf[65536];
 	} send_packet;
 #pragma pack(pop)
+
+	unsigned short ip4_ofs = 0;
 	
 	eemo_hdr_ipv4* v4hdr = (eemo_hdr_ipv4*) packet->data;
 	eemo_hdr_ipv6* v6hdr = (eemo_hdr_ipv6*) packet->data;
@@ -241,6 +243,8 @@ eemo_rv eemo_dnssensorfw_ipfw_handle_pkt(eemo_packet_buf* packet, eemo_ether_pac
 		return ERV_MALFORMED;
 	}
 
+	ip4_ofs = ntohs(v4hdr->ip4_ofs) & 0x1fff;
+
 	/* Check the IP version */
 	if (IP_VER(v4hdr->ip4_ver_hl) == 4)
 	{
@@ -248,7 +252,7 @@ eemo_rv eemo_dnssensorfw_ipfw_handle_pkt(eemo_packet_buf* packet, eemo_ether_pac
 		unsigned short* dst_port = NULL;
 
 		/* If it is a fragment, always forward it */
-		if (v4hdr->ip4_ofs == 0)
+		if (ip4_ofs == 0)
 		{
 			/* Not a fragment, check protocol */
 			switch (v4hdr->ip4_proto)
@@ -265,11 +269,12 @@ eemo_rv eemo_dnssensorfw_ipfw_handle_pkt(eemo_packet_buf* packet, eemo_ether_pac
 	
 				src_port = (unsigned short*) &packet->data[IP_HDRLEN(v4hdr->ip4_ver_hl) << 2];
 				dst_port = src_port + 1;
-	
+
 				if ((ntohs(*src_port) != 53) && (ntohs(*dst_port) != 53))
 				{
 					return ERV_SKIPPED;
 				}
+
 				break;	/* packet will be forwarded */
 			default:
 				return ERV_SKIPPED;
