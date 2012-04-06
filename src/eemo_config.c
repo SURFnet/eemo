@@ -487,8 +487,9 @@ eemo_rv eemo_conf_unload_modules(void)
 			INFO_MSG("Unloaded plugin module %s", module_it->mod_path);
 		}
 
-		/* Free up memory taken by the module path */
+		/* Free up memory taken by the module path and config base path */
 		free(module_it->mod_path);
+		free(module_it->mod_conf_base);
 	
 		LL_DELETE(modules, module_it);
 

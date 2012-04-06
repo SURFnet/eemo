@@ -65,9 +65,9 @@ eemo_rv eemo_handle_dns_payload(eemo_packet_buf* packet, eemo_ip_packet_info ip_
 	eemo_dns_packet		dns_packet;
 
 	/* Parse the packet */
-	if ((rv = eemo_parse_dns_packet(packet, &dns_packet)) != ERV_OK)
+	if ((rv = eemo_parse_dns_packet(packet, &dns_packet)) == ERV_OK)
 	{
-		return rv;
+		/* Do something useful */
 	}
 
 	/* See if there are query handlers for this query class & type */
