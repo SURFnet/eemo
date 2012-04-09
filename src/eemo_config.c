@@ -72,8 +72,8 @@ eemo_export_fn_table eemo_function_table =
 	&eemo_unreg_tcp_handler,
 	&eemo_reg_udp_handler,
 	&eemo_unreg_udp_handler,
-	&eemo_reg_dns_qhandler,
-	&eemo_unreg_dns_qhandler
+	&eemo_reg_dns_handler,
+	&eemo_unreg_dns_handler
 };
 
 /* Initialise the configuration handler */

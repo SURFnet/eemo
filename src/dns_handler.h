@@ -47,36 +47,34 @@
 #include "ip_handler.h"
 
 /* Defines a DNS query handler */
-typedef eemo_rv (*eemo_dns_qhandler_fn) (eemo_ip_packet_info, u_short /*qclass*/, u_short /*qtype*/, u_short /*flags*/, char* /*qname*/, int /*is_tcp*/);
+typedef eemo_rv (*eemo_dns_handler_fn) (eemo_ip_packet_info, int /*is_tcp*/, const eemo_dns_packet*);
 
-/* Defines a DNS query handler record */
-typedef struct eemo_dns_qhandler
+/* Defines a DNS handler record */
+typedef struct eemo_dns_handler
 {
-	u_short				qclass;		/* query class */
-	u_short				qtype;		/* query type */
-	eemo_dns_qhandler_fn		handler_fn;	/* handler function */
+	eemo_dns_handler_fn		handler_fn;	/* handler function */
 
 	/* Administrativia */
 	unsigned long			handle;		/* handler handle */
-	struct eemo_dns_qhandler*	next;		/* single LL next element */
+	struct eemo_dns_handler*	next;		/* single LL next element */
 }
-eemo_dns_qhandler;
+eemo_dns_handler;
 
-/* Register a DNS query handler */
-typedef eemo_rv (*eemo_reg_dns_qhandler_fn) (u_short, u_short, eemo_dns_qhandler_fn, unsigned long*);
+/* Register a DNS handler */
+typedef eemo_rv (*eemo_reg_dns_handler_fn) (eemo_dns_handler_fn, unsigned long, unsigned long*);
 
-eemo_rv eemo_reg_dns_qhandler(u_short qclass, u_short qtype, eemo_dns_qhandler_fn handler_fn, unsigned long* handle);
+eemo_rv eemo_reg_dns_handler(eemo_dns_handler_fn handler_fn, unsigned long parser_flags, unsigned long* handle);
 
 /* Unregister a DNS query handler */
-typedef eemo_rv (*eemo_unreg_dns_qhandler_fn) (unsigned long);
+typedef eemo_rv (*eemo_unreg_dns_handler_fn) (unsigned long);
 
-eemo_rv eemo_unreg_dns_qhandler(unsigned long handle);
+eemo_rv eemo_unreg_dns_handler(unsigned long handle);
 
 /* Initialise DNS handling */
-eemo_rv eemo_init_dns_qhandler(void);
+eemo_rv eemo_init_dns_handler(void);
 
 /* Clean up */
-void eemo_dns_qhandler_cleanup(void);
+void eemo_dns_handler_cleanup(void);
 
 #endif /* !_EEMO_DNS_QHANDLER_H */
 

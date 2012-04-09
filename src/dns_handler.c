@@ -49,7 +49,7 @@
 #include "dns_types.h"
 
 /* The linked list of DNS query handlers */
-static eemo_dns_qhandler* dns_qhandlers = NULL;
+static eemo_dns_handler* dns_handlers = NULL;
 
 /* UDP and TCP DNS handler handles */
 static unsigned long udp_dns_in_handler_handle = 0;
@@ -57,36 +57,34 @@ static unsigned long udp_dns_out_handler_handle = 0;
 static unsigned long tcp_dns_in_handler_handle = 0;
 static unsigned long tcp_dns_out_handler_handle = 0;
 
+/* DNS parser flags */
+static unsigned long dns_parser_flags = PARSE_NONE;
+
 /* Handle DNS payload */
 eemo_rv eemo_handle_dns_payload(eemo_packet_buf* packet, eemo_ip_packet_info ip_info, int is_tcp)
 {
 	eemo_rv			rv 		= ERV_SKIPPED;
-	/*eemo_dns_qhandler*	handler_it 	= NULL;*/
+	eemo_dns_handler*	handler_it 	= NULL;
 	eemo_dns_packet		dns_packet;
 
 	/* Parse the packet */
-	if ((rv = eemo_parse_dns_packet(packet, &dns_packet)) == ERV_OK)
-	{
-		/* Do something useful */
-	}
+	rv = eemo_parse_dns_packet(packet, &dns_packet, dns_parser_flags);
 
-	/* See if there are query handlers for this query class & type */
-	/*LL_FOREACH(dns_qhandlers, handler_it)
+	if ((rv == ERV_OK) || (rv == ERV_PARTIAL))
 	{
-		if ((handler_it->handler_fn != NULL) &&
-		    ((handler_it->qclass == DNS_QCLASS_UNSPECIFIED) || (handler_it->qclass == qclass)) &&
-		    ((handler_it->qtype == DNS_QTYPE_UNSPECIFIED) || (handler_it->qtype == qtype)))
+		/* Call the registerd handlers with this packet */
+		LL_FOREACH(dns_handlers, handler_it)
 		{
 			eemo_rv handler_rv = ERV_SKIPPED;
-			
-			handler_rv = (handler_it->handler_fn)(ip_info, qclass, qtype, hdr->dns_flags, query_name, is_tcp);
+
+			handler_rv = (handler_it->handler_fn)(ip_info, is_tcp, &dns_packet);
 
 			if (rv != ERV_HANDLED)
 			{
 				rv = handler_rv;
 			}
 		}
-	}*/
+	}
 
 	eemo_free_dns_packet(&dns_packet);
 	
@@ -147,9 +145,9 @@ eemo_rv eemo_handle_dns_tcp_packet(eemo_packet_buf* packet, eemo_ip_packet_info 
 }
 
 /* Register a DNS handler */
-eemo_rv eemo_reg_dns_qhandler(u_short qclass, u_short qtype, eemo_dns_qhandler_fn handler_fn, unsigned long* handle)
+eemo_rv eemo_reg_dns_handler(eemo_dns_handler_fn handler_fn, unsigned long parser_flags, unsigned long* handle)
 {
-	eemo_dns_qhandler* new_handler = NULL;
+	eemo_dns_handler* new_handler = NULL;
 
 	/* Check parameters */
 	if ((handler_fn == NULL) || (handle == NULL))
@@ -158,7 +156,7 @@ eemo_rv eemo_reg_dns_qhandler(u_short qclass, u_short qtype, eemo_dns_qhandler_f
 	}
 
 	/* Create a new handler entry */
-	new_handler = (eemo_dns_qhandler*) malloc(sizeof(eemo_dns_qhandler));
+	new_handler = (eemo_dns_handler*) malloc(sizeof(eemo_dns_handler));
 
 	if (new_handler == NULL)
 	{
@@ -166,33 +164,34 @@ eemo_rv eemo_reg_dns_qhandler(u_short qclass, u_short qtype, eemo_dns_qhandler_f
 		return ERV_MEMORY;
 	}
 
-	new_handler->qclass = qclass;
-	new_handler->qtype = qtype;
 	new_handler->handler_fn = handler_fn;
 	new_handler->handle = eemo_get_new_handle();
 
+	/* Update parser flags */
+	dns_parser_flags |= parser_flags;
+
 	/* Register the new handler */
-	LL_APPEND(dns_qhandlers, new_handler);
+	LL_APPEND(dns_handlers, new_handler);
 
 	*handle = new_handler->handle;
 
-	DEBUG_MSG("Registered DNS query handler with handle 0x%08X and handler function at 0x%08X", *handle, handler_fn);
+	DEBUG_MSG("Registered DNS handler with handle 0x%08X and handler function at 0x%08X", *handle, handler_fn);
 
 	return ERV_OK;
 }
 
 /* Unregister a DNS handler */
-eemo_rv eemo_unreg_dns_qhandler(unsigned long handle)
+eemo_rv eemo_unreg_dns_handler(unsigned long handle)
 {
-	eemo_dns_qhandler* to_delete = NULL;
+	eemo_dns_handler* to_delete = NULL;
 
-	LL_SEARCH_SCALAR(dns_qhandlers, to_delete, handle, handle);
+	LL_SEARCH_SCALAR(dns_handlers, to_delete, handle, handle);
 
 	if (to_delete != NULL)
 	{
-		LL_DELETE(dns_qhandlers, to_delete);
+		LL_DELETE(dns_handlers, to_delete);
 
-		DEBUG_MSG("Unregistered DNS query handler with handle 0x%08X and handler function at 0x%08X", handle, to_delete->handler_fn);
+		DEBUG_MSG("Unregistered DNS handler with handle 0x%08X and handler function at 0x%08X", handle, to_delete->handler_fn);
 
 		free(to_delete);
 
@@ -207,10 +206,11 @@ eemo_rv eemo_unreg_dns_qhandler(unsigned long handle)
 }
 
 /* Initialise DNS query handling */
-eemo_rv eemo_init_dns_qhandler(void)
+eemo_rv eemo_init_dns_handler(void)
 {
 	eemo_rv rv = ERV_OK;
-	dns_qhandlers = NULL;
+	dns_handlers = NULL;
+	dns_parser_flags = PARSE_NONE;
 
 	/* Register UDP packet handlers */
 	rv = eemo_reg_udp_handler(UDP_ANY_PORT, DNS_PORT, &eemo_handle_dns_udp_packet, &udp_dns_in_handler_handle);
@@ -256,17 +256,17 @@ eemo_rv eemo_init_dns_qhandler(void)
 }
 
 /* Clean up */
-void eemo_dns_qhandler_cleanup(void)
+void eemo_dns_handler_cleanup(void)
 {
-	eemo_dns_qhandler* qhandler_it = NULL; 
-	eemo_dns_qhandler* qhandler_tmp = NULL;
+	eemo_dns_handler* handler_it = NULL; 
+	eemo_dns_handler* handler_tmp = NULL;
 
 	/* Clean up list of DNS query handlers */
-	LL_FOREACH_SAFE(dns_qhandlers, qhandler_it, qhandler_tmp)
+	LL_FOREACH_SAFE(dns_handlers, handler_it, handler_tmp)
 	{
-		LL_DELETE(dns_qhandlers, qhandler_it);
+		LL_DELETE(dns_handlers, handler_it);
 
-		free(qhandler_it);
+		free(handler_it);
 	}
 
 	/* Unregister the DNS UDP and TCP handler */

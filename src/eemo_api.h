@@ -94,8 +94,8 @@ typedef struct
 	eemo_unreg_udp_handler_fn	unreg_udp_handler;
 
 	/* DNS query handler administration */
-	eemo_reg_dns_qhandler_fn	reg_dns_qhandler;
-	eemo_unreg_dns_qhandler_fn	unreg_dns_qhandler;
+	eemo_reg_dns_handler_fn		reg_dns_handler;
+	eemo_unreg_dns_handler_fn	unreg_dns_handler;
 }
 eemo_export_fn_table, *eemo_export_fn_table_ptr;
 

@@ -9,7 +9,7 @@ dnl
 # Program version
 
 define([EEMO_VERSION_MAJOR], [0])
-define([EEMO_VERSION_MINOR], [1])
+define([EEMO_VERSION_MINOR], [2])
 define([EEMO_VERSION_BUILDREV], esyscmd([sh -c "svnversion|tr -d '\n'"]))
 define([PACKAGE_SUFFIX], [])
 

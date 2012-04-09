@@ -35,6 +35,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
+#include <sys/types.h>
 #include "eemo.h"
 #include "eemo_api.h"
 #include "eemo_packet.h"
@@ -264,8 +265,8 @@ int main(int argc, char* argv[])
 	}
 
 	/* If we forked, this is the child */
-
 	INFO_MSG("Starting the Extensible Ethernet Monitor (eemo) version %s", VERSION);
+	INFO_MSG("eemo %sprocess ID is %d", daemon ? "daemon " : "", getpid());
 
 	if (eemo_init_ether_handler() != ERV_OK)
 	{
@@ -296,7 +297,7 @@ int main(int argc, char* argv[])
 		ERROR_MSG("Failed to initialise the TCP packet handler");
 	}
 
-	if (eemo_init_dns_qhandler() != ERV_OK)
+	if (eemo_init_dns_handler() != ERV_OK)
 	{
 		ERROR_MSG("Failed to initialise the DNS query handler");
 	}
@@ -324,7 +325,7 @@ int main(int argc, char* argv[])
 	}
 
 	/* Uninitialise all handlers */
-	eemo_dns_qhandler_cleanup();
+	eemo_dns_handler_cleanup();
 	eemo_tcp_handler_cleanup();
 	eemo_udp_handler_cleanup();
 	eemo_icmp_handler_cleanup();

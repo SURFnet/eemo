@@ -115,7 +115,7 @@ eemo_rv eemo_dnsqfw_init(eemo_export_fn_table_ptr eemo_fn, const char* conf_base
 	eemo_dnsqfw_aggr_init(ips, ipcount, server, port, max_packet_size, sensor_id, domains, domcount);
 
 	/* Register DNS query handler */
-	rv = (eemo_fn->reg_dns_qhandler)(DNS_QCLASS_UNSPECIFIED, DNS_QTYPE_UNSPECIFIED, &eemo_dnsqfw_aggr_handleq, &qfw_dns_handler_handle);
+	rv = (eemo_fn->reg_dns_handler)(&eemo_dnsqfw_aggr_handleq, PARSE_QUERY, &qfw_dns_handler_handle);
 
 	if (rv != ERV_OK)
 	{
@@ -131,7 +131,7 @@ eemo_rv eemo_dnsqfw_init(eemo_export_fn_table_ptr eemo_fn, const char* conf_base
 eemo_rv eemo_dnsqfw_uninit(eemo_export_fn_table_ptr eemo_fn)
 {
 	/* Unregister DNS query handler */
-	if ((eemo_fn->unreg_dns_qhandler)(qfw_dns_handler_handle) != ERV_OK)
+	if ((eemo_fn->unreg_dns_handler)(qfw_dns_handler_handle) != ERV_OK)
 	{
 		ERROR_MSG("Failed to unregister DNS query handler");
 	}

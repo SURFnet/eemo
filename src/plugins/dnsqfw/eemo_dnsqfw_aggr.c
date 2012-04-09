@@ -269,63 +269,66 @@ void eemo_dnsqfw_aggr_uninit(eemo_conf_free_string_array_fn free_strings)
 }
 
 /* Handle DNS query packets */
-eemo_rv eemo_dnsqfw_aggr_handleq(eemo_ip_packet_info ip_info, u_short qclass, u_short qtype, u_short flags, char* qname, int is_tcp)
+eemo_rv eemo_dnsqfw_aggr_handleq(eemo_ip_packet_info ip_info, int is_tcp, const eemo_dns_packet* dns_packet)
 {
 	int i = 0;
 	int ip_match = 0;
 	int domain_match = 0;
 	size_t comp_index = 0;
 	size_t comp_len = 0;
+	eemo_dns_query* query_it = NULL;
 
 	/* Check if this query is directed at the server we're supposed to monitor */
-	for (i = 0; i < qfw_ipcount; i++)
+	if (qfw_ipcount > 0)
 	{
-		if (!strcmp(qfw_ips[i], ip_info.ip_dst) || !strcmp(qfw_ips[i], IP_ANY))
+		for (i = 0; i < qfw_ipcount; i++)
 		{
-			ip_match = 1;
-			break;
-		}
-	}
-
-	if (!ip_match)
-	{
-		return ERV_SKIPPED;
-	}
-
-	if (qfw_domaincount > 0)
-	{
-		/* Check if this query matches one of the domains for which we're forwarding queries */
-		for (i = 0; i < qfw_domaincount; i++)
-		{
-			/* If the length of the query name is less than the domain name length skip it */
-			if (strlen(qname) < strlen(qfw_domains[i]))
+			if (!strcmp(qfw_ips[i], ip_info.ip_dst) || !strcmp(qfw_ips[i], IP_ANY))
 			{
-				continue;
-			}
-
-			/* Compare the last <domainnamelen> characters to check for a match */
-			comp_len = strlen(qfw_domains[i]);
-			comp_index = strlen(qname) - comp_len;
-
-			if (!strncasecmp(&qname[comp_index], qfw_domains[i], comp_len))
-			{
-				domain_match = 1;
+				ip_match = 1;
 				break;
 			}
 		}
-
-		if (!domain_match)
+	
+		if (!ip_match)
 		{
-			/*DEBUG_MSG("Skipped query for %s", qname);*/
-
 			return ERV_SKIPPED;
 		}
-
-		/*DEBUG_MSG("Matched query for %s to domain %s", qname, qfw_domains[i]);*/
 	}
 
-	/* Add data to aggregation buffer */
-	eemo_dnsqfw_aggr_add(qclass, qtype, is_tcp, qname, ip_info.ip_src);
+	LL_FOREACH(dns_packet->questions, query_it)
+	{
+		if (qfw_domaincount > 0)
+		{
+			/* Check if this query matches one of the domains for which we're forwarding queries */
+			for (i = 0; i < qfw_domaincount; i++)
+			{
+				/* If the length of the query name is less than the domain name length skip it */
+				if (strlen(query_it->qname) < strlen(qfw_domains[i]))
+				{
+					continue;
+				}
+	
+				/* Compare the last <domainnamelen> characters to check for a match */
+				comp_len = strlen(qfw_domains[i]);
+				comp_index = strlen(query_it->qname) - comp_len;
+	
+				if (!strncasecmp(&query_it->qname[comp_index], qfw_domains[i], comp_len))
+				{
+					domain_match = 1;
+					break;
+				}
+			}
+	
+			if (!domain_match)
+			{
+				continue;
+			}
+		}
+	
+		/* Add data to aggregation buffer */
+		eemo_dnsqfw_aggr_add(query_it->qclass, query_it->qtype, is_tcp, query_it->qname, ip_info.ip_src);
+	}
 
 	return ERV_HANDLED;
 }

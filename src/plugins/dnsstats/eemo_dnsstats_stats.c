@@ -372,9 +372,16 @@ void eemo_dnsstats_stats_uninit(eemo_conf_free_string_array_fn free_strings)
 }
 
 /* Handle DNS query packets and log the statistics */
-eemo_rv eemo_dnsstats_stats_handleq(eemo_ip_packet_info ip_info, u_short qclass, u_short qtype, u_short flags, char* qname, int is_tcp)
+eemo_rv eemo_dnsstats_stats_handleq(eemo_ip_packet_info ip_info, int is_tcp, const eemo_dns_packet* dns_packet)
 {
 	int i = 0;
+	eemo_dns_query* query_it = NULL;
+
+	/* We only process queries, not responses */
+	if (dns_packet->qr_flag)
+	{
+		return ERV_SKIPPED;
+	}
 
 	/* Either count all messages or check whether this messages matches any of the IPs we're monitoring */
 	if (stat_ipcount > 0)
@@ -398,152 +405,155 @@ eemo_rv eemo_dnsstats_stats_handleq(eemo_ip_packet_info ip_info, u_short qclass,
 	}
 
 	/* Log query class */
-	switch(qclass)
+	LL_FOREACH(dns_packet->questions, query_it)
 	{
-	case DNS_QCLASS_UNSPECIFIED:
-		qclass_ctr.UNSPECIFIED++;
-		break;
-	case DNS_QCLASS_IN:
-		qclass_ctr.IN++;
-		break;
-	case DNS_QCLASS_CS:
-		qclass_ctr.CS++;
-		break;
-	case DNS_QCLASS_CH:
-		qclass_ctr.CH++;
-		break;
-	case DNS_QCLASS_HS:
-		qclass_ctr.HS++;
-		break;
-	case DNS_QCLASS_ANY:
-		qclass_ctr.ANY++;
-		break;
-	default:
-		qclass_ctr.UNKNOWN++;
-	}
-
-	/* Log query type */
-	switch(qtype)
-	{
-	case DNS_QTYPE_UNSPECIFIED:
-		qtype_ctr.UNSPECIFIED++;
-		break;
-	case DNS_QTYPE_A:
-		qtype_ctr.A++;
-		break;
-	case DNS_QTYPE_AAAA:
-		qtype_ctr.AAAA++;
-		break;
-	case DNS_QTYPE_AFSDB:
-		qtype_ctr.AFSDB++;
-		break;
-	case DNS_QTYPE_APL:
-		qtype_ctr.APL++;
-		break;
-	case DNS_QTYPE_CERT:
-		qtype_ctr.CERT++;
-		break;
-	case DNS_QTYPE_CNAME:
-		qtype_ctr.CNAME++;
-		break;
-	case DNS_QTYPE_DHCID:
-		qtype_ctr.DHCID++;
-		break;
-	case DNS_QTYPE_DLV:
-		qtype_ctr.DLV++;
-		break;
-	case DNS_QTYPE_DNAME:
-		qtype_ctr.DNAME++;
-		break;
-	case DNS_QTYPE_DNSKEY:
-		qtype_ctr.DNSKEY++;
-		break;
-	case DNS_QTYPE_DS:
-		qtype_ctr.DS++;
-		break;
-	case DNS_QTYPE_HIP:
-		qtype_ctr.HIP++;
-		break;
-	case DNS_QTYPE_IPSECKEY:
-		qtype_ctr.IPSECKEY++;
-		break;
-	case DNS_QTYPE_KEY:
-		qtype_ctr.KEY++;
-		break;
-	case DNS_QTYPE_KX:
-		qtype_ctr.KX++;
-		break;
-	case DNS_QTYPE_LOC:
-		qtype_ctr.LOC++;
-		break;
-	case DNS_QTYPE_MX:
-		qtype_ctr.MX++;
-		break;
-	case DNS_QTYPE_NAPTR:
-		qtype_ctr.NAPTR++;
-		break;
-	case DNS_QTYPE_NS:
-		qtype_ctr.NS++;
-		break;
-	case DNS_QTYPE_NSEC:
-		qtype_ctr.NSEC++;
-		break;
-	case DNS_QTYPE_NSEC3:
-		qtype_ctr.NSEC3++;
-		break;
-	case DNS_QTYPE_NSEC3PARAM:
-		qtype_ctr.NSEC3PARAM++;
-		break;
-	case DNS_QTYPE_PTR:
-		qtype_ctr.PTR++;
-		break;
-	case DNS_QTYPE_RRSIG:
-		qtype_ctr.RRSIG++;
-		break;
-	case DNS_QTYPE_RP:
-		qtype_ctr.RP++;
-		break;
-	case DNS_QTYPE_SIG:
-		qtype_ctr.SIG++;
-		break;
-	case DNS_QTYPE_SOA:
-		qtype_ctr.SOA++;
-		break;
-	case DNS_QTYPE_SPF:
-		qtype_ctr.SPF++;
-		break;
-	case DNS_QTYPE_SRV:
-		qtype_ctr.SRV++;
-		break;
-	case DNS_QTYPE_SSHFP:
-		qtype_ctr.SSHFP++;
-		break;
-	case DNS_QTYPE_TA:
-		qtype_ctr.TA++;
-		break;
-	case DNS_QTYPE_TKEY:
-		qtype_ctr.TKEY++;
-		break;
-	case DNS_QTYPE_TSIG:
-		qtype_ctr.TSIG++;
-		break;
-	case DNS_QTYPE_TXT:
-		qtype_ctr.TXT++;
-		break;
-	case DNS_QTYPE_ANY:
-		qtype_ctr.ANY++;
-		break;
-	case DNS_QTYPE_AXFR:
-		qtype_ctr.AXFR++;
-		break;
-	case DNS_QTYPE_IXFR:
-		qtype_ctr.IXFR++;
-		break;
-	case DNS_QTYPE_OPT:
-		qtype_ctr.OPT++;
-		break;
-	default:
-		qtype_ctr.UNKNOWN++;
+		switch(query_it->qclass)
+		{
+		case DNS_QCLASS_UNSPECIFIED:
+			qclass_ctr.UNSPECIFIED++;
+			break;
+		case DNS_QCLASS_IN:
+			qclass_ctr.IN++;
+			break;
+		case DNS_QCLASS_CS:
+			qclass_ctr.CS++;
+			break;
+		case DNS_QCLASS_CH:
+			qclass_ctr.CH++;
+			break;
+		case DNS_QCLASS_HS:
+			qclass_ctr.HS++;
+			break;
+		case DNS_QCLASS_ANY:
+			qclass_ctr.ANY++;
+			break;
+		default:
+			qclass_ctr.UNKNOWN++;
+		}
+	
+		/* Log query type */
+		switch(query_it->qtype)
+		{
+		case DNS_QTYPE_UNSPECIFIED:
+			qtype_ctr.UNSPECIFIED++;
+			break;
+		case DNS_QTYPE_A:
+			qtype_ctr.A++;
+			break;
+		case DNS_QTYPE_AAAA:
+			qtype_ctr.AAAA++;
+			break;
+		case DNS_QTYPE_AFSDB:
+			qtype_ctr.AFSDB++;
+			break;
+		case DNS_QTYPE_APL:
+			qtype_ctr.APL++;
+			break;
+		case DNS_QTYPE_CERT:
+			qtype_ctr.CERT++;
+			break;
+		case DNS_QTYPE_CNAME:
+			qtype_ctr.CNAME++;
+			break;
+		case DNS_QTYPE_DHCID:
+			qtype_ctr.DHCID++;
+			break;
+		case DNS_QTYPE_DLV:
+			qtype_ctr.DLV++;
+			break;
+		case DNS_QTYPE_DNAME:
+			qtype_ctr.DNAME++;
+			break;
+		case DNS_QTYPE_DNSKEY:
+			qtype_ctr.DNSKEY++;
+			break;
+		case DNS_QTYPE_DS:
+			qtype_ctr.DS++;
+			break;
+		case DNS_QTYPE_HIP:
+			qtype_ctr.HIP++;
+			break;
+		case DNS_QTYPE_IPSECKEY:
+			qtype_ctr.IPSECKEY++;
+			break;
+		case DNS_QTYPE_KEY:
+			qtype_ctr.KEY++;
+			break;
+		case DNS_QTYPE_KX:
+			qtype_ctr.KX++;
+			break;
+		case DNS_QTYPE_LOC:
+			qtype_ctr.LOC++;
+			break;
+		case DNS_QTYPE_MX:
+			qtype_ctr.MX++;
+			break;
+		case DNS_QTYPE_NAPTR:
+			qtype_ctr.NAPTR++;
+			break;
+		case DNS_QTYPE_NS:
+			qtype_ctr.NS++;
+			break;
+		case DNS_QTYPE_NSEC:
+			qtype_ctr.NSEC++;
+			break;
+		case DNS_QTYPE_NSEC3:
+			qtype_ctr.NSEC3++;
+			break;
+		case DNS_QTYPE_NSEC3PARAM:
+			qtype_ctr.NSEC3PARAM++;
+			break;
+		case DNS_QTYPE_PTR:
+			qtype_ctr.PTR++;
+			break;
+		case DNS_QTYPE_RRSIG:
+			qtype_ctr.RRSIG++;
+			break;
+		case DNS_QTYPE_RP:
+			qtype_ctr.RP++;
+			break;
+		case DNS_QTYPE_SIG:
+			qtype_ctr.SIG++;
+			break;
+		case DNS_QTYPE_SOA:
+			qtype_ctr.SOA++;
+			break;
+		case DNS_QTYPE_SPF:
+			qtype_ctr.SPF++;
+			break;
+		case DNS_QTYPE_SRV:
+			qtype_ctr.SRV++;
+			break;
+		case DNS_QTYPE_SSHFP:
+			qtype_ctr.SSHFP++;
+			break;
+		case DNS_QTYPE_TA:
+			qtype_ctr.TA++;
+			break;
+		case DNS_QTYPE_TKEY:
+			qtype_ctr.TKEY++;
+			break;
+		case DNS_QTYPE_TSIG:
+			qtype_ctr.TSIG++;
+			break;
+		case DNS_QTYPE_TXT:
+			qtype_ctr.TXT++;
+			break;
+		case DNS_QTYPE_ANY:
+			qtype_ctr.ANY++;
+			break;
+		case DNS_QTYPE_AXFR:
+			qtype_ctr.AXFR++;
+			break;
+		case DNS_QTYPE_IXFR:
+			qtype_ctr.IXFR++;
+			break;
+		case DNS_QTYPE_OPT:
+			qtype_ctr.OPT++;
+			break;
+		default:
+			qtype_ctr.UNKNOWN++;
+		}
 	}
 
 	/* Log IP type */
