@@ -48,6 +48,7 @@
 #define EDNS0_VERSION(rr) 	((rr->ttl & 0xff000000) >> 24)
 #define EDNS0_EXT_RCODE(rr)	((rr->ttl & 0x00ff0000) >> 16)
 #define EDNS0_BUFSIZE(rr)	(rr->class)
+#define EDNS0_DO_SET(rr)	((rr->ttl & 0x00008000) == 0x00008000)
 
 /* Query type */
 typedef struct eemo_dns_query

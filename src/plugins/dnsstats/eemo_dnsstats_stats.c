@@ -123,6 +123,25 @@ struct
 }
 proto_ctr;
 
+/* EDNS0 */
+struct
+{
+	unsigned long long EDNS0_NO;
+	unsigned long long EDNS0_BELOW_512;
+	unsigned long long EDNS0_512_TO_999;
+	unsigned long long EDNS0_1000_TO_1499;
+	unsigned long long EDNS0_1500_TO_1999;
+	unsigned long long EDNS0_2000_TO_2499;
+	unsigned long long EDNS0_2500_TO_2999;
+	unsigned long long EDNS0_3000_TO_3499;
+	unsigned long long EDNS0_3500_TO_3999;
+	unsigned long long EDNS0_4000_TO_4499;
+	unsigned long long EDNS0_ABOVE_4500;
+	unsigned long long EDNS0_DO_SET;
+	unsigned long long EDNS0_DO_UNSET;
+}
+edns0_ctr;
+
 /* Configuration */
 char** 	stat_ips 		= NULL;
 int 	stat_ipcount 		= 0;
@@ -206,7 +225,20 @@ void signal_handler(int signum)
 		"iptype_ctr_V4:%llu "
 		"iptype_ctr_V6:%llu "
 		"proto_ctr_TCP:%llu "
-		"proto_ctr_UDP:%llu\n",
+		"proto_ctr_UDP:%llu "
+		"edns0_ctr_EDNS0_NO:%llu "
+		"edns0_ctr_EDNS0_BELOW_512:%llu "
+		"edns0_ctr_EDNS0_512_TO_999:%llu "
+		"edns0_ctr_EDNS0_1000_TO_1499:%llu "
+		"edns0_ctr_EDNS0_1500_TO_1999:%llu "
+		"edns0_ctr_EDNS0_2000_TO_2499:%llu "
+		"edns0_ctr_EDNS0_2500_TO_2999:%llu "
+		"edns0_ctr_EDNS0_3000_TO_3499:%llu "
+		"edns0_ctr_EDNS0_3500_TO_3999:%llu "
+		"edns0_ctr_EDNS0_4000_TO_4499:%llu "
+		"edns0_ctr_EDNS0_ABOVE_4500:%llu "
+		"edns0_ctr_EDNS0_DO_SET:%llu "
+		"edns0_ctr_EDNS0_DO_UNSET:%llu\n",
 		qclass_ctr.UNSPECIFIED,
 		qclass_ctr.IN,
 		qclass_ctr.CS,
@@ -257,7 +289,20 @@ void signal_handler(int signum)
 		iptype_ctr.V4,
 		iptype_ctr.V6,
 		proto_ctr.TCP,
-		proto_ctr.UDP);
+		proto_ctr.UDP,
+		edns0_ctr.EDNS0_NO,
+		edns0_ctr.EDNS0_BELOW_512,
+		edns0_ctr.EDNS0_512_TO_999,
+		edns0_ctr.EDNS0_1000_TO_1499,
+		edns0_ctr.EDNS0_1500_TO_1999,
+		edns0_ctr.EDNS0_2000_TO_2499,
+		edns0_ctr.EDNS0_2500_TO_2999,
+		edns0_ctr.EDNS0_3000_TO_3499,
+		edns0_ctr.EDNS0_3500_TO_3999,
+		edns0_ctr.EDNS0_4000_TO_4499,
+		edns0_ctr.EDNS0_ABOVE_4500,
+		edns0_ctr.EDNS0_DO_SET,
+		edns0_ctr.EDNS0_DO_UNSET);
 
 		fflush(stat_fp);
 
@@ -288,6 +333,7 @@ void eemo_dnsstats_stats_reset(void)
 	memset(&qtype_ctr, 0, sizeof(qtype_ctr));
 	memset(&iptype_ctr, 0, sizeof(iptype_ctr));
 	memset(&proto_ctr, 0, sizeof(proto_ctr));
+	memset(&edns0_ctr, 0, sizeof(edns0_ctr));
 
 	DEBUG_MSG("DNS statistics reset");
 }
@@ -376,6 +422,8 @@ eemo_rv eemo_dnsstats_stats_handleq(eemo_ip_packet_info ip_info, int is_tcp, con
 {
 	int i = 0;
 	eemo_dns_query* query_it = NULL;
+	eemo_dns_rr* rr_it = NULL;
+	int edns0 = 0;
 
 	/* We only process queries, not responses */
 	if (dns_packet->qr_flag)
@@ -404,9 +452,9 @@ eemo_rv eemo_dnsstats_stats_handleq(eemo_ip_packet_info ip_info, int is_tcp, con
 		}
 	}
 
-	/* Log query class */
 	LL_FOREACH(dns_packet->questions, query_it)
 	{
+		/* Log query class */
 		switch(query_it->qclass)
 		{
 		case DNS_QCLASS_UNSPECIFIED:
@@ -554,6 +602,76 @@ eemo_rv eemo_dnsstats_stats_handleq(eemo_ip_packet_info ip_info, int is_tcp, con
 		default:
 			qtype_ctr.UNKNOWN++;
 		}
+
+	}
+
+	/* Log EDNS0 data */
+	LL_FOREACH(dns_packet->additionals, rr_it)
+	{
+		if (rr_it->type == DNS_QTYPE_OPT)
+		{
+			/* Found the OPT RR */
+			edns0 = 1;
+
+			/* Log DO bit setting */
+			if (EDNS0_DO_SET(rr_it))
+			{
+				edns0_ctr.EDNS0_DO_SET++;
+			}
+			else
+			{
+				edns0_ctr.EDNS0_DO_UNSET++;
+			}
+
+			/* Log EDNS0 buffer size */
+			if (EDNS0_BUFSIZE(rr_it) < 512)
+			{
+				edns0_ctr.EDNS0_BELOW_512++;
+			}
+			else if ((EDNS0_BUFSIZE(rr_it) >= 512) && (EDNS0_BUFSIZE(rr_it) < 1000))
+			{
+				edns0_ctr.EDNS0_512_TO_999++;
+			}
+			else if ((EDNS0_BUFSIZE(rr_it) >= 1000) && (EDNS0_BUFSIZE(rr_it) < 1500))
+			{
+				edns0_ctr.EDNS0_1000_TO_1499++;
+			}
+			else if ((EDNS0_BUFSIZE(rr_it) >= 1500) && (EDNS0_BUFSIZE(rr_it) < 2000))
+			{
+				edns0_ctr.EDNS0_1500_TO_1999++;
+			}
+			else if ((EDNS0_BUFSIZE(rr_it) >= 2000) && (EDNS0_BUFSIZE(rr_it) < 2500))
+			{
+				edns0_ctr.EDNS0_2000_TO_2499++;
+			}
+			else if ((EDNS0_BUFSIZE(rr_it) >= 2500) && (EDNS0_BUFSIZE(rr_it) < 3000))
+			{
+				edns0_ctr.EDNS0_2500_TO_2999++;
+			}
+			else if ((EDNS0_BUFSIZE(rr_it) >= 3000) && (EDNS0_BUFSIZE(rr_it) < 3500))
+			{
+				edns0_ctr.EDNS0_3000_TO_3499++;
+			}
+			else if ((EDNS0_BUFSIZE(rr_it) >= 3500) && (EDNS0_BUFSIZE(rr_it) < 4000))
+			{
+				edns0_ctr.EDNS0_3500_TO_3999++;
+			}
+			else if ((EDNS0_BUFSIZE(rr_it) >= 4000) && (EDNS0_BUFSIZE(rr_it) < 4500))
+			{
+				edns0_ctr.EDNS0_4000_TO_4499++;
+			}
+			else
+			{
+				edns0_ctr.EDNS0_ABOVE_4500++;
+			}
+
+			break;
+		}
+	}
+
+	if (!edns0)
+	{
+		edns0_ctr.EDNS0_NO++;
 	}
 
 	/* Log IP type */

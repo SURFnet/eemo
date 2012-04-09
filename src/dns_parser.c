@@ -42,8 +42,8 @@
 #include "dns_parser.h"
 #include "eemo_log.h"
 
-/*#define DNS_PARSE_DEBUG*/ /* define to enable extensive debug logging of DNS parsing */
-#undef DNS_PARSE_DEBUG
+#define DNS_PARSE_DEBUG /* define to enable extensive debug logging of DNS parsing */
+/*#undef DNS_PARSE_DEBUG*/
 
 #ifdef DNS_PARSE_DEBUG
 	#define PARSE_MSG(...) eemo_log(EEMO_LOG_DEBUG  , __FILE__, __LINE__, __VA_ARGS__);
@@ -777,7 +777,7 @@ eemo_rv eemo_parse_dns_packet(eemo_packet_buf* packet, eemo_dns_packet* dns_pack
 	/* Retrieve the authorities from the packet */
 	PARSE_MSG("Authorities:");
 
-	if ((rv = eemo_parse_dns_rrs(packet, &dns_packet->answers, hdr->dns_nscount, &ofs)) != ERV_OK)
+	if ((rv = eemo_parse_dns_rrs(packet, &dns_packet->authorities, hdr->dns_nscount, &ofs)) != ERV_OK)
 	{
 		if (rv == ERV_PARTIAL)
 		{
@@ -792,7 +792,7 @@ eemo_rv eemo_parse_dns_packet(eemo_packet_buf* packet, eemo_dns_packet* dns_pack
 	/* Retrieve the additionals from the packet */
 	PARSE_MSG("Additional RRs:");
 
-	if ((rv = eemo_parse_dns_rrs(packet, &dns_packet->answers, hdr->dns_arcount, &ofs)) != ERV_OK)
+	if ((rv = eemo_parse_dns_rrs(packet, &dns_packet->additionals, hdr->dns_arcount, &ofs)) != ERV_OK)
 	{
 		if (rv == ERV_PARTIAL)
 		{
