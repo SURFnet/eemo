@@ -156,6 +156,23 @@ FILE*	stat_fp			= NULL;
 /* Signal handler for alarms & user signals */
 void signal_handler(int signum)
 {
+	unsigned long long EDNS0_TOTAL 		= 0;
+	unsigned long long EDNS0_PCT_ON 	= 0;
+	unsigned long long EDNS0_PCT_OFF	= 0;
+	unsigned long long EDNS0_PCT_LT_512	= 0;
+	unsigned long long EDNS0_PCT_512_999	= 0;
+	unsigned long long EDNS0_PCT_1000_1499	= 0;
+	unsigned long long EDNS0_PCT_1500_1999	= 0;
+	unsigned long long EDNS0_PCT_2000_2499	= 0;
+	unsigned long long EDNS0_PCT_2500_2999	= 0;
+	unsigned long long EDNS0_PCT_3000_3499	= 0;
+	unsigned long long EDNS0_PCT_3500_3999	= 0;
+	unsigned long long EDNS0_PCT_4000_4499	= 0;
+	unsigned long long EDNS0_PCT_GT_4500	= 0;
+	unsigned long long EDNS0_PCT_DO_SET	= 0;
+	unsigned long long EDNS0_PCT_DO_UNSET	= 0;
+	unsigned long long QUERY_TOTAL		= 0;
+
 	if (signum == SIGUSR1)
 	{
 		DEBUG_MSG("Received user signal to dump statistics");
@@ -173,6 +190,35 @@ void signal_handler(int signum)
 
 	if (stat_fp != NULL)
 	{
+		/* Calculate the EDNS0 percentages */
+		EDNS0_TOTAL =	edns0_ctr.EDNS0_BELOW_512 +
+				edns0_ctr.EDNS0_512_TO_999 +
+				edns0_ctr.EDNS0_1000_TO_1499 +
+				edns0_ctr.EDNS0_1500_TO_1999 +
+				edns0_ctr.EDNS0_2000_TO_2499 +
+				edns0_ctr.EDNS0_2500_TO_2999 +
+				edns0_ctr.EDNS0_3000_TO_3499 +
+				edns0_ctr.EDNS0_3500_TO_3999 +
+				edns0_ctr.EDNS0_4000_TO_4499 +
+				edns0_ctr.EDNS0_ABOVE_4500;
+		
+		QUERY_TOTAL =	iptype_ctr.V4 + iptype_ctr.V6;
+
+		EDNS0_PCT_ON		= (EDNS0_TOTAL * 100) 			/ QUERY_TOTAL;
+		EDNS0_PCT_OFF		= ((QUERY_TOTAL - EDNS0_TOTAL) * 100) 	/ QUERY_TOTAL;
+		EDNS0_PCT_LT_512	= (edns0_ctr.EDNS0_BELOW_512 * 100)	/ EDNS0_TOTAL;
+		EDNS0_PCT_512_999	= (edns0_ctr.EDNS0_512_TO_999 * 100)	/ EDNS0_TOTAL;
+		EDNS0_PCT_1000_1499	= (edns0_ctr.EDNS0_1000_TO_1499 * 100)	/ EDNS0_TOTAL;
+		EDNS0_PCT_1500_1999	= (edns0_ctr.EDNS0_1500_TO_1999 * 100)	/ EDNS0_TOTAL;
+		EDNS0_PCT_2000_2499	= (edns0_ctr.EDNS0_2000_TO_2499 * 100)	/ EDNS0_TOTAL;
+		EDNS0_PCT_2500_2999	= (edns0_ctr.EDNS0_2500_TO_2999 * 100)	/ EDNS0_TOTAL;
+		EDNS0_PCT_3000_3499	= (edns0_ctr.EDNS0_3000_TO_3499 * 100)	/ EDNS0_TOTAL;
+		EDNS0_PCT_3500_3999	= (edns0_ctr.EDNS0_3500_TO_3999 * 100)	/ EDNS0_TOTAL;
+		EDNS0_PCT_4000_4499	= (edns0_ctr.EDNS0_4000_TO_4499 * 100)	/ EDNS0_TOTAL;
+		EDNS0_PCT_GT_4500	= (edns0_ctr.EDNS0_ABOVE_4500 * 100)	/ EDNS0_TOTAL;
+		EDNS0_PCT_DO_SET	= (edns0_ctr.EDNS0_DO_SET * 100)	/ EDNS0_TOTAL;
+		EDNS0_PCT_DO_UNSET	= (edns0_ctr.EDNS0_DO_UNSET * 100)	/ EDNS0_TOTAL;
+
 		/* Write the statistics to the file */
 		fprintf(stat_fp, ""
 		"qclass_ctr_UNSPECIFIED:%llu "
@@ -238,7 +284,23 @@ void signal_handler(int signum)
 		"edns0_ctr_EDNS0_4000_TO_4499:%llu "
 		"edns0_ctr_EDNS0_ABOVE_4500:%llu "
 		"edns0_ctr_EDNS0_DO_SET:%llu "
-		"edns0_ctr_EDNS0_DO_UNSET:%llu\n",
+		"edns0_ctr_EDNS0_DO_UNSET:%llu "
+		"EDNS0_TOTAL:%llu "
+		"EDNS0_PCT_ON:%llu "
+		"EDNS0_PCT_OFF:%llu "
+		"EDNS0_PCT_LT_512:%llu "
+		"EDNS0_PCT_512_999:%llu "
+		"EDNS0_PCT_1000_1499:%llu "
+		"EDNS0_PCT_1500_1999:%llu "
+		"EDNS0_PCT_2000_2499:%llu "
+		"EDNS0_PCT_2500_2999:%llu "
+		"EDNS0_PCT_3000_3499:%llu "
+		"EDNS0_PCT_3500_3999:%llu "
+		"EDNS0_PCT_4000_4499:%llu "
+		"EDNS0_PCT_GT_4500:%llu "
+		"EDNS0_PCT_DO_SET:%llu "
+		"EDNS0_PCT_DO_UNSET:%llu "
+		"QUERY_TOTAL:%llu\n",
 		qclass_ctr.UNSPECIFIED,
 		qclass_ctr.IN,
 		qclass_ctr.CS,
@@ -302,7 +364,23 @@ void signal_handler(int signum)
 		edns0_ctr.EDNS0_4000_TO_4499,
 		edns0_ctr.EDNS0_ABOVE_4500,
 		edns0_ctr.EDNS0_DO_SET,
-		edns0_ctr.EDNS0_DO_UNSET);
+		edns0_ctr.EDNS0_DO_UNSET,
+		EDNS0_TOTAL, 
+		EDNS0_PCT_ON, 
+		EDNS0_PCT_OFF, 
+		EDNS0_PCT_LT_512, 
+		EDNS0_PCT_512_999, 
+		EDNS0_PCT_1000_1499, 
+		EDNS0_PCT_1500_1999, 
+		EDNS0_PCT_2000_2499, 
+		EDNS0_PCT_2500_2999, 
+		EDNS0_PCT_3000_3499, 
+		EDNS0_PCT_3500_3999, 
+		EDNS0_PCT_4000_4499, 
+		EDNS0_PCT_GT_4500, 
+		EDNS0_PCT_DO_SET, 
+		EDNS0_PCT_DO_UNSET, 
+		QUERY_TOTAL);
 
 		fflush(stat_fp);
 
