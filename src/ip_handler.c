@@ -306,7 +306,7 @@ eemo_rv eemo_unreg_ip_handler(unsigned long handle)
 	{
 		LL_DELETE(ip_handlers, to_delete);
 
-		DEBUG_MSG("Unregisterd IP handler with handle 0x%08X and handler function at 0x%08X", handle, to_delete->handler_fn);
+		DEBUG_MSG("Unregistered IP handler with handle 0x%08X and handler function at 0x%08X", handle, to_delete->handler_fn);
 
 		free(to_delete);
 
