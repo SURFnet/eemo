@@ -54,7 +54,7 @@ unsigned long long capture_ctr = 0;
 unsigned long long handled_ctr = 0;
 
 /* Signal handler for exit signal */
-void signal_handler(int signum)
+void stop_signal_handler(int signum)
 {
 	INFO_MSG("Received request to exit");
 
@@ -140,9 +140,9 @@ eemo_rv eemo_capture_and_handle(const char* interface, int packet_count, const c
 	}
 
 	/* Register the signal handler for termination */
-	signal(SIGINT, signal_handler);
-	signal(SIGHUP, signal_handler);
-	signal(SIGTERM, signal_handler);
+	signal(SIGINT, stop_signal_handler);
+	signal(SIGHUP, stop_signal_handler);
+	signal(SIGTERM, stop_signal_handler);
 
 	/* Capture the specified number of packets */
 	INFO_MSG("Starting packet capture");

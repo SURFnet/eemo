@@ -35,6 +35,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
+#include <signal.h>
 #include <sys/types.h>
 #include "eemo.h"
 #include "eemo_api.h"
@@ -93,6 +94,47 @@ void write_pid(const char* pid_path, pid_t pid)
 
 	fprintf(pid_file, "%d\n", pid);
 	fclose(pid_file);
+}
+
+/* Signal handler for certain exit codes */
+void signal_handler(int signum)
+{
+	switch(signum)
+	{
+	case SIGABRT:
+		ERROR_MSG("Caught SIGABRT");
+		break;
+	case SIGBUS:
+		ERROR_MSG("Caught SIGBUS");
+		break;
+	case SIGFPE:
+		ERROR_MSG("Caught SIGFPE");
+		break;
+	case SIGILL:
+		ERROR_MSG("Caught SIGILL");
+		break;
+	case SIGPIPE:
+		ERROR_MSG("Caught SIGPIPE");
+		break;
+	case SIGQUIT:
+		ERROR_MSG("Caught SIGQUIT");
+		break;
+	case SIGSEGV:
+		ERROR_MSG("Caught SIGSEGV");
+		break;
+	case SIGSYS:
+		ERROR_MSG("Caught SIGSYS");
+		break;
+	case SIGXCPU:
+		ERROR_MSG("Caught SIGXCPU");
+		break;
+	case SIGXFSZ:
+		ERROR_MSG("Caught SIGXFSZ");
+		break;
+	default:
+		ERROR_MSG("Caught unknown signal 0x%X", signum);
+		break;
+	}
 }
 
 int main(int argc, char* argv[])
@@ -268,6 +310,19 @@ int main(int argc, char* argv[])
 	INFO_MSG("Starting the Extensible Ethernet Monitor (eemo) version %s", VERSION);
 	INFO_MSG("eemo %sprocess ID is %d", daemon ? "daemon " : "", getpid());
 
+	/* Install signal handlers */
+	signal(SIGABRT, signal_handler);
+	signal(SIGBUS, signal_handler);
+	signal(SIGFPE, signal_handler);
+	signal(SIGILL, signal_handler);
+	signal(SIGPIPE, signal_handler);
+	signal(SIGQUIT, signal_handler);
+	signal(SIGSEGV, signal_handler);
+	signal(SIGSYS, signal_handler);
+	signal(SIGXCPU, signal_handler);
+	signal(SIGXFSZ, signal_handler);
+
+	/* Initialise packet handlers */
 	if (eemo_init_ether_handler() != ERV_OK)
 	{
 		ERROR_MSG("Failed to initialise the Ethernet packet handler");
@@ -337,6 +392,18 @@ int main(int argc, char* argv[])
 	{
 		ERROR_MSG("Failed to uninitialise configuration handling");
 	}
+
+	/* Remove signal handlers */
+	signal(SIGABRT, SIG_DFL);
+	signal(SIGBUS, SIG_DFL);
+	signal(SIGFPE, SIG_DFL);
+	signal(SIGILL, SIG_DFL);
+	signal(SIGPIPE, SIG_DFL);
+	signal(SIGQUIT, SIG_DFL);
+	signal(SIGSEGV, SIG_DFL);
+	signal(SIGSYS, SIG_DFL);
+	signal(SIGXCPU, SIG_DFL);
+	signal(SIGXFSZ, SIG_DFL);
 
 	/* Uninitialise logging */
 	if (eemo_uninit_log() != ERV_OK)
