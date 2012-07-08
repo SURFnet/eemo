@@ -94,7 +94,7 @@ eemo_rv eemo_dnsstats_init(eemo_export_fn_table_ptr eemo_fn, const char* conf_ba
 	eemo_dnsstats_stats_init(ips, ipcount, emit_interval, file, append, reset);
 
 	/* Register DNS query handler */
-	rv = (eemo_fn->reg_dns_handler)(&eemo_dnsstats_stats_handleq, PARSE_QUERY, &stats_dns_handler_handle);
+	rv = (eemo_fn->reg_dns_handler)(&eemo_dnsstats_stats_handleqr, PARSE_QUERY | PARSE_RESPONSE, &stats_dns_handler_handle);
 
 	if (rv != ERV_OK)
 	{

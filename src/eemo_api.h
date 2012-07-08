@@ -49,7 +49,7 @@
 #include "udp_handler.h"
 
 /* Function table exported by EEMO; always check version before using */
-#define EEMO_EXPORT_FN_VERSION		2
+#define EEMO_EXPORT_FN_VERSION		3
 
 /* Configuration functions need to be defined here, otherwise we get cross-referencing headers */
 typedef eemo_rv (*eemo_conf_get_int_fn)(const char*, const char*, int*, int);

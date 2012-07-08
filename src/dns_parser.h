@@ -91,6 +91,8 @@ typedef struct eemo_dns_packet
 	unsigned char		is_valid;
 	unsigned char		is_partial;
 	unsigned short 		query_id;
+	unsigned short		udp_len;
+	int			is_fragmented;
 	unsigned char		qr_flag;
 	unsigned char		aa_flag;
 	unsigned char		tc_flag;
@@ -111,7 +113,7 @@ eemo_dns_packet;
 #define PARSE_RESPONSE		0x00000002	/* Parse the data in response messages */
 
 /* Parse a DNS packet */
-eemo_rv eemo_parse_dns_packet(eemo_packet_buf* packet, eemo_dns_packet* dns_packet, unsigned long parser_flags);
+eemo_rv eemo_parse_dns_packet(eemo_packet_buf* packet, eemo_dns_packet* dns_packet, unsigned long parser_flags, unsigned short udp_len, int is_fragmented);
 
 /* Free a DNS packet structure */
 void eemo_free_dns_packet(eemo_dns_packet* dns_packet);

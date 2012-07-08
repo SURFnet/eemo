@@ -60,7 +60,7 @@ eemo_hdr_udp;
 #pragma pack(pop)
 
 /* Defines a handler for UDP packets */
-typedef eemo_rv (*eemo_udp_handler_fn) (eemo_packet_buf*, eemo_ip_packet_info, u_short srcport, u_short dstport);
+typedef eemo_rv (*eemo_udp_handler_fn) (eemo_packet_buf*, eemo_ip_packet_info, u_short srcport, u_short dstport, u_short length);
 
 /* Defines an UDP handler record */
 #define UDP_ANY_PORT		0

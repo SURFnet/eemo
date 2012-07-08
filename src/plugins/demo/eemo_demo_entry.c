@@ -50,9 +50,9 @@ static unsigned long udp_handler_handle = 0;
 static unsigned long tcp_handler_handle = 0;
 
 /* Sample UDP handler */
-eemo_rv eemo_demo_udp_handler(eemo_packet_buf* pkt, eemo_ip_packet_info ip_info, u_short srcport, u_short dstport)
+eemo_rv eemo_demo_udp_handler(eemo_packet_buf* pkt, eemo_ip_packet_info ip_info, u_short srcport, u_short dstport, u_short length)
 {
-	INFO_MSG("UDPv%d packet from %s:%d to %s:%d", ip_info.ip_type, ip_info.ip_src, srcport, ip_info.ip_dst, dstport);
+	INFO_MSG("UDPv%d packet from %s:%d to %s:%d (UDP size %d)", ip_info.ip_type, ip_info.ip_src, srcport, ip_info.ip_dst, dstport, length);
 
 	return ERV_HANDLED;
 }

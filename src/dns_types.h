@@ -105,5 +105,13 @@
 /* Special query classes */
 #define DNS_QCLASS_ANY		255		/* Any class */
 
+/* Response codes */
+#define DNS_RCODE_NOERROR	0		/* No errors */
+#define DNS_RCODE_FORMERR	1		/* Query format error */
+#define DNS_RCODE_SERVFAIL	2		/* Server failure */
+#define DNS_RCODE_NXDOMAIN	3		/* Non-existent domain */
+#define DNS_RCODE_NOTIMPL	4		/* Requested feature not implemented */
+#define DNS_RCODE_REFUSED	5		/* Query refused */
+
 #endif /* !_EEMO_DNS_TYPES_H */
 

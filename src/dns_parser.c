@@ -42,8 +42,8 @@
 #include "dns_parser.h"
 #include "eemo_log.h"
 
-/*#define DNS_PARSE_DEBUG*/ /* define to enable extensive debug logging of DNS parsing */
-#undef DNS_PARSE_DEBUG
+#define DNS_PARSE_DEBUG /* define to enable extensive debug logging of DNS parsing */
+/*#undef DNS_PARSE_DEBUG*/
 
 #ifdef DNS_PARSE_DEBUG
 	#define PARSE_MSG(...) eemo_log(EEMO_LOG_DEBUG  , __FILE__, __LINE__, __VA_ARGS__);
@@ -669,19 +669,21 @@ eemo_rv eemo_parse_dns_rrs(eemo_packet_buf* packet, eemo_dns_rr** rr_list, unsig
 }
 
 /* Parse a DNS packet */
-eemo_rv eemo_parse_dns_packet(eemo_packet_buf* packet, eemo_dns_packet* dns_packet, unsigned long parser_flags)
+eemo_rv eemo_parse_dns_packet(eemo_packet_buf* packet, eemo_dns_packet* dns_packet, unsigned long parser_flags, unsigned short udp_len, int is_fragmented)
 {
 	eemo_hdr_dns* hdr = NULL;
 	unsigned long ofs = sizeof(eemo_hdr_dns);
 	eemo_rv rv = ERV_OK;
 
 	/* Initialise parsed packet data */
-	dns_packet->is_valid 	= 0;
-	dns_packet->is_partial	= 1;
-	dns_packet->questions 	= NULL;
-	dns_packet->answers 	= NULL;
-	dns_packet->authorities	= NULL;
-	dns_packet->additionals	= NULL;
+	dns_packet->is_valid 		= 0;
+	dns_packet->is_partial		= 1;
+	dns_packet->questions 		= NULL;
+	dns_packet->answers 		= NULL;
+	dns_packet->authorities		= NULL;
+	dns_packet->additionals		= NULL;
+	dns_packet->udp_len		= udp_len;
+	dns_packet->is_fragmented	= is_fragmented;
 
 	/* Check if we need to parse at all */
 	if (parser_flags == PARSE_NONE)

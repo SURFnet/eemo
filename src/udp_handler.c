@@ -98,7 +98,7 @@ eemo_rv eemo_handle_udp_packet(eemo_packet_buf* packet, eemo_ip_packet_info ip_i
 				return ERV_MEMORY;
 			}
 
-			handler_rv = (handler_it->handler_fn)(udp_data, ip_info, hdr->udp_srcport, hdr->udp_dstport);
+			handler_rv = (handler_it->handler_fn)(udp_data, ip_info, hdr->udp_srcport, hdr->udp_dstport, hdr->udp_len);
 
 			eemo_pbuf_free(udp_data);
 		}
