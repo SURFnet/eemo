@@ -42,8 +42,8 @@
 #include "dns_parser.h"
 #include "eemo_log.h"
 
-/*#define DNS_PARSE_DEBUG*/ /* define to enable extensive debug logging of DNS parsing */
-#undef DNS_PARSE_DEBUG
+#define DNS_PARSE_DEBUG /* define to enable extensive debug logging of DNS parsing */
+/*#undef DNS_PARSE_DEBUG*/
 
 #ifdef DNS_PARSE_DEBUG
 	#define PARSE_MSG(...) eemo_log(EEMO_LOG_DEBUG  , __FILE__, __LINE__, __VA_ARGS__);
@@ -165,6 +165,10 @@ eemo_rv eemo_uncompress_dns_name(eemo_packet_buf* packet, unsigned long* offset,
 	unsigned short ofs = *offset;
 	char name_buf[512] = { 0 };
 	unsigned short len = 0;
+	static unsigned char pointer_map[65536];
+
+	/* Clear pointer map */
+	memset(pointer_map, 0, 65536);
 
 	while(!root_label_found && (ofs < packet->len) && (len < 512))
 	{
@@ -190,6 +194,17 @@ eemo_rv eemo_uncompress_dns_name(eemo_packet_buf* packet, unsigned long* offset,
 
 			/* Set the new offset based on the pointer */
 			ofs = ((label_len & PTR_HI_OCTET_MASK) << 8) + packet->data[ofs];
+
+			/* For loop detection, check if we've already encountered this offset in a pointer */
+			if (pointer_map[ofs] != 0)
+			{
+				WARNING_MSG("Encountered DNS packet with looping pointer in name");
+				
+				return ERV_MALFORMED;
+			}
+
+			/* Mark offset as having been used by a pointer in this name */
+			pointer_map[ofs] = 1;
 
 			/* Continue parsing the name */
 			continue;
