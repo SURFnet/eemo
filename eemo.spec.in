@@ -1,4 +1,5 @@
 # $Id$
+%define __arch_install_post %{nil}
 
 Summary:	The Extensible Ethernet Monitor
 Name:		eemo
