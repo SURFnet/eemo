@@ -42,8 +42,8 @@
 #include "dns_parser.h"
 #include "eemo_log.h"
 
-#define DNS_PARSE_DEBUG /* define to enable extensive debug logging of DNS parsing */
-/*#undef DNS_PARSE_DEBUG*/
+/*#define DNS_PARSE_DEBUG*/ /* define to enable extensive debug logging of DNS parsing */
+#undef DNS_PARSE_DEBUG
 
 #ifdef DNS_PARSE_DEBUG
 	#define PARSE_MSG(...) eemo_log(EEMO_LOG_DEBUG  , __FILE__, __LINE__, __VA_ARGS__);
