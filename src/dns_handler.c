@@ -85,6 +85,17 @@ eemo_rv eemo_handle_dns_payload(eemo_packet_buf* packet, eemo_ip_packet_info ip_
 			}
 		}
 	}
+	else
+	{
+		switch(rv)
+		{
+		case ERV_DNS_NAME_LOOPS:
+			WARNING_MSG("DNS message from %s to %s contains a looping DNS name", ip_info.ip_src, ip_info.ip_dst);
+			break;
+		default:
+			break;
+		}
+	}
 
 	eemo_free_dns_packet(&dns_packet);
 	

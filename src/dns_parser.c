@@ -65,6 +65,9 @@ typedef struct
 eemo_hdr_dns;
 #pragma pack(pop)
 
+/* Maximum number of pointers in a DNS name */
+#define MAX_DNS_NAME_PTR	256
+
 /* Free up the RDATA belonging to an RR */
 void eemo_free_dns_rr_rdata(eemo_dns_rr* rr)
 {
@@ -165,10 +168,7 @@ eemo_rv eemo_uncompress_dns_name(eemo_packet_buf* packet, unsigned long* offset,
 	unsigned short ofs = *offset;
 	char name_buf[512] = { 0 };
 	unsigned short len = 0;
-	static unsigned char pointer_map[65536];
-
-	/* Clear pointer map */
-	memset(pointer_map, 0, 65536);
+	unsigned short ptr_ctr = 0;
 
 	while(!root_label_found && (ofs < packet->len) && (len < 512))
 	{
@@ -195,16 +195,11 @@ eemo_rv eemo_uncompress_dns_name(eemo_packet_buf* packet, unsigned long* offset,
 			/* Set the new offset based on the pointer */
 			ofs = ((label_len & PTR_HI_OCTET_MASK) << 8) + packet->data[ofs];
 
-			/* For loop detection, check if we've already encountered this offset in a pointer */
-			if (pointer_map[ofs] != 0)
+			/* To prevent endless looping, count the number of pointers in this name */
+			if (ptr_ctr++ >= MAX_DNS_NAME_PTR)
 			{
-				WARNING_MSG("Encountered DNS packet with looping pointer in name");
-				
-				return ERV_MALFORMED;
+				return ERV_DNS_NAME_LOOPS;
 			}
-
-			/* Mark offset as having been used by a pointer in this name */
-			pointer_map[ofs] = 1;
 
 			/* Continue parsing the name */
 			continue;
@@ -440,7 +435,7 @@ void log_rdata(eemo_dns_rr* rr)
 #endif // !DNS_PARSE_DEBUG
 
 /* Parse the RDATA for an A record */
-void eemo_parse_dns_rr_a(eemo_packet_buf* packet, eemo_dns_rr* rr, unsigned long* offset, unsigned short rdata_len)
+eemo_rv eemo_parse_dns_rr_a(eemo_packet_buf* packet, eemo_dns_rr* rr, unsigned long* offset, unsigned short rdata_len)
 {
 	unsigned int* a_data = NULL;
 
@@ -448,7 +443,8 @@ void eemo_parse_dns_rr_a(eemo_packet_buf* packet, eemo_dns_rr* rr, unsigned long
 	if (rdata_len != 4)
 	{
 		PARSE_MSG("Invalid A record RDATA, wrong size(%d)", rdata_len);
-		return;
+		
+		return ERV_MALFORMED;
 	}
 
 	/* Reserve memory */
@@ -459,10 +455,12 @@ void eemo_parse_dns_rr_a(eemo_packet_buf* packet, eemo_dns_rr* rr, unsigned long
 		*a_data = ntohl(*((unsigned int*) &packet->data[*offset]));
 		rr->rdata = a_data;
 	}
+
+	return ERV_OK;
 }
 
 /* Parse the RDATA for a AAAA record */
-void eemo_parse_dns_rr_aaaa(eemo_packet_buf* packet, eemo_dns_rr* rr, unsigned long* offset, unsigned short rdata_len)
+eemo_rv eemo_parse_dns_rr_aaaa(eemo_packet_buf* packet, eemo_dns_rr* rr, unsigned long* offset, unsigned short rdata_len)
 {
 	unsigned short* aaaa_data = NULL;
 
@@ -470,7 +468,8 @@ void eemo_parse_dns_rr_aaaa(eemo_packet_buf* packet, eemo_dns_rr* rr, unsigned l
 	if (rdata_len != 16)
 	{
 		PARSE_MSG("Invalid AAAA record RDATA, wrong size(%d)", rdata_len);
-		return;
+
+		return ERV_MALFORMED;
 	}
 
 	/* Reserve memory */
@@ -489,39 +488,48 @@ void eemo_parse_dns_rr_aaaa(eemo_packet_buf* packet, eemo_dns_rr* rr, unsigned l
 
 		rr->rdata = aaaa_data;
 	}
+
+	return ERV_OK;
 }
 
 /* Parse the RDATA for an NS record */
-void eemo_parse_dns_rr_ns(eemo_packet_buf* packet, eemo_dns_rr* rr, unsigned long* offset, unsigned short rdata_len)
+eemo_rv eemo_parse_dns_rr_ns(eemo_packet_buf* packet, eemo_dns_rr* rr, unsigned long* offset, unsigned short rdata_len)
 {
 	char* ns_rdata = NULL;
 	unsigned long ofs = *offset;
+	eemo_rv rv = ERV_OK;
 
 	/* The RDATA is a DNS name, uncompress it */
-	if (eemo_uncompress_dns_name(packet, &ofs, &ns_rdata) == ERV_OK)
+	if ((rv = eemo_uncompress_dns_name(packet, &ofs, &ns_rdata)) == ERV_OK)
 	{
 		rr->rdata = ns_rdata;
 	}
+
+	return rv;
 }
 
 /* Parse the RDATA for an CNAME record */
-void eemo_parse_dns_rr_cname(eemo_packet_buf* packet, eemo_dns_rr* rr, unsigned long* offset, unsigned short rdata_len)
+eemo_rv eemo_parse_dns_rr_cname(eemo_packet_buf* packet, eemo_dns_rr* rr, unsigned long* offset, unsigned short rdata_len)
 {
 	char* cname_rdata = NULL;
 	unsigned long ofs = *offset;
+	eemo_rv rv = ERV_OK;
 
 	/* The RDATA is a DNS name, uncompress it */
-	if (eemo_uncompress_dns_name(packet, &ofs, &cname_rdata) == ERV_OK)
+	if ((rv = eemo_uncompress_dns_name(packet, &ofs, &cname_rdata)) == ERV_OK)
 	{
 		rr->rdata = cname_rdata;
 	}
+
+	return rv;
 }
 
 /* Parse the RDATA for a TXT record */
-void eemo_parse_dns_rr_txt(eemo_packet_buf* packet, eemo_dns_rr* rr, unsigned long* offset, unsigned short rdata_len)
+eemo_rv eemo_parse_dns_rr_txt(eemo_packet_buf* packet, eemo_dns_rr* rr, unsigned long* offset, unsigned short rdata_len)
 {
 	unsigned long ofs = 0;
 	txt_rdata* txt_data = NULL;
+	eemo_rv rv = ERV_OK;
 
 	/* The RDATA field contains 1 or more character strings */
 	while (ofs < rdata_len)
@@ -533,6 +541,8 @@ void eemo_parse_dns_rr_txt(eemo_packet_buf* packet, eemo_dns_rr* rr, unsigned lo
 		if ((rdata_len - ofs) < str_len)
 		{
 			PARSE_MSG("Warning: invalid string in TXT RR");
+
+			rv = ERV_MALFORMED;
 			break;
 		}
 
@@ -560,10 +570,12 @@ void eemo_parse_dns_rr_txt(eemo_packet_buf* packet, eemo_dns_rr* rr, unsigned lo
 	}
 
 	rr->rdata = txt_data;
+
+	return rv;
 }
 
 /* Don't parse the RDATA field, simply copy it */
-void eemo_copy_dns_rdata(eemo_packet_buf* packet, eemo_dns_rr* rr, unsigned long* offset, unsigned short rdata_len)
+eemo_rv eemo_copy_dns_rdata(eemo_packet_buf* packet, eemo_dns_rr* rr, unsigned long* offset, unsigned short rdata_len)
 {
 	unsigned char* rdata = (unsigned char*) malloc(rdata_len*sizeof(unsigned char));
 
@@ -573,12 +585,20 @@ void eemo_copy_dns_rdata(eemo_packet_buf* packet, eemo_dns_rr* rr, unsigned long
 
 		rr->rdata_len = rdata_len;
 		rr->rdata = rdata;
+
+		return ERV_OK;
+	}
+	else
+	{
+		return ERV_MEMORY;
 	}
 }
 
 /* Parse the RDATA field of a resource record */
-void eemo_parse_dns_rdata(eemo_packet_buf* packet, eemo_dns_rr* rr, unsigned long* offset, unsigned short rdata_len)
+eemo_rv eemo_parse_dns_rdata(eemo_packet_buf* packet, eemo_dns_rr* rr, unsigned long* offset, unsigned short rdata_len)
 {
+	eemo_rv rv = ERV_OK;
+
 	/* Reset the RDATA field */
 	rr->rdata = NULL;
 	rr->rdata_len = 0;
@@ -587,27 +607,29 @@ void eemo_parse_dns_rdata(eemo_packet_buf* packet, eemo_dns_rr* rr, unsigned lon
 	switch(rr->type)
 	{
 	case DNS_QTYPE_A:
-		eemo_parse_dns_rr_a(packet, rr, offset, rdata_len);
+		rv = eemo_parse_dns_rr_a(packet, rr, offset, rdata_len);
 		break;
 	case DNS_QTYPE_AAAA:
-		eemo_parse_dns_rr_aaaa(packet, rr, offset, rdata_len);
+		rv = eemo_parse_dns_rr_aaaa(packet, rr, offset, rdata_len);
 		break;
 	case DNS_QTYPE_CNAME:
-		eemo_parse_dns_rr_cname(packet, rr, offset, rdata_len);
+		rv = eemo_parse_dns_rr_cname(packet, rr, offset, rdata_len);
 		break;
 	case DNS_QTYPE_NS:
-		eemo_parse_dns_rr_ns(packet, rr, offset, rdata_len);
+		rv = eemo_parse_dns_rr_ns(packet, rr, offset, rdata_len);
 		break;
 	case DNS_QTYPE_TXT:
-		eemo_parse_dns_rr_txt(packet, rr, offset, rdata_len);
+		rv = eemo_parse_dns_rr_txt(packet, rr, offset, rdata_len);
 		break;
 	default:
 		PARSE_MSG("Unsupported or unparsed RR type %d", rr->type);
-		eemo_copy_dns_rdata(packet, rr, offset, rdata_len);
+		rv = eemo_copy_dns_rdata(packet, rr, offset, rdata_len);
 		break;
 	}
 
 	LOG_RDATA(rr);
+
+	return rv;
 }
 
 /* Parse the resource records in a DNS packet */
@@ -671,7 +693,14 @@ eemo_rv eemo_parse_dns_rrs(eemo_packet_buf* packet, eemo_dns_rr** rr_list, unsig
 		}
 
 		/* Parse the RDATA */
-		eemo_parse_dns_rdata(packet, new_rr, offset, rdata_len);
+		if ((rv = eemo_parse_dns_rdata(packet, new_rr, offset, rdata_len)) != ERV_OK)
+		{
+			eemo_free_dns_rr_rdata(new_rr);
+			free(new_rr->name);
+			free(new_rr);
+
+			return rv;
+		}
 
 		/* Skip over RDATA */
 		*offset += rdata_len;

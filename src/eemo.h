@@ -55,6 +55,7 @@ typedef unsigned long eemo_rv;
 #define ERV_SKIPPED		0x00001001	/* The packet was not handled by the module */
 #define ERV_MALFORMED		0x80001000	/* The packet was recognised but is malformed */
 #define ERV_PARTIAL		0x80001001	/* The packet contained partial data (fragmented or part of a TCP stream) */
+#define ERV_DNS_NAME_LOOPS	0x80002000	/* The parsed DNS name contains a cyclic pointer reference */
 
 /* Error messages */
 #define ERV_GENERAL_ERROR	0x80000000	/* An undefined error occurred */
