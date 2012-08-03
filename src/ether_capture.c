@@ -39,10 +39,12 @@
 #include "eemo_log.h"
 #include "ether_capture.h"
 #include "ether_handler.h"
+#include "eemo_config.h"
 #include <stdio.h>
 #include <signal.h>
+#include <time.h>
 
-#define SNAPLEN		65535
+#define SNAPLEN		65536
 
 /* Global PCAP handle */
 pcap_t* handle = NULL;
@@ -52,6 +54,12 @@ unsigned long long capture_ctr = 0;
 
 /* Handled packet counter */
 unsigned long long handled_ctr = 0;
+
+/* Interval between logging of statistics */
+int capture_stats_interval = 0;
+
+/* Last time statistics were logged */
+time_t last_capture_stats = 0;
 
 /* Signal handler for exit signal */
 void stop_signal_handler(int signum)
@@ -81,6 +89,17 @@ void eemo_pcap_callback(u_char* user_ptr, const struct pcap_pkthdr* hdr, const u
 		handled_ctr++;
 	}
 
+	/* Check if we need to emit statistics */
+	if (capture_stats_interval > 0)
+	{
+		if ((time(NULL) - last_capture_stats) >= capture_stats_interval)
+		{
+			last_capture_stats = time(NULL);
+
+			INFO_MSG("Captured %llu packets %llu of which were handled by a plug-in", capture_ctr, handled_ctr);
+		}
+	}
+
 	/* Free the packet data */
 	eemo_pbuf_free(packet);
 }
@@ -95,6 +114,15 @@ eemo_rv eemo_capture_and_handle(const char* interface, int packet_count, const c
 
 	/* Reset counters */
 	capture_ctr = handled_ctr = 0;
+	last_capture_stats = time(NULL);
+
+	/* Retrieve configuration */
+	eemo_conf_get_int("capture", "stats_interval", &capture_stats_interval, 0);
+
+	if (capture_stats_interval > 0)
+	{
+		INFO_MSG("Emitting capture statistics every %ds", capture_stats_interval);
+	}
 
 	/* Determine the default interface if none was specified */
 	cap_if = (interface == NULL) ? pcap_lookupdev(errbuf) : interface;
