@@ -170,6 +170,8 @@ eemo_rv eemo_uncompress_dns_name(eemo_packet_buf* packet, unsigned long* offset,
 	unsigned short len = 0;
 	unsigned short ptr_ctr = 0;
 
+	*name = NULL;
+
 	while(!root_label_found && (ofs < packet->len) && (len < 512))
 	{
 		label_len = packet->data[ofs++];
@@ -203,6 +205,14 @@ eemo_rv eemo_uncompress_dns_name(eemo_packet_buf* packet, unsigned long* offset,
 
 			/* Continue parsing the name */
 			continue;
+		}
+
+		/* Check for sane label length */
+		if (label_len > 63)
+		{
+			ERROR_MSG("Invalid length field in QNAME (%d)", label_len);
+
+			return ERV_MALFORMED;
 		}
 
 		/* Is this the root label? */
@@ -322,7 +332,7 @@ char* eemo_rdata_to_string(eemo_dns_rr* rr)
 		}
 		break;
 	case DNS_QTYPE_AAAA:
-		rv = (char*) malloc(40 * sizeof(char)); /* 8x 4 characters + 8x ':" + \0 */
+		rv = (char*) malloc(40 * sizeof(char)); /* 8x 4 characters + 7x ':" + \0 */
 
 		if (rv != NULL)
 		{

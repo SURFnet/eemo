@@ -44,7 +44,8 @@
 #include <signal.h>
 #include <time.h>
 
-#define SNAPLEN		65536
+#define SNAPLEN			65536
+#define DEBUG_PACKET_FILE	"/tmp/eemo.packet"
 
 /* Global PCAP handle */
 pcap_t* handle = NULL;
@@ -60,6 +61,43 @@ int capture_stats_interval = 0;
 
 /* Last time statistics were logged */
 time_t last_capture_stats = 0;
+
+/* Should we log the packet currently being handled to file? */
+int log_current_packet = 0;
+
+/* PCAP dump headers for packet file, makes for easy reading by e.g. Wireshark */
+#pragma pack(push,1)
+static struct
+{
+	uint32_t magic_number;
+	uint16_t version_major;
+	uint16_t version_minor;
+	int32_t thiszone;
+	uint32_t sigfigs;
+	uint32_t snaplen;
+	uint32_t network;
+}
+pcap_header
+=
+{
+	0xa1b2c3d4,
+	2,
+	4,
+	0,
+	0,
+	SNAPLEN,
+	1
+};
+
+static struct
+{
+	uint32_t ts_sec;
+	uint32_t ts_usec;
+	uint32_t incl_len;
+	uint32_t orig_len;
+}
+pcap_cap_header = { 0, 0, 0, 0};
+#pragma pack(pop)
 
 /* Signal handler for exit signal */
 void stop_signal_handler(int signum)
@@ -79,6 +117,31 @@ void eemo_pcap_callback(u_char* user_ptr, const struct pcap_pkthdr* hdr, const u
 
 	/* Copy the captured data */
 	eemo_packet_buf* packet = eemo_pbuf_new((u_char*) capture_data, hdr->len);
+
+	/* Log the packet to file if necessary */
+	if (log_current_packet)
+	{
+		FILE* debug_packet_file = fopen(DEBUG_PACKET_FILE, "w");
+
+		if (debug_packet_file != NULL)
+		{
+			/* Write packet and flush */
+			fwrite(&pcap_header, 1, sizeof(pcap_header), debug_packet_file);
+
+			pcap_cap_header.incl_len = hdr->len;
+			pcap_cap_header.orig_len = hdr->len;
+			fwrite(&pcap_cap_header, 1, sizeof(pcap_cap_header), debug_packet_file);
+
+			fwrite(capture_data, 1, hdr->len, debug_packet_file);
+			fflush(debug_packet_file);
+			fclose(debug_packet_file);
+		}
+		else
+		{
+			ERROR_MSG("Failed to open %s for writing", DEBUG_PACKET_FILE);
+			log_current_packet = 0;
+		}
+	}
 
 	/* Run it through the Ethernet handlers */
 	rv = eemo_handle_ether_packet(packet);
@@ -118,10 +181,16 @@ eemo_rv eemo_capture_and_handle(const char* interface, int packet_count, const c
 
 	/* Retrieve configuration */
 	eemo_conf_get_int("capture", "stats_interval", &capture_stats_interval, 0);
+	eemo_conf_get_bool("capture", "debug_log_packet", &log_current_packet, 0);
 
 	if (capture_stats_interval > 0)
 	{
 		INFO_MSG("Emitting capture statistics every %ds", capture_stats_interval);
+	}
+
+	if (log_current_packet)
+	{
+		INFO_MSG("Logging packet being handled to %s for debugging purposes", DEBUG_PACKET_FILE);
 	}
 
 	/* Determine the default interface if none was specified */
