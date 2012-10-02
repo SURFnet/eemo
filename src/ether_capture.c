@@ -97,7 +97,12 @@ static struct
 	uint32_t orig_len;
 }
 pcap_cap_header = { 0, 0, 0, 0};
+
+static unsigned char blankbuf[2048] = { 0 };
 #pragma pack(pop)
+
+/* File for debug packet dumping */
+FILE* debug_packet_file = NULL;
 
 /* Signal handler for exit signal */
 void stop_signal_handler(int signum)
@@ -121,26 +126,18 @@ void eemo_pcap_callback(u_char* user_ptr, const struct pcap_pkthdr* hdr, const u
 	/* Log the packet to file if necessary */
 	if (log_current_packet)
 	{
-		FILE* debug_packet_file = fopen(DEBUG_PACKET_FILE, "w");
+		/* Write packet and flush */
+		rewind(debug_packet_file);
+		fwrite(&blankbuf[0], 1, sizeof(blankbuf), debug_packet_file);
+		rewind(debug_packet_file);
+		fwrite(&pcap_header, 1, sizeof(pcap_header), debug_packet_file);
 
-		if (debug_packet_file != NULL)
-		{
-			/* Write packet and flush */
-			fwrite(&pcap_header, 1, sizeof(pcap_header), debug_packet_file);
+		pcap_cap_header.incl_len = hdr->len;
+		pcap_cap_header.orig_len = hdr->len;
+		fwrite(&pcap_cap_header, 1, sizeof(pcap_cap_header), debug_packet_file);
 
-			pcap_cap_header.incl_len = hdr->len;
-			pcap_cap_header.orig_len = hdr->len;
-			fwrite(&pcap_cap_header, 1, sizeof(pcap_cap_header), debug_packet_file);
-
-			fwrite(capture_data, 1, hdr->len, debug_packet_file);
-			fflush(debug_packet_file);
-			fclose(debug_packet_file);
-		}
-		else
-		{
-			ERROR_MSG("Failed to open %s for writing", DEBUG_PACKET_FILE);
-			log_current_packet = 0;
-		}
+		fwrite(capture_data, 1, hdr->len, debug_packet_file);
+		fflush(debug_packet_file);
 	}
 
 	/* Run it through the Ethernet handlers */
@@ -191,6 +188,15 @@ eemo_rv eemo_capture_and_handle(const char* interface, int packet_count, const c
 	if (log_current_packet)
 	{
 		INFO_MSG("Logging packet being handled to %s for debugging purposes", DEBUG_PACKET_FILE);
+
+		debug_packet_file = fopen(DEBUG_PACKET_FILE, "w");
+
+		if (debug_packet_file == NULL)
+		{
+			ERROR_MSG("Failed to open %s for writing", DEBUG_PACKET_FILE);
+
+			log_current_packet = 0;
+		}
 	}
 
 	/* Determine the default interface if none was specified */
@@ -254,6 +260,12 @@ eemo_rv eemo_capture_and_handle(const char* interface, int packet_count, const c
 	signal(SIGINT, SIG_DFL);
 	signal(SIGHUP, SIG_DFL);
 	signal(SIGTERM, SIG_DFL);
+
+	/* Close last packet dump file if open */
+	if (log_current_packet && debug_packet_file)
+	{
+		fclose(debug_packet_file);
+	}
 
 	INFO_MSG("Packet capture ended, captured %llu packets of which %llu were handled", capture_ctr, handled_ctr);
 
