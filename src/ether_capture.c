@@ -165,7 +165,7 @@ void eemo_pcap_callback(u_char* user_ptr, const struct pcap_pkthdr* hdr, const u
 }
 
 /* Capture and handle the specified number of packets on the specified interface, optionally using a filter */
-eemo_rv eemo_capture_and_handle(const char* interface, int packet_count, const char* net_filter)
+eemo_rv eemo_capture_and_handle(const char* interface_or_file, int packet_count, const char* net_filter, const int is_savefile)
 {
 	const char* cap_if = NULL;
 	char errbuf[PCAP_ERRBUF_SIZE];
@@ -199,24 +199,43 @@ eemo_rv eemo_capture_and_handle(const char* interface, int packet_count, const c
 		}
 	}
 
-	/* Determine the default interface if none was specified */
-	cap_if = (interface == NULL) ? pcap_lookupdev(errbuf) : interface;
-
-	if (cap_if == NULL)
+	/* Open live interface or file */
+	if (!is_savefile)
 	{
-		/* No capture interface available or specified */
-		return ERV_ETH_NOT_EXIST;
+		/* Determine the default interface if none was specified */
+		cap_if = (interface_or_file == NULL) ? pcap_lookupdev(errbuf) : interface_or_file;
+
+		if (cap_if == NULL)
+		{
+			/* No capture interface available or specified */
+			return ERV_ETH_NOT_EXIST;
+		}
+
+		INFO_MSG("Opening device %s for packet capture", cap_if);
+
+		/* Open the device in promiscuous mode */
+		handle = pcap_open_live(cap_if, SNAPLEN, 1, 1000, errbuf);
+
+		if (handle == NULL)
+		{
+			/* Failed to open interface for capturing */
+			return ERV_NO_ACCESS;
+		}
 	}
-
-	INFO_MSG("Opening device %s for packet capture", cap_if);
-
-	/* Open the device in promiscuous mode */
-	handle = pcap_open_live(cap_if, SNAPLEN, 1, 1000, errbuf);
-
-	if (handle == NULL)
+	else
 	{
-		/* Failed to open interface for capturing */
-		return ERV_NO_ACCESS;
+		/* Open the previously saved capture file */
+		handle = pcap_open_offline(interface_or_file, errbuf);
+
+		if (handle == NULL)
+		{
+			/* Failed to open the capture file */
+			ERROR_MSG("Failed to open PCAP capture file %s", interface_or_file);
+
+			return ERV_NO_ACCESS;
+		}
+
+		INFO_MSG("Will read packets from %s instead of using live capture", interface_or_file);
 	}
 
 	/* Compile and apply packet filter */

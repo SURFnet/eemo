@@ -65,20 +65,25 @@ void usage(void)
 	printf("Extensible Ethernet Monitor (eemo) version %s\n\n", VERSION);
 	printf("Usage:\n");
 	printf("\teemo [-i <if>] [-f] [-c <config>] [-p <pidfile>]\n");
+	printf("\teemo [-s <savefile>]\n");
 	printf("\teemo -h\n");
 	printf("\teemo -v\n");
 	printf("\n");
-	printf("\t-i <if>      Capture package on interface <if>; defaults to standard packet\n");
-	printf("\t             capturing interface reported by libpcap, see pcap_lookupdev(3)\n");
-	printf("\t-f           Run in the foreground rather than forking as a daemon\n");
-	printf("\t-c <config>  Use <config> as configuration file\n");
-	printf("\t             Defaults to %s\n", DEFAULT_EEMO_CONF);
-	printf("\t-p <pidfile> Specify the PID file to write the daemon process ID to\n");
-	printf("\t             Defaults to %s\n", DEFAULT_EEMO_PIDFILE);
+	printf("\t-i <if>       Capture package on interface <if>; defaults to standard packet\n");
+	printf("\t              capturing interface reported by libpcap, see pcap_lookupdev(3)\n");
+	printf("\t-f            Run in the foreground rather than forking as a daemon\n");
+	printf("\t-c <config>   Use <config> as configuration file\n");
+	printf("\t              Defaults to %s\n", DEFAULT_EEMO_CONF);
+	printf("\t-p <pidfile>  Specify the PID file to write the daemon process ID to\n");
+	printf("\t              Defaults to %s\n", DEFAULT_EEMO_PIDFILE);
 	printf("\n");
-	printf("\t-h           Print this help message\n");
+	printf("\t-s <savefile> Play back a PCAP savefile (e.g. dumped using tcpdump) instead\n");
+	printf("\t              of using a live capture; options -c and -p may also be\n");
+	printf("\t              supplied, option -f is implied\n");
 	printf("\n");
-	printf("\t-v           Print the version number\n");
+	printf("\t-h            Print this help message\n");
+	printf("\n");
+	printf("\t-v            Print the version number\n");
 }
 
 void write_pid(const char* pid_path, pid_t pid)
@@ -142,14 +147,16 @@ int main(int argc, char* argv[])
 	char* interface = NULL;
 	char* config_path = NULL;
 	char* pid_path = NULL;
+	char* savefile_path = NULL;
 	int daemon = 1;
 	int c = 0;
 	int pid_path_set = 0;
 	int daemon_set = 0;
 	int interface_set = 0;
+	int savefile_set = 0;
 	pid_t pid = 0;
 	
-	while ((c = getopt(argc, argv, "i:fc:p:hv")) != -1)
+	while ((c = getopt(argc, argv, "i:s:fc:p:hv")) != -1)
 	{
 		switch(c)
 		{
@@ -164,6 +171,21 @@ int main(int argc, char* argv[])
 
 			interface_set = 1;
 
+			break;
+		case 's':
+			savefile_path = strdup(optarg);
+
+			if (savefile_path == NULL)
+			{
+				fprintf(stderr, "Error allocating memory, exiting\n");
+				return ERV_MEMORY;
+			}
+
+			savefile_set = 1;
+			
+			/* Always run in the foreground when playing back a recorded dump */
+			daemon = 0;
+			daemon_set = 1;
 			break;
 		case 'f':
 			daemon = 0;
@@ -221,6 +243,13 @@ int main(int argc, char* argv[])
 		}
 	}
 
+	if (interface_set && savefile_set)
+	{
+		fprintf(stderr, "Cannot combine live capture (-i) and savefile playback (-s), exiting\n");
+
+		return ERV_CONFIG_ERROR;
+	}
+
 	/* Load the configuration */
 	if (eemo_init_config_handling(config_path) != ERV_OK)
 	{
@@ -264,7 +293,7 @@ int main(int argc, char* argv[])
 		}
 	}
 
-	if (!interface_set)
+	if (!interface_set && !savefile_set)
 	{
 		if (eemo_conf_get_string("capture", "interface", &interface, NULL) != ERV_OK)
 		{
@@ -296,6 +325,7 @@ int main(int argc, char* argv[])
 		
 			free(pid_path);
 			free(config_path);
+			free(savefile_path);
 		
 			if (interface != NULL)
 			{
@@ -366,7 +396,7 @@ int main(int argc, char* argv[])
 	}
 
 	/* Start capturing */
-	if (eemo_capture_and_handle(interface, -1, NULL) != ERV_OK)
+	if (eemo_capture_and_handle(savefile_set ? savefile_path : interface, -1, NULL, savefile_set) != ERV_OK)
 	{
 		ERROR_MSG("Failed to start packet capture");
 	}
@@ -413,6 +443,7 @@ int main(int argc, char* argv[])
 
 	free(pid_path);
 	free(config_path);
+	free(savefile_path);
 
 	if (interface != NULL)
 	{

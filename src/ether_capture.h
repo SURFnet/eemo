@@ -44,7 +44,7 @@
 #include "eemo_packet.h"
 
 /* Capture and handle the specified number of packets on the specified interface, optionally using a filter */
-eemo_rv eemo_capture_and_handle(const char* interface, int packet_count, const char* net_filter);
+eemo_rv eemo_capture_and_handle(const char* interface_or_file, int packet_count, const char* net_filter, const int is_savefile);
 
 #endif /* !_EEMO_ETHER_CAPTURE_H */
 
