@@ -126,6 +126,7 @@ void signal_handler(int signum)
 		break;
 	case SIGSEGV:
 		ERROR_MSG("Caught SIGSEGV");
+		exit(-1);
 		break;
 	case SIGSYS:
 		ERROR_MSG("Caught SIGSYS");

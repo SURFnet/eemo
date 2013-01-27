@@ -165,6 +165,7 @@ AC_CONFIG_FILES([
 	src/plugins/dnssensorfw/Makefile
 	src/plugins/dnssensorfw/testsink/Makefile
 	src/plugins/icmpfragmon/Makefile
+	src/plugins/dns9k/Makefile
 	config/Makefile
 ])
 

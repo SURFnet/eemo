@@ -125,6 +125,9 @@ eemo_rv eemo_handle_ipv4_packet(eemo_packet_buf* packet, eemo_ether_packet_info 
 		ip_info.ip_type 	= IP_TYPE_V4;
 		snprintf(ip_info.ip_src, NI_MAXHOST, "%d.%d.%d.%d", hdr->ip4_src[0], hdr->ip4_src[1], hdr->ip4_src[2], hdr->ip4_src[3]);
 		snprintf(ip_info.ip_dst, NI_MAXHOST, "%d.%d.%d.%d", hdr->ip4_dst[0], hdr->ip4_dst[1], hdr->ip4_dst[2], hdr->ip4_dst[3]);
+		memcpy(&ip_info.src_addr.v4, hdr->ip4_src, 4);
+		memcpy(&ip_info.dst_addr.v4, hdr->ip4_dst, 4);
+		ip_info.ttl		= hdr->ip4_ttl;
 
 		/* Determine the offset */
 		offset = sizeof(eemo_hdr_ipv4);
@@ -205,6 +208,10 @@ eemo_rv eemo_handle_ipv6_packet(eemo_packet_buf* packet, eemo_ether_packet_info 
 		/* Take the header from the packet */
 		hdr = (eemo_hdr_ipv6*) packet->data;
 
+		/* Copy binary source and destination address in network byte order */
+		memcpy(ip_info.src_addr.v6, hdr->ip6_src, 8 * sizeof(u_short));
+		memcpy(ip_info.dst_addr.v6, hdr->ip6_dst, 8 * sizeof(u_short));
+
 		/* Convert to host byte order */
 		eemo_ipv6_ntoh(hdr);
 
@@ -219,6 +226,7 @@ eemo_rv eemo_handle_ipv6_packet(eemo_packet_buf* packet, eemo_ether_packet_info 
 		snprintf(ip_info.ip_dst, NI_MAXHOST, "%x:%x:%x:%x:%x:%x:%x:%x",
 			hdr->ip6_dst[0], hdr->ip6_dst[1], hdr->ip6_dst[2], hdr->ip6_dst[3], 
 			hdr->ip6_dst[4], hdr->ip6_dst[5], hdr->ip6_dst[6], hdr->ip6_dst[7]);
+		ip_info.ttl		= hdr->ip6_hop_lmt;
 
 		/* Determine the offset */
 		offset = sizeof(eemo_hdr_ipv6);

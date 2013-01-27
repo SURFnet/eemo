@@ -101,6 +101,17 @@ typedef struct
 	unsigned char 	is_fragment;		/* is this a fragment? */
 	unsigned char	more_frags;		/* are there more fragments to follow? */
 	u_short 	fragment_ofs;		/* fragment offset */
+	union
+	{
+		u_int	v4;			/* caution: network byte order! */
+		u_short	v6[8];			/* caution: network byte order! */
+	}		src_addr;		/* binary source address */
+	union
+	{
+		u_int	v4;			/* caution: network byte order! */
+		u_short	v6[8];			/* caution: network byte order! */
+	}		dst_addr;		/* binary destination address */
+	u_char		ttl;			/* time-to-live (or hop limit for v6) */
 }
 eemo_ip_packet_info;
 
