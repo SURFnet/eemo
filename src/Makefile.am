@@ -34,7 +34,8 @@ eemo_SOURCES =		dns_handler.c \
 			tcp_handler.h \
 			udp_handler.c \
 			udp_handler.h \
-			utlist.h
+			utlist.h \
+			uthash.h
 
 eemo_LDADD =		-lpcap -lconfig
 
