@@ -250,8 +250,8 @@ int	stat_reset		= 1;
 /* Statistics file */
 FILE*	stat_fp			= NULL;
 
-/* Signal handler for alarms & user signals */
-void signal_handler(int signum)
+/* Write statistics to file */
+void write_stats(void)
 {
 	unsigned long long EDNS0_TOTAL 		= 0;
 	unsigned long long EDNS0_PCT_ON 	= 0;
@@ -282,16 +282,7 @@ void signal_handler(int signum)
 	unsigned long long RSIZE_PCT_3584_4095	= 0;
 	unsigned long long RSIZE_PCT_GT_4096	= 0;
 	unsigned long long RSIZE_AVERAGE	= 0;
-
-	if (signum == SIGUSR1)
-	{
-		DEBUG_MSG("Received user signal to dump statistics");
-	}
-	else if (signum == SIGALRM)
-	{
-		DEBUG_MSG("Received automated alarm to dump statistics");
-	}
-
+	
 	/* Open the file for writing if necessary */
 	if (!stat_append)
 	{
@@ -706,6 +697,22 @@ void signal_handler(int signum)
 	{
 		fclose(stat_fp);
 	}
+}
+
+/* Signal handler for alarms & user signals */
+void signal_handler(int signum)
+{
+	if (signum == SIGUSR1)
+	{
+		DEBUG_MSG("Received user signal to dump statistics");
+	}
+	else if (signum == SIGALRM)
+	{
+		DEBUG_MSG("Received automated alarm to dump statistics");
+	}
+	
+	/* Write statistics to file */
+	write_stats();
 
 	/* Set the new alarm if necessary */
 	if (signum == SIGALRM)
@@ -793,6 +800,9 @@ void eemo_dnsstats_stats_uninit(eemo_conf_free_string_array_fn free_strings)
 	alarm(0);
 	signal(SIGUSR1, SIG_DFL);
 	signal(SIGALRM, SIG_DFL);
+	
+	/* Write statistics one more time before exiting */
+	write_stats();
 
 	/* Close the file */
 	if (stat_append && (stat_fp != NULL))
