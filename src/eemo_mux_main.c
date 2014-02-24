@@ -39,22 +39,13 @@
 #include <sys/types.h>
 #include "eemo.h"
 #include "eemo_api.h"
-#include "eemo_packet.h"
-#include "ip_handler.h"
-#include "icmp_handler.h"
-#include "udp_handler.h"
-#include "tcp_handler.h"
-#include "dns_handler.h"
-#include "dns_types.h"
-#include "ifaddr_lookup.h"
-#include "ether_capture.h"
 #include "eemo_config.h"
-#include "eemo_modules.h"
 #include "eemo_log.h"
+#include "eemo_mux_muxer.h"
 
 void version(void)
 {
-	printf("Extensible Ethernet Monitor (eemo) version %s\n", VERSION);
+	printf("Extensible Ethernet Monitor Sensor Multiplexer (eemo_mux) version %s\n", VERSION);
 	printf("Copyright (c) 2010-2014 SURFnet bv\n\n");
 	printf("Use, modification and redistribution of this software is subject to the terms\n");
 	printf("of the license agreement. This software is licensed under a 3-clause BSD-style\n");
@@ -63,24 +54,17 @@ void version(void)
 
 void usage(void)
 {
-	printf("Extensible Ethernet Monitor (eemo) version %s\n\n", VERSION);
+	printf("Extensible Ethernet Monitor Sensor Multiplexer (eemo_mux) version %s\n\n", VERSION);
 	printf("Usage:\n");
-	printf("\teemo [-i <if>] [-f] [-c <config>] [-p <pidfile>]\n");
-	printf("\teemo [-s <savefile>]\n");
-	printf("\teemo -h\n");
-	printf("\teemo -v\n");
+	printf("\teemo_mux [-c <config>] [-f] [-p <pidfile>]\n");
+	printf("\teemo_mux -h\n");
+	printf("\teemo_mux -v\n");
 	printf("\n");
-	printf("\t-i <if>       Capture package on interface <if>; defaults to standard packet\n");
-	printf("\t              capturing interface reported by libpcap, see pcap_lookupdev(3)\n");
-	printf("\t-f            Run in the foreground rather than forking as a daemon\n");
 	printf("\t-c <config>   Use <config> as configuration file\n");
-	printf("\t              Defaults to %s\n", DEFAULT_EEMO_CONF);
+	printf("\t              Defaults to %s\n", DEFAULT_EEMO_MUX_CONF);
+	printf("\t-f            Run in the foreground rather than forking as a daemon\n");
 	printf("\t-p <pidfile>  Specify the PID file to write the daemon process ID to\n");
-	printf("\t              Defaults to %s\n", DEFAULT_EEMO_PIDFILE);
-	printf("\n");
-	printf("\t-s <savefile> Play back a PCAP savefile (e.g. dumped using tcpdump) instead\n");
-	printf("\t              of using a live capture; options -c and -p may also be\n");
-	printf("\t              supplied, option -f is implied\n");
+	printf("\t              Defaults to %s\n", DEFAULT_EEMO_MUX_PIDFILE);
 	printf("\n");
 	printf("\t-h            Print this help message\n");
 	printf("\n");
@@ -146,49 +130,18 @@ void signal_handler(int signum)
 
 int main(int argc, char* argv[])
 {
-	char* interface = NULL;
 	char* config_path = NULL;
 	char* pid_path = NULL;
-	char* savefile_path = NULL;
 	int daemon = 1;
 	int c = 0;
 	int pid_path_set = 0;
 	int daemon_set = 0;
-	int interface_set = 0;
-	int savefile_set = 0;
 	pid_t pid = 0;
 	
-	while ((c = getopt(argc, argv, "i:s:fc:p:hv")) != -1)
+	while ((c = getopt(argc, argv, "fc:p:hv")) != -1)
 	{
 		switch(c)
 		{
-		case 'i':
-			interface = strdup(optarg);
-
-			if (interface == NULL)
-			{
-				fprintf(stderr, "Error allocating memory, exiting\n");
-				return ERV_MEMORY;
-			}
-
-			interface_set = 1;
-
-			break;
-		case 's':
-			savefile_path = strdup(optarg);
-
-			if (savefile_path == NULL)
-			{
-				fprintf(stderr, "Error allocating memory, exiting\n");
-				return ERV_MEMORY;
-			}
-
-			savefile_set = 1;
-			
-			/* Always run in the foreground when playing back a recorded dump */
-			daemon = 0;
-			daemon_set = 1;
-			break;
 		case 'f':
 			daemon = 0;
 			daemon_set = 1;
@@ -225,7 +178,7 @@ int main(int argc, char* argv[])
 
 	if (config_path == NULL)
 	{
-		config_path = strdup(DEFAULT_EEMO_CONF);
+		config_path = strdup(DEFAULT_EEMO_MUX_CONF);
 
 		if (config_path == NULL)
 		{
@@ -236,20 +189,13 @@ int main(int argc, char* argv[])
 
 	if (pid_path == NULL)
 	{
-		pid_path = strdup(DEFAULT_EEMO_PIDFILE);
+		pid_path = strdup(DEFAULT_EEMO_MUX_PIDFILE);
 
 		if (pid_path == NULL)
 		{
 			fprintf(stderr, "Error allocating memory, exiting\n");
 			return ERV_MEMORY;
 		}
-	}
-
-	if (interface_set && savefile_set)
-	{
-		fprintf(stderr, "Cannot combine live capture (-i) and savefile playback (-s), exiting\n");
-
-		return ERV_CONFIG_ERROR;
 	}
 
 	/* Load the configuration */
@@ -295,14 +241,6 @@ int main(int argc, char* argv[])
 		}
 	}
 
-	if (!interface_set && !savefile_set)
-	{
-		if (eemo_conf_get_string("capture", "interface", &interface, NULL) != ERV_OK)
-		{
-			ERROR_MSG("Failed to retrieve interface information from the configuration");
-		}
-	}
-
 	/* Now fork if that was requested */
 	if (daemon)
 	{
@@ -327,20 +265,14 @@ int main(int argc, char* argv[])
 		
 			free(pid_path);
 			free(config_path);
-			free(savefile_path);
-		
-			if (interface != NULL)
-			{
-				free(interface);
-			}
-
+			
 			return ERV_OK;
 		}
 	}
 
 	/* If we forked, this is the child */
-	INFO_MSG("Starting the Extensible Ethernet Monitor (eemo) version %s", VERSION);
-	INFO_MSG("eemo %sprocess ID is %d", daemon ? "daemon " : "", getpid());
+	INFO_MSG("Starting the Extensible Ethernet Monitor Sensor Multiplexer (eemo_mux) version %s", VERSION);
+	INFO_MSG("eemo_mux %sprocess ID is %d", daemon ? "daemon " : "", getpid());
 
 	/* Install signal handlers */
 	signal(SIGABRT, signal_handler);
@@ -354,76 +286,8 @@ int main(int argc, char* argv[])
 	signal(SIGXCPU, signal_handler);
 	signal(SIGXFSZ, signal_handler);
 
-	/* Initialise packet handlers */
-	if (eemo_init_ether_handler() != ERV_OK)
-	{
-		ERROR_MSG("Failed to initialise the Ethernet packet handler");
-
-		return ERV_GENERAL_ERROR;
-	}
-
-	if (eemo_init_ip_handler() != ERV_OK)
-	{
-		ERROR_MSG("Failed to initialise the IP packet handler");
-
-		return ERV_GENERAL_ERROR;
-	}
-
-	if (eemo_init_icmp_handler() != ERV_OK)
-	{
-		ERROR_MSG("Failed to initialise the ICMP packet handler");
-	}
-
-	if (eemo_init_udp_handler() != ERV_OK)
-	{
-		ERROR_MSG("Failed to initialise the UDP packet handler");
-	}
-
-	if (eemo_init_tcp_handler() != ERV_OK)
-	{
-		ERROR_MSG("Failed to initialise the TCP packet handler");
-	}
-
-	if (eemo_init_dns_handler() != ERV_OK)
-	{
-		ERROR_MSG("Failed to initialise the DNS query handler");
-	}
-
-	/* Load an initialise modules */
-	if (eemo_conf_load_modules() != ERV_OK)
-	{
-		ERROR_MSG("Failed to load modules");
-
-		return ERV_NO_MODULES;
-	}
-
-	/* Start capturing */
-	if (eemo_capture_and_handle(savefile_set ? savefile_path : interface, -1, NULL, savefile_set) != ERV_OK)
-	{
-		ERROR_MSG("Failed to start packet capture");
-	}
-
-	INFO_MSG("Stopping the Extensible Ethernet Monitor (eemo) version %s", VERSION);
-
-	/* Unload and uninitialise modules */
-	if (eemo_conf_unload_modules() != ERV_OK)
-	{
-		ERROR_MSG("Failed to unload modules");
-	}
-
-	/* Uninitialise all handlers */
-	eemo_dns_handler_cleanup();
-	eemo_tcp_handler_cleanup();
-	eemo_udp_handler_cleanup();
-	eemo_icmp_handler_cleanup();
-	eemo_ip_handler_cleanup();
-	eemo_ether_handler_cleanup();
-
-	/* Unload the configuration */
-	if (eemo_uninit_config_handling() != ERV_OK)
-	{
-		ERROR_MSG("Failed to uninitialise configuration handling");
-	}
+	/* Run the multiplexer until it is stopped */
+	eemo_mux_run_multiplexer();
 
 	/* Remove signal handlers */
 	signal(SIGABRT, SIG_DFL);
@@ -436,6 +300,8 @@ int main(int argc, char* argv[])
 	signal(SIGSYS, SIG_DFL);
 	signal(SIGXCPU, SIG_DFL);
 	signal(SIGXFSZ, SIG_DFL);
+	
+	INFO_MSG("Extensible Ethernet Monitor Sensor Multiplexer exiting");
 
 	/* Uninitialise logging */
 	if (eemo_uninit_log() != ERV_OK)
@@ -445,12 +311,6 @@ int main(int argc, char* argv[])
 
 	free(pid_path);
 	free(config_path);
-	free(savefile_path);
-
-	if (interface != NULL)
-	{
-		free(interface);
-	}
 
 	return 0;
 }

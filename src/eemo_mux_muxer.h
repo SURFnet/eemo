@@ -31,41 +31,19 @@
  */
 
 /*
- * The Extensible Ethernet Monitor (EEMO)
- * Configuration handling
+ * The Extensible Ethernet Monitor Sensor Multiplexer (EEMO)
+ * Main muxer code
  */
 
-#ifndef _EEMO_CONFIG_H
-#define _EEMO_CONFIG_H
+#ifndef _EEMO_MUX_MUXER_H
+#define _EEMO_MUX_MUXER_H
 
 #include "config.h"
 #include "eemo.h"
 #include "eemo_api.h"
-#include <libconfig.h>
 
-/* Initialise the configuration handler */
-eemo_rv eemo_init_config_handling(const char* config_path);
+/* Run the multiplexer */
+void eemo_mux_run_multiplexer(void);
 
-/* Get an integer value */
-eemo_rv eemo_conf_get_int(const char* base_path, const char* sub_path, int* value, int def_val);
-
-/* Get a boolean value */
-eemo_rv eemo_conf_get_bool(const char* base_path, const char* sub_path, int* value, int def_val);
-
-/* Get a string value; note: caller must free string returned in value! */
-eemo_rv eemo_conf_get_string(const char* base_path, const char* sub_path, char** value, char* def_val);
-
-/* Get an array of string values; note: caller must free the array by calling the function below */
-eemo_rv eemo_conf_get_string_array(const char* base_path, const char* sub_path, char*** value, int* count);
-
-/* Free an array of string values */
-eemo_rv eemo_conf_free_string_array(char** array, int count);
-
-/* Release the configuration handler */
-eemo_rv eemo_uninit_config_handling(void);
-
-/* Get a pointer to the internal configuration structure */
-const config_t* eemo_conf_get_config_t(void);
-
-#endif /* !_EEMO_CONFIG_H */
+#endif /* !_EEMO_MUX_MUXER_H */
 

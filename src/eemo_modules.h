@@ -32,40 +32,35 @@
 
 /*
  * The Extensible Ethernet Monitor (EEMO)
- * Configuration handling
+ * Module loader
  */
 
-#ifndef _EEMO_CONFIG_H
-#define _EEMO_CONFIG_H
+#ifndef _EEMO_MODULES_H
+#define _EEMO_MODULES_H
 
 #include "config.h"
 #include "eemo.h"
 #include "eemo_api.h"
 #include <libconfig.h>
 
-/* Initialise the configuration handler */
-eemo_rv eemo_init_config_handling(const char* config_path);
+/* Module specification */
+typedef struct eemo_module_spec
+{
+	char* 						mod_path;	/* The path to the module's shared library */
+	char*						mod_conf_base;	/* Base configuration path for the module */
+	void*						mod_handle;	/* The module's shared library handle */
+	eemo_plugin_fn_table_ptr	mod_fn_table;	/* The module's function table */
 
-/* Get an integer value */
-eemo_rv eemo_conf_get_int(const char* base_path, const char* sub_path, int* value, int def_val);
+	/* Administrativia */
+	struct eemo_module_spec*	next;		/* single LL next element */
+}
+eemo_module_spec;
 
-/* Get a boolean value */
-eemo_rv eemo_conf_get_bool(const char* base_path, const char* sub_path, int* value, int def_val);
+/* Load and initialise the modules */
+eemo_rv eemo_conf_load_modules(void);
 
-/* Get a string value; note: caller must free string returned in value! */
-eemo_rv eemo_conf_get_string(const char* base_path, const char* sub_path, char** value, char* def_val);
+/* Unload and uninitialise the modules */
+eemo_rv eemo_conf_unload_modules(void);
 
-/* Get an array of string values; note: caller must free the array by calling the function below */
-eemo_rv eemo_conf_get_string_array(const char* base_path, const char* sub_path, char*** value, int* count);
-
-/* Free an array of string values */
-eemo_rv eemo_conf_free_string_array(char** array, int count);
-
-/* Release the configuration handler */
-eemo_rv eemo_uninit_config_handling(void);
-
-/* Get a pointer to the internal configuration structure */
-const config_t* eemo_conf_get_config_t(void);
-
-#endif /* !_EEMO_CONFIG_H */
+#endif /* !_EEMO_MODULES_H */
 

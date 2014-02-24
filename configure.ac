@@ -96,6 +96,7 @@ ACX_DLOPEN
 ACX_PCAP
 PKG_CHECK_MODULES([LIBCONFIG], [libconfig >= 1.3.2],, AC_MSG_ERROR([libconfig 1.3.2 or newer not found]))
 ACX_PTHREAD
+PKG_CHECK_MODULES([OPENSSL], [openssl >= 0.9.8],, AC_MSG_ERROR([OpenSSL 0.9.8 or newer not found]))
 
 # Check for headers
 AC_CHECK_HEADERS([pcap.h])
@@ -121,6 +122,8 @@ full_localstatedir=`eval eval eval eval eval echo "${localstatedir}" | sed "s#NO
 full_libdir=`eval eval eval eval eval echo "${libdir}" | sed "s#NONE#${prefix}#" | sed "s#NONE#${ac_default_prefix}#"`
 default_eemo_conf="`eval echo ${full_sysconfdir} | sed s,NONE,$ac_default_prefix,g`/eemo.conf"
 default_pid_file="`eval echo ${full_localstatedir} | sed s,NONE,$ac_default_prefix,g`/run/eemo.pid"
+default_eemo_mux_conf="`eval echo ${full_sysconfdir} | sed s,NONE,$ac_default_prefix,g`/eemo_mux.conf"
+default_mux_pid_file="`eval echo ${full_localstatedir} | sed s,NONE,$ac_default_prefix,g`/run/eemo_mux.pid"
 
 # Define some variables for the code
 AC_DEFINE_UNQUOTED(
@@ -147,6 +150,17 @@ AC_DEFINE_UNQUOTED(
 	[DEFAULT_EEMO_PIDFILE],
 	["$default_pid_file"],
 	[The default PID file]
+)
+
+AC_DEFINE_UNQUOTED(
+	[DEFAULT_EEMO_MUX_CONF],
+	["$default_eemo_mux_conf"],
+	[The default configuration file for the sensor multiplexer]
+)
+AC_DEFINE_UNQUOTED(
+	[DEFAULT_EEMO_MUX_PIDFILE],
+	["$default_mux_pid_file"],
+	[The default PID file for the sensor multiplexer]
 )
 
 # Generate theinstall script
