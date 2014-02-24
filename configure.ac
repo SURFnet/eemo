@@ -180,6 +180,7 @@ AC_CONFIG_FILES([
 	src/plugins/dnssensorfw/testsink/Makefile
 	src/plugins/icmpfragmon/Makefile
 	src/plugins/dns9k/Makefile
+	src/plugins/dnsqrlog/Makefile
 	config/Makefile
 ])
 

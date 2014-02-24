@@ -2,4 +2,4 @@
 
 MAINTAINERCLEANFILES =	$(srcdir)/Makefile.in
 
-SUBDIRS = demo dnsstats dnsqfw icmpfragmon dnssensorfw dns9k
+SUBDIRS = demo dnsstats dnsqfw icmpfragmon dnssensorfw dns9k dnsqrlog

@@ -79,6 +79,7 @@ typedef struct eemo_dns_rr
 	int			ttl;
 	unsigned short		rdata_len;	/* Size 0 indicates that the data has been parsed or is not present */
 	void*			rdata;
+	char*			rdata_txt;
 
 	/* Administrativia */
 	struct eemo_dns_rr*	next;
@@ -108,15 +109,17 @@ typedef struct eemo_dns_packet
 eemo_dns_packet;
 
 /* Parser flags */
-#define PARSE_NONE		0x00000000	/* Do not performing any parsing on DNS packets */
-#define PARSE_QUERY		0x00000001	/* Parse the data in query messages */
+#define PARSE_NONE			0x00000000	/* Do not performing any parsing on DNS packets */
+#define PARSE_QUERY			0x00000001	/* Parse the data in query messages */
 #define PARSE_RESPONSE		0x00000002	/* Parse the data in response messages */
+#define PARSE_RDATA_TO_STR	0x00000004	/* Convert parsed query/response RDATA to a string representation */
 
 /* Parse a DNS packet */
 eemo_rv eemo_parse_dns_packet(eemo_packet_buf* packet, eemo_dns_packet* dns_packet, unsigned long parser_flags, unsigned short udp_len, int is_fragmented);
 
 /* Free a DNS packet structure */
 void eemo_free_dns_packet(eemo_dns_packet* dns_packet);
+
 
 #endif /* !_EEMO_DNS_PARSER_H */
 

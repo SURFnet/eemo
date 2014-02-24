@@ -71,6 +71,11 @@ eemo_hdr_dns;
 /* Free up the RDATA belonging to an RR */
 void eemo_free_dns_rr_rdata(eemo_dns_rr* rr)
 {
+	if (rr->rdata_txt != NULL)
+	{
+		free(rr->rdata_txt);
+	}
+	
 	if (rr->rdata == NULL)
 	{
 		/* No data needs to be freed */
@@ -605,7 +610,7 @@ eemo_rv eemo_copy_dns_rdata(eemo_packet_buf* packet, eemo_dns_rr* rr, unsigned l
 }
 
 /* Parse the RDATA field of a resource record */
-eemo_rv eemo_parse_dns_rdata(eemo_packet_buf* packet, eemo_dns_rr* rr, unsigned long* offset, unsigned short rdata_len)
+eemo_rv eemo_parse_dns_rdata(eemo_packet_buf* packet, eemo_dns_rr* rr, unsigned long* offset, unsigned short rdata_len, unsigned int parser_flags)
 {
 	eemo_rv rv = ERV_OK;
 
@@ -636,6 +641,11 @@ eemo_rv eemo_parse_dns_rdata(eemo_packet_buf* packet, eemo_dns_rr* rr, unsigned 
 		rv = eemo_copy_dns_rdata(packet, rr, offset, rdata_len);
 		break;
 	}
+	
+	if (FLAG_SET(parser_flags, PARSE_RDATA_TO_STR))
+	{
+		rr->rdata_txt = eemo_rdata_to_string(rr);
+	}
 
 	LOG_RDATA(rr);
 
@@ -643,7 +653,7 @@ eemo_rv eemo_parse_dns_rdata(eemo_packet_buf* packet, eemo_dns_rr* rr, unsigned 
 }
 
 /* Parse the resource records in a DNS packet */
-eemo_rv eemo_parse_dns_rrs(eemo_packet_buf* packet, eemo_dns_rr** rr_list, unsigned short count, unsigned long* offset)
+eemo_rv eemo_parse_dns_rrs(eemo_packet_buf* packet, eemo_dns_rr** rr_list, unsigned short count, unsigned long* offset, unsigned int parser_flags)
 {
 	int i = 0;
 	eemo_rv rv = ERV_OK;
@@ -657,6 +667,7 @@ eemo_rv eemo_parse_dns_rrs(eemo_packet_buf* packet, eemo_dns_rr** rr_list, unsig
 	for (i = 0; i < count; i++)
 	{
 		eemo_dns_rr* new_rr = (eemo_dns_rr*) malloc(sizeof(eemo_dns_rr));
+		memset(new_rr, 0, sizeof(eemo_dns_rr));
 		unsigned short rdata_len = 0;
 
 		if (new_rr == NULL)
@@ -703,7 +714,7 @@ eemo_rv eemo_parse_dns_rrs(eemo_packet_buf* packet, eemo_dns_rr** rr_list, unsig
 		}
 
 		/* Parse the RDATA */
-		if ((rv = eemo_parse_dns_rdata(packet, new_rr, offset, rdata_len)) != ERV_OK)
+		if ((rv = eemo_parse_dns_rdata(packet, new_rr, offset, rdata_len, parser_flags)) != ERV_OK)
 		{
 			eemo_free_dns_rr_rdata(new_rr);
 			free(new_rr->name);
@@ -818,7 +829,7 @@ eemo_rv eemo_parse_dns_packet(eemo_packet_buf* packet, eemo_dns_packet* dns_pack
 	/* Retrieve the answers from the packet */
 	PARSE_MSG("Answers:");
 
-	if ((rv = eemo_parse_dns_rrs(packet, &dns_packet->answers, hdr->dns_ancount, &ofs)) != ERV_OK)
+	if ((rv = eemo_parse_dns_rrs(packet, &dns_packet->answers, hdr->dns_ancount, &ofs, parser_flags)) != ERV_OK)
 	{
 		if (rv == ERV_PARTIAL)
 		{
@@ -833,7 +844,7 @@ eemo_rv eemo_parse_dns_packet(eemo_packet_buf* packet, eemo_dns_packet* dns_pack
 	/* Retrieve the authorities from the packet */
 	PARSE_MSG("Authorities:");
 
-	if ((rv = eemo_parse_dns_rrs(packet, &dns_packet->authorities, hdr->dns_nscount, &ofs)) != ERV_OK)
+	if ((rv = eemo_parse_dns_rrs(packet, &dns_packet->authorities, hdr->dns_nscount, &ofs, parser_flags)) != ERV_OK)
 	{
 		if (rv == ERV_PARTIAL)
 		{
@@ -848,7 +859,7 @@ eemo_rv eemo_parse_dns_packet(eemo_packet_buf* packet, eemo_dns_packet* dns_pack
 	/* Retrieve the additionals from the packet */
 	PARSE_MSG("Additional RRs:");
 
-	if ((rv = eemo_parse_dns_rrs(packet, &dns_packet->additionals, hdr->dns_arcount, &ofs)) != ERV_OK)
+	if ((rv = eemo_parse_dns_rrs(packet, &dns_packet->additionals, hdr->dns_arcount, &ofs, parser_flags)) != ERV_OK)
 	{
 		if (rv == ERV_PARTIAL)
 		{
