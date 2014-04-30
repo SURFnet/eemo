@@ -16,13 +16,13 @@ EXTRA_DIST = 		AUTHORS \
 			ChangeLog \
 			LICENSE \
 			NEWS \
-			README
+			README.md
 
 doc_DATA =		AUTHORS \
 			ChangeLog \
 			LICENSE \
 			NEWS \
-			README
+			README.md
 
 noinst_SCRIPTS =	eemo.spec \
 			eemo.rc
