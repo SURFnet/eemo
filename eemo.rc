@@ -1,7 +1,5 @@
 #!/bin/sh
 #
-# $Id$
-#
 # eemo		This shell script takes care of starting and stopping
 #		the Extensible Ethernet Monitor
 #
