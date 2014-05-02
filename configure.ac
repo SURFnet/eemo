@@ -120,6 +120,8 @@ default_eemo_conf="`eval echo ${full_sysconfdir} | sed s,NONE,$ac_default_prefix
 default_pid_file="`eval echo ${full_localstatedir} | sed s,NONE,$ac_default_prefix,g`/run/eemo.pid"
 default_eemo_mux_conf="`eval echo ${full_sysconfdir} | sed s,NONE,$ac_default_prefix,g`/eemo_mux.conf"
 default_mux_pid_file="`eval echo ${full_localstatedir} | sed s,NONE,$ac_default_prefix,g`/run/eemo_mux.pid"
+default_eemo_sensor_conf="`eval echo ${full_sysconfdir} | sed s,NONE,$ac_default_prefix,g`/eemo_sensor.conf"
+default_sensor_pid_file="`eval echo ${full_localstatedir} | sed s,NONE,$ac_default_prefix,g`/run/eemo_sensor.pid"
 
 # Define some variables for the code
 AC_DEFINE_UNQUOTED(
@@ -157,6 +159,17 @@ AC_DEFINE_UNQUOTED(
 	[DEFAULT_EEMO_MUX_PIDFILE],
 	["$default_mux_pid_file"],
 	[The default PID file for the sensor multiplexer]
+)
+
+AC_DEFINE_UNQUOTED(
+	[DEFAULT_EEMO_SENSOR_CONF],
+	["$default_eemo_sensor_conf"],
+	[The default configuration file for the sensor daemon]
+)
+AC_DEFINE_UNQUOTED(
+	[DEFAULT_EEMO_SENSOR_PIDFILE],
+	["$default_sensor_pid_file"],
+	[The default PID file for the sensor daemon]
 )
 
 # Generate theinstall script

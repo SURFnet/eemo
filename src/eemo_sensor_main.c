@@ -1,5 +1,3 @@
-/* $Id$ */
-
 /*
  * Copyright (c) 2010-2014 SURFnet bv
  * All rights reserved.
@@ -42,11 +40,11 @@
 #include "eemo_api.h"
 #include "eemo_config.h"
 #include "eemo_log.h"
-#include "eemo_mux_muxer.h"
+#include "eemo_sensor_sensor.h"
 
 void version(void)
 {
-	printf("Extensible Ethernet Monitor Sensor Multiplexer (eemo_mux) version %s\n", VERSION);
+	printf("Extensible Ethernet Monitor Sensor (eemo_sensor) version %s\n", VERSION);
 	printf("Copyright (c) 2010-2014 SURFnet bv\n\n");
 	printf("Use, modification and redistribution of this software is subject to the terms\n");
 	printf("of the license agreement. This software is licensed under a 3-clause BSD-style\n");
@@ -55,17 +53,17 @@ void version(void)
 
 void usage(void)
 {
-	printf("Extensible Ethernet Monitor Sensor Multiplexer (eemo_mux) version %s\n\n", VERSION);
+	printf("Extensible Ethernet Monitor Sensor (eemo_sensor) version %s\n\n", VERSION);
 	printf("Usage:\n");
-	printf("\teemo_mux [-c <config>] [-f] [-p <pidfile>]\n");
-	printf("\teemo_mux -h\n");
-	printf("\teemo_mux -v\n");
+	printf("\teemo_sensor [-c <config>] [-f] [-p <pidfile>]\n");
+	printf("\teemo_sensor -h\n");
+	printf("\teemo_sensor -v\n");
 	printf("\n");
 	printf("\t-c <config>   Use <config> as configuration file\n");
-	printf("\t              Defaults to %s\n", DEFAULT_EEMO_MUX_CONF);
+	printf("\t              Defaults to %s\n", DEFAULT_EEMO_SENSOR_CONF);
 	printf("\t-f            Run in the foreground rather than forking as a daemon\n");
 	printf("\t-p <pidfile>  Specify the PID file to write the daemon process ID to\n");
-	printf("\t              Defaults to %s\n", DEFAULT_EEMO_MUX_PIDFILE);
+	printf("\t              Defaults to %s\n", DEFAULT_EEMO_SENSOR_PIDFILE);
 	printf("\n");
 	printf("\t-h            Print this help message\n");
 	printf("\n");
@@ -179,7 +177,7 @@ int main(int argc, char* argv[])
 
 	if (config_path == NULL)
 	{
-		config_path = strdup(DEFAULT_EEMO_MUX_CONF);
+		config_path = strdup(DEFAULT_EEMO_SENSOR_CONF);
 
 		if (config_path == NULL)
 		{
@@ -190,7 +188,7 @@ int main(int argc, char* argv[])
 
 	if (pid_path == NULL)
 	{
-		pid_path = strdup(DEFAULT_EEMO_MUX_PIDFILE);
+		pid_path = strdup(DEFAULT_EEMO_SENSOR_PIDFILE);
 
 		if (pid_path == NULL)
 		{
@@ -272,8 +270,8 @@ int main(int argc, char* argv[])
 	}
 
 	/* If we forked, this is the child */
-	INFO_MSG("Starting the Extensible Ethernet Monitor Sensor Multiplexer (eemo_mux) version %s", VERSION);
-	INFO_MSG("eemo_mux %sprocess ID is %d", daemon ? "daemon " : "", getpid());
+	INFO_MSG("Starting the Extensible Ethernet Monitor Sensor (eemo_sensor) version %s", VERSION);
+	INFO_MSG("eemo_sensor %sprocess ID is %d", daemon ? "daemon " : "", getpid());
 
 	/* Install signal handlers */
 	signal(SIGABRT, signal_handler);
@@ -294,7 +292,7 @@ int main(int argc, char* argv[])
 	DEBUG_MSG("Initialised OpenSSL");
 
 	/* Run the multiplexer until it is stopped */
-	eemo_mux_run_multiplexer();
+	eemo_sensor_run();
 
 	/* Remove signal handlers */
 	signal(SIGABRT, SIG_DFL);
@@ -308,7 +306,7 @@ int main(int argc, char* argv[])
 	signal(SIGXCPU, SIG_DFL);
 	signal(SIGXFSZ, SIG_DFL);
 	
-	INFO_MSG("Extensible Ethernet Monitor Sensor Multiplexer exiting");
+	INFO_MSG("Extensible Ethernet Monitor Sensor exiting");
 	
 	/* Uninitialise logging */
 	if (eemo_uninit_log() != ERV_OK)
