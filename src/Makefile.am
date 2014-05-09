@@ -54,7 +54,9 @@ eemo_mux_SOURCES =		eemo_mux_main.c \
 				eemo_tlsutil.h \
 				eemo_mux_muxer.c \
 				eemo_mux_muxer.h \
-				eemo_mux_proto.h
+				eemo_mux_proto.h \
+				eemo_x509.h \
+				eemo_x509.c
 
 eemo_mux_LDADD =		-lpcap @LIBCONFIG_LIBS@ @OPENSSL_LIBS@
 

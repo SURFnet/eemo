@@ -41,6 +41,7 @@
 #include "eemo_mux_proto.h"
 #include "eemo_mux_muxer.h"
 #include "eemo_tlsutil.h"
+#include "eemo_x509.h"
 #include "utlist.h"
 #include <unistd.h>
 #include <errno.h>
@@ -50,6 +51,7 @@
 #include <signal.h>
 #include <stdlib.h>
 #include <openssl/ssl.h>
+#include <openssl/x509.h>
 #include <arpa/inet.h>
 #include <netinet/in.h>
 
@@ -154,6 +156,13 @@ int sock_write_ushort(const int socket, unsigned short value)
 	return 0;
 }
 
+/* Certificate verification */
+static int eemo_mux_verify_client_cert(int preverify_ok, X509_STORE_CTX* x509_ctx)
+{
+	/* Always OK, we handle this elsewhere */
+	return 1;
+}
+
 /* Handle a feed registration */
 void eemo_mux_new_feed(const int feed_socket)
 {
@@ -162,8 +171,11 @@ void eemo_mux_new_feed(const int feed_socket)
 	struct sockaddr_in6*	inet6_addr		= (struct sockaddr_in6*) &feed_addr;
 	int						feed_sock		= -1;
 	char					addr_str[100]	= { 0 };
+	char*					cert_dir		= NULL;
 	feed_spec*				new_feed		= (feed_spec*) malloc(sizeof(feed_spec));
 	int						err				= -1;
+	X509*					peer_cert		= NULL;
+	X509_NAME*				peer_subject	= NULL;
 	
 	memset(new_feed, 0, sizeof(feed_spec));
 	
@@ -210,6 +222,8 @@ void eemo_mux_new_feed(const int feed_socket)
 		return;
 	}
 	
+	SSL_set_verify(new_feed->tls, SSL_VERIFY_PEER, &eemo_mux_verify_client_cert);
+	
 	/* Perform TLS handshake */
 	if ((err = SSL_accept(new_feed->tls)) != 1)
 	{
@@ -224,6 +238,77 @@ void eemo_mux_new_feed(const int feed_socket)
 		
 		return;
 	}
+	
+	INFO_MSG("TLS handshake successful");
+	
+	/* Get peer certificate */
+	peer_cert = SSL_get_peer_certificate(new_feed->tls);
+	
+	if (peer_cert == NULL)
+	{
+		ERROR_MSG("Peer did not send a client certificate, closing connection");
+		
+		SSL_shutdown(new_feed->tls);
+		SSL_free(new_feed->tls);
+		
+		close(feed_sock);
+		
+		free(new_feed);
+		
+		return;
+	}
+	
+	peer_subject = X509_get_subject_name(peer_cert);
+	
+	if (peer_subject != NULL)
+	{
+		char buf[4096] = { 0 };
+		
+		X509_NAME_oneline(peer_subject, buf, 4096);
+		
+		INFO_MSG("Peer certificate subject: %s", buf);
+	}
+	
+	/* Check if the certificate is listed as having access */
+	if (eemo_conf_get_string("server", "feed_cert_dir", &cert_dir, NULL) == ERV_OK)
+	{
+		if (eemo_x509_check_cert(peer_cert, cert_dir) <= 0)
+		{
+			ERROR_MSG("Certificate not listed as having access, closing connection");
+			
+			SSL_shutdown(new_feed->tls);
+			SSL_free(new_feed->tls);
+			
+			close(feed_sock);
+			
+			free(new_feed);
+			
+			X509_free(peer_cert);
+			
+			free(cert_dir);
+			
+			return;
+		}
+		
+		INFO_MSG("Client listed as having access");
+	}
+	else
+	{
+		ERROR_MSG("Failed to obtain configuration option server/feed_cert_dir");
+		
+		SSL_shutdown(new_feed->tls);
+		SSL_free(new_feed->tls);
+		
+		close(feed_sock);
+		
+		free(new_feed);
+		
+		X509_free(peer_cert);
+		
+		return;
+	}
+	
+	X509_free(peer_cert);
 }
 
 /* Handle a feed deregistration */
