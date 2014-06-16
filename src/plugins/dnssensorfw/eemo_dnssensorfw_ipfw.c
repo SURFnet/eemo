@@ -111,6 +111,9 @@ void* sensor_conn_thread(void* thread_args)
 			if ((addr_it->ai_family == AF_INET) || (addr_it->ai_family == AF_INET6))
 			{
 				struct timeval socket_timeout = { 1, 0}; /* socket time-out is 1 second */
+#ifdef __APPLE__
+				int yes = 1;
+#endif /* __APPLE__ */
 
 				INFO_MSG("Attempting to connect to %s:%d over IPv%d", 
 					sensor_hostname, sensor_port,
@@ -134,6 +137,13 @@ void* sensor_conn_thread(void* thread_args)
 				{
 					ERROR_MSG("Failed to set send time-out on sensor socket");
 				}
+
+#ifdef __APPLE__
+				if (setsockopt(sensor_socket, SOL_SOCKET, SO_NOSIGPIPE, (void*) &yes, sizeof(int)) != 0)
+				{
+					ERROR_MSG("Failed to disable SIGPIPE on socket error");
+				}
+#endif /* __APPLE__ */
 
 				/* Attempt to connect the socket */
 				if (connect(sensor_socket, addr_it->ai_addr, addr_it->ai_addrlen) != 0)
@@ -323,7 +333,11 @@ eemo_rv eemo_dnssensorfw_ipfw_handle_pkt(eemo_packet_buf* packet, eemo_ether_pac
 
 	if (sensor_connected)
 	{
+#ifndef __APPLE__
 		send(sensor_socket, &send_packet, packet->len + 2, MSG_NOSIGNAL);
+#else
+		send(sensor_socket, &send_packet, packet->len + 2, 0);
+#endif /* __APPLE__ */
 	}
 
 	return ERV_HANDLED;
