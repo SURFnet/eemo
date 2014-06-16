@@ -239,6 +239,13 @@ struct
 }
 rfrag_ctr;
 
+/* Response flags */
+struct
+{
+	unsigned long long RFLAG_TC;
+}
+rflags_ctr;
+
 /* Configuration */
 char** 	stat_ips 		= NULL;
 int 	stat_ipcount 		= 0;
@@ -520,6 +527,7 @@ void write_stats(void)
 		"RSIZE_PCT_3584_4095:%llu "
 		"RSIZE_PCT_GT_4096:%llu "
 		"RSIZE_AVERAGE:%llu "
+		"RFLAGS_TC:%llu "
 		"\n",
 		qclass_ctr.UNSPECIFIED,
 		qclass_ctr.IN,
@@ -680,7 +688,8 @@ void write_stats(void)
 		RSIZE_PCT_3072_3583,
 		RSIZE_PCT_3584_4095,
 		RSIZE_PCT_GT_4096,
-		RSIZE_AVERAGE
+		RSIZE_AVERAGE,
+		rflags_ctr.RFLAG_TC
 		);
 
 		fflush(stat_fp);
@@ -734,6 +743,7 @@ void eemo_dnsstats_stats_reset(void)
 	memset(&rsize_ctr, 0, sizeof(rsize_ctr));
 	memset(&rcode_ctr, 0, sizeof(rcode_ctr));
 	memset(&rfrag_ctr, 0, sizeof(rfrag_ctr));
+	memset(&rflags_ctr, 0, sizeof(rflags_ctr));
 
 	DEBUG_MSG("DNS statistics reset");
 }
@@ -1092,6 +1102,9 @@ eemo_rv eemo_dnsstats_stats_handleqr(eemo_ip_packet_info ip_info, int is_tcp, co
 			rsize_ctr.RSIZE_TOTAL += dns_packet->udp_len;
 			rsize_ctr.RSIZE_COUNTED++;
 		}
+
+		/* Count flags */
+		if (dns_packet->tc_flag) rflags_ctr.RFLAG_TC++;
 
 		return ERV_HANDLED;
 	}
