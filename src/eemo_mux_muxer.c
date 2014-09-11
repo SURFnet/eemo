@@ -41,7 +41,7 @@
 #include "eemo_mux_proto.h"
 #include "eemo_mux_muxer.h"
 #include "eemo_tlsutil.h"
-#include "eemo_x509.h"
+#include "eemo_tlscomm.h"
 #include "utlist.h"
 #include <unistd.h>
 #include <errno.h>
@@ -59,12 +59,14 @@
 #define UNIX_PATH_MAX 			80		/* should be safe! */
 #endif /* !UNIX_PATH_MAX */
 
+#define FEED_ID_UNREGISTERED				-1
+
 /* Feed administration */
 typedef struct feed_spec
 {
 	SSL*				tls;			/* TLS context */
 	int 				socket;			/* data socket */
-	unsigned int 		id;				/* feed ID */
+	int 				id;				/* feed ID */
 	unsigned long long	pkt_count;		/* number of packets received on feed */
 	unsigned long long  byte_count;		/* number of bytes received on feed */
 	
@@ -79,7 +81,7 @@ typedef struct client_spec
 {
 	SSL*				tls;			/* TLS context */
 	int 				socket;			/* data socket */
-	unsigned int 		subscribed_id;	/* to which feed is the client subscribed? */
+	int 				subscribed_id;	/* to which feed is the client subscribed? */
 	unsigned long long	pkt_count;		/* number of packets sent to client */
 	unsigned long long	byte_count;		/* number of bytes sent to client */
 	
@@ -103,66 +105,6 @@ void stop_signal_handler(int signum)
 	run_comm_loop = 0;
 }
 
-/* Receive a specified number of bytes from a socket via TLS */
-/*FIXME*/
-/*int tls_sock_read_bytes(const int socket, unsigned char* data, const size_t len)*/
-
-/* Receive a specified number of bytes from a socket */
-int sock_read_bytes(const int socket, unsigned char* data, const size_t len)
-{
-	size_t 	total_read 	= 0;
-	int		num_read	= 0;
-	
-	while (total_read < len)
-	{
-		num_read = read(socket, &data[total_read], len - total_read);
-		
-		if (num_read <= 0)
-		{
-			return -1;
-		}
-		
-		total_read += num_read;
-	}
-	
-	return 0;
-}
-
-/* Receive an unsigned short value from a socket */
-int sock_read_ushort(const int socket, unsigned short* value)
-{
-	*value = 0;
-	
-	if (sock_read_bytes(socket, (unsigned char*) value, sizeof(unsigned short)) != 0)
-	{
-		return -1;
-	}
-	
-	*value = ntohs(*value);
-	
-	return 0;
-}
-
-/* Send an unsigned short value to a socket */
-int sock_write_ushort(const int socket, unsigned short value)
-{
-	value = htons(value);
-	
-	if (write(socket, &value, sizeof(unsigned short)) != sizeof(unsigned short))
-	{
-		return -1;
-	}
-	
-	return 0;
-}
-
-/* Certificate verification */
-static int eemo_mux_verify_client_cert(int preverify_ok, X509_STORE_CTX* x509_ctx)
-{
-	/* Always OK, we handle this elsewhere */
-	return 1;
-}
-
 /* Handle a feed registration */
 void eemo_mux_new_feed(const int feed_socket)
 {
@@ -171,7 +113,6 @@ void eemo_mux_new_feed(const int feed_socket)
 	struct sockaddr_in6*	inet6_addr		= (struct sockaddr_in6*) &feed_addr;
 	int						feed_sock		= -1;
 	char					addr_str[100]	= { 0 };
-	char*					cert_dir		= NULL;
 	feed_spec*				new_feed		= (feed_spec*) malloc(sizeof(feed_spec));
 	int						err				= -1;
 	X509*					peer_cert		= NULL;
@@ -222,12 +163,11 @@ void eemo_mux_new_feed(const int feed_socket)
 		return;
 	}
 	
-	SSL_set_verify(new_feed->tls, SSL_VERIFY_PEER, &eemo_mux_verify_client_cert);
-	
 	/* Perform TLS handshake */
 	if ((err = SSL_accept(new_feed->tls)) != 1)
 	{
 		ERROR_MSG("TLS handshake failed, closing connection (%s, %d)", eemo_tls_get_err(new_feed->tls, err), err);
+		ERROR_MSG("Did you run c_rehash on the feed certificate directory?");
 		
 		SSL_shutdown(new_feed->tls);
 		SSL_free(new_feed->tls);
@@ -247,6 +187,7 @@ void eemo_mux_new_feed(const int feed_socket)
 	if (peer_cert == NULL)
 	{
 		ERROR_MSG("Peer did not send a client certificate, closing connection");
+		ERROR_MSG("Did you run c_rehash on the feed certificate directory?");
 		
 		SSL_shutdown(new_feed->tls);
 		SSL_free(new_feed->tls);
@@ -269,51 +210,44 @@ void eemo_mux_new_feed(const int feed_socket)
 		INFO_MSG("Peer certificate subject: %s", buf);
 	}
 	
-	/* Check if the certificate is listed as having access */
-	if (eemo_conf_get_string("server", "feed_cert_dir", &cert_dir, NULL) == ERV_OK)
-	{
-		if (eemo_x509_check_cert(peer_cert, cert_dir) <= 0)
-		{
-			ERROR_MSG("Certificate not listed as having access, closing connection");
-			
-			SSL_shutdown(new_feed->tls);
-			SSL_free(new_feed->tls);
-			
-			close(feed_sock);
-			
-			free(new_feed);
-			
-			X509_free(peer_cert);
-			
-			free(cert_dir);
-			
-			return;
-		}
-		
-		INFO_MSG("Client listed as having access");
-	}
-	else
-	{
-		ERROR_MSG("Failed to obtain configuration option server/feed_cert_dir");
-		
-		SSL_shutdown(new_feed->tls);
-		SSL_free(new_feed->tls);
-		
-		close(feed_sock);
-		
-		free(new_feed);
-		
-		X509_free(peer_cert);
-		
-		return;
-	}
-	
 	X509_free(peer_cert);
+	
+	new_feed->pkt_count = 0;
+	new_feed->byte_count = 0;
+	new_feed->id = FEED_ID_UNREGISTERED;
+	
+	/* Add a new unregistered feed to the administration */
+	LL_APPEND(feeds, new_feed);
 }
 
 /* Handle a feed deregistration */
 void eemo_mux_unregister_feed(const int socket)
 {
+	feed_spec*	feed_it	= NULL;
+	
+	LL_FOREACH(feeds, feed_it)
+	{
+		if (feed_it->socket == socket)
+		{
+			if (feed_it->tls != NULL)
+			{
+				SSL_shutdown(feed_it->tls);
+				SSL_free(feed_it->tls);
+			}
+			
+			close(feed_it->socket);
+			
+			LL_DELETE(feeds, feed_it);
+			
+			INFO_MSG("Disconnected feed %d", feed_it->id);
+			
+			free(feed_it);
+			
+			return;			
+		}
+	}
+	
+	ERROR_MSG("Request to unregister unknown feed on socket %d", socket);
 }
 
 /* Handle a client registration */
@@ -329,7 +263,116 @@ void eemo_mux_unregister_client(const int socket)
 /* Handle a feed packet */
 int eemo_mux_handle_feed_packet(const int socket)
 {
-	return 0;
+	feed_spec*		feed_it		= NULL;
+	unsigned short	command		= 0;
+	int				rv			= 0;
+	
+	/* Find the feed */
+	LL_SEARCH_SCALAR(feeds, feed_it, socket, socket);
+	
+	if (feed_it == NULL)
+	{
+		ERROR_MSG("Received data on unregistered feed socket %d", socket);
+		
+		return -1;
+	}
+	
+	/* Receive command type first */
+	if ((rv = tls_sock_read_ushort(feed_it->tls, &command)) != 0)
+	{
+		if (rv == 1)
+		{
+			INFO_MSG("Feed %d on socket %d disconnected", feed_it->id, socket);
+		}
+		else
+		{
+			ERROR_MSG("Error communicating with feed %d on socket %d", feed_it->id, socket);
+		}
+		
+		return rv;
+	}
+	
+	switch(command)
+	{
+	case FEED_GET_PROTO_VERSION:
+		{
+			/* Send protocol version back to the feed client */
+			DEBUG_MSG("Sending protocol version %d to feed client on socket %d", FEED_PROTO_VERSION, socket);
+			
+			return tls_sock_write_ushort(feed_it->tls, FEED_PROTO_VERSION);
+		}
+		break;
+	case FEED_REGISTER:
+		{
+			/* Receive the feed identifier */
+			unsigned int feed_id = 0;
+			
+			if ((rv = tls_sock_read_uint(feed_it->tls, &feed_id)) != 0)
+			{
+				if (rv == 1)
+				{
+					INFO_MSG("Feed %d on socket %d disconnected", feed_it->id, socket);
+				}
+				else
+				{
+					ERROR_MSG("Error communicating with feed %d on socket %d", feed_it->id, socket);
+				}
+				
+				return rv;
+			}
+			
+			INFO_MSG("New feed ID on socket %d is %d", socket, feed_id);
+			
+			feed_it->id = (int) feed_id;
+		}
+		break;
+	case FEED_UNREGISTER:
+		{
+			INFO_MSG("Feed %d on socket %d is disconnecting", feed_it->id, socket);
+			
+			return 1;
+		}
+		break;
+	case FEED_DATA:
+		{
+			unsigned int	data_len	= 0;
+			unsigned char*	data		= NULL;
+			
+			/* Receive the number of bytes of data to follow */
+			if ((rv = tls_sock_read_uint(feed_it->tls, &data_len)) != 0)
+			{
+				if (rv == 1)
+				{
+					INFO_MSG("Feed %d on socket %d disconnected", feed_it->id, socket);
+				}
+				else
+				{
+					ERROR_MSG("Error communicating with feed %d on socket %d", feed_it->id, socket);
+				}
+				
+				return rv;
+			}
+			
+			/* Allocate memory and receive the data */
+			data = (unsigned char*) malloc(data_len);
+			
+			/* Normally, this should not happen! */
+			if (data == NULL)
+			{
+				ERROR_MSG("Error allocating memory for data from feed %d on socket %d", feed_it->id, socket);
+				
+				return -1;
+			}
+		}
+		break;
+	default:
+		{
+			ERROR_MSG("Unknown command received from feed %d on socket %d", feed_it->id, socket);
+		}
+		break;
+	}
+	
+	return -1;
 }
 
 /* Handle a client packet */
@@ -341,12 +384,14 @@ int eemo_mux_handle_client_packet(const int socket)
 /* Set up feed server socket */
 int eemo_mux_setup_feed_socket(void)
 {
-	int 	feed_socket 				= -1;
-	int 	on							= 1;
-	int 	server_port					= 6969;
-	struct 	sockaddr_in6 server_addr 	= { 0 };
-	char*	cert_file					= NULL;
-	char*	key_file					= NULL;
+	int 				feed_socket 	= -1;
+	int 				on				= 1;
+	int 				server_port		= 6969;
+	struct sockaddr_in6	server_addr 	= { 0 };
+	char*				cert_file		= NULL;
+	char*				key_file		= NULL;
+	char*				cert_dir		= NULL;
+	
 	
 	/* Open socket */
 	if ((feed_socket = socket(AF_INET6, SOCK_STREAM, 0)) < 0)
@@ -468,6 +513,28 @@ int eemo_mux_setup_feed_socket(void)
 		return -1;
 	}
 	
+	/* Configure valid certificates */
+	if (eemo_conf_get_string("server", "feed_cert_dir", &cert_dir, NULL) == ERV_OK)
+	{
+		INFO_MSG("Checking for valid client certificates in %s", cert_dir);
+		
+		SSL_CTX_load_verify_locations(feed_tls_ctx, NULL, cert_dir);
+		
+		free(cert_dir);
+	}
+	else
+	{
+		ERROR_MSG("Failed to obtain configuration option server/feed_cert_dir");
+		
+		SSL_CTX_free(feed_tls_ctx);
+		feed_tls_ctx = NULL;
+		close(feed_socket);
+		
+		return -1;
+	}
+	
+	SSL_CTX_set_verify(feed_tls_ctx, SSL_VERIFY_PEER | SSL_VERIFY_FAIL_IF_NO_PEER_CERT, NULL);
+	
 	/* Start listening */
 	if (listen(feed_socket, 10) < 0)
 	{
@@ -576,6 +643,8 @@ void eemo_mux_disconnect_feeds(void)
 		ctr++;
 		
 		LL_DELETE(feeds, feed_it);
+		
+		free(feed_it);
 	}
 	
 	INFO_MSG("Disconnected %d feed%s", ctr, (ctr == 1) ? "" : "s");
@@ -600,6 +669,8 @@ void eemo_mux_disconnect_clients(void)
 		ctr++;
 		
 		LL_DELETE(clients, client_it);
+		
+		free(client_it);
 	}
 	
 	INFO_MSG("Disconnected %d client%s", ctr, (ctr == 1) ? "" : "s");
