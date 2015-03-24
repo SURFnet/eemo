@@ -112,6 +112,7 @@ typedef struct
 		u_short	v6[8];			/* caution: network byte order! */
 	}		dst_addr;		/* binary destination address */
 	u_char		ttl;			/* time-to-live (or hop limit for v6) */
+	struct timeval	ts;			/* capture timestamp */
 }
 eemo_ip_packet_info;
 

@@ -59,6 +59,7 @@ typedef struct
 {
 	char eth_source[18];
 	char eth_dest[18];
+	struct timeval ts;
 }
 eemo_ether_packet_info;
 
@@ -88,7 +89,7 @@ typedef eemo_rv (*eemo_unreg_ether_handler_fn) (unsigned long);
 eemo_rv eemo_unreg_ether_handler(unsigned long handle);
 
 /* Handle an Ethernet packet */
-eemo_rv eemo_handle_ether_packet(eemo_packet_buf* packet);
+eemo_rv eemo_handle_ether_packet(eemo_packet_buf* packet, struct timeval ts);
 
 /* Initialise Ethernet handling */
 eemo_rv eemo_init_ether_handler(void);

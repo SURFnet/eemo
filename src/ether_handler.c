@@ -115,7 +115,7 @@ void eemo_ether_ntoh(eemo_hdr_raw_ether* hdr)
 }
 
 /* Handle an Ethernet packet */
-eemo_rv eemo_handle_ether_packet(eemo_packet_buf* packet)
+eemo_rv eemo_handle_ether_packet(eemo_packet_buf* packet, struct timeval ts)
 {
 	eemo_hdr_raw_ether* hdr = NULL;
 	eemo_ether_packet_info packet_info;
@@ -153,6 +153,9 @@ eemo_rv eemo_handle_ether_packet(eemo_packet_buf* packet)
 		hdr->eth_dest[3],
 		hdr->eth_dest[4],
 		hdr->eth_dest[5]);
+
+	/* Copy the timestamp */
+	memcpy(&packet_info.ts, &ts, sizeof(struct timeval));
 
 	/* Handle the packet */
 	LL_FOREACH(ether_handlers, handler_it)

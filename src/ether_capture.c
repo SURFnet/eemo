@@ -2,6 +2,7 @@
 
 /*
  * Copyright (c) 2010-2011 SURFnet bv
+ * Copyright (c) 2014-2015 Roland van Rijswijk-Deij
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -48,22 +49,22 @@
 #define DEBUG_PACKET_FILE	"/tmp/eemo.packet"
 
 /* Global PCAP handle */
-pcap_t* handle = NULL;
+static pcap_t* handle = NULL;
 
 /* Total packet counter */
-unsigned long long capture_ctr = 0;
+static unsigned long long capture_ctr = 0;
 
 /* Handled packet counter */
-unsigned long long handled_ctr = 0;
+static unsigned long long handled_ctr = 0;
 
 /* Interval between logging of statistics */
-int capture_stats_interval = 0;
+static int capture_stats_interval = 0;
 
 /* Last time statistics were logged */
-time_t last_capture_stats = 0;
+static time_t last_capture_stats = 0;
 
 /* Should we log the packet currently being handled to file? */
-int log_current_packet = 0;
+static int log_current_packet = 0;
 
 /* PCAP dump headers for packet file, makes for easy reading by e.g. Wireshark */
 #pragma pack(push,1)
@@ -102,7 +103,7 @@ static unsigned char blankbuf[2048] = { 0 };
 #pragma pack(pop)
 
 /* File for debug packet dumping */
-FILE* debug_packet_file = NULL;
+static FILE* debug_packet_file = NULL;
 
 /* Signal handler for exit signal */
 void stop_signal_handler(int signum)
@@ -141,7 +142,7 @@ void eemo_pcap_callback(u_char* user_ptr, const struct pcap_pkthdr* hdr, const u
 	}
 
 	/* Run it through the Ethernet handlers */
-	rv = eemo_handle_ether_packet(packet);
+	rv = eemo_handle_ether_packet(packet, hdr->ts);
 
 	/* Conditionally increment the handled packet counter */
 	if (rv == ERV_HANDLED)
@@ -244,6 +245,8 @@ eemo_rv eemo_capture_and_handle(const char* interface_or_file, int packet_count,
 		if (pcap_compile(handle, &packet_filter, (char*) net_filter, 0, 0) == -1)
 		{
 			/* Failed to compile packet filter */
+			ERROR_MSG("Failed to compile BNF filter");
+
 			pcap_close(handle);
 
 			return ERV_INVALID_FILTER;
@@ -251,6 +254,8 @@ eemo_rv eemo_capture_and_handle(const char* interface_or_file, int packet_count,
 
 		if (pcap_setfilter(handle, &packet_filter) == -1)
 		{
+			ERROR_MSG("Failed to activate BNF filter");
+
 			/* Failed to apply packet filter */
 			pcap_freecode(&packet_filter);
 			pcap_close(handle);
@@ -271,6 +276,8 @@ eemo_rv eemo_capture_and_handle(const char* interface_or_file, int packet_count,
 
 	if (pcap_loop(handle, packet_count, &eemo_pcap_callback, NULL) == -1)
 	{
+		ERROR_MSG("pcap_loop(..) returned an error (%s)", pcap_geterr(handle));
+
 		pcap_close(handle);
 
 		return ERV_CAPTURE_ERROR;

@@ -105,21 +105,24 @@ typedef struct eemo_dns_packet
 	eemo_dns_rr*		answers;
 	eemo_dns_rr*		authorities;
 	eemo_dns_rr*		additionals;
+	unsigned short		ans_count;
+	unsigned short		aut_count;
+	unsigned short		add_count;
 }
 eemo_dns_packet;
 
 /* Parser flags */
 #define PARSE_NONE			0x00000000	/* Do not performing any parsing on DNS packets */
 #define PARSE_QUERY			0x00000001	/* Parse the data in query messages */
-#define PARSE_RESPONSE		0x00000002	/* Parse the data in response messages */
-#define PARSE_RDATA_TO_STR	0x00000004	/* Convert parsed query/response RDATA to a string representation */
+#define PARSE_RESPONSE			0x00000002	/* Parse the data in response messages */
+#define PARSE_RDATA_TO_STR		0x00000004	/* Convert parsed query/response RDATA to a string representation */
+#define PARSE_CANONICALIZE_NAME		0x00000008	/* Canonicalize all names to lower case */
 
 /* Parse a DNS packet */
 eemo_rv eemo_parse_dns_packet(eemo_packet_buf* packet, eemo_dns_packet* dns_packet, unsigned long parser_flags, unsigned short udp_len, int is_fragmented);
 
 /* Free a DNS packet structure */
 void eemo_free_dns_packet(eemo_dns_packet* dns_packet);
-
 
 #endif /* !_EEMO_DNS_PARSER_H */
 

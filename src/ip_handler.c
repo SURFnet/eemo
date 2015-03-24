@@ -91,6 +91,9 @@ eemo_rv eemo_handle_ipv4_packet(eemo_packet_buf* packet, eemo_ether_packet_info 
 	memset(ip_info.ip_src, 0, NI_MAXHOST);
 	memset(ip_info.ip_dst, 0, NI_MAXHOST);
 
+	/* Copy timestamp */
+	memcpy(&ip_info.ts, &ether_info.ts, sizeof(struct timeval));
+
 	/* Packets smaller than 1 byte are malformed... */
 	if (packet->len < 1)
 	{
@@ -183,6 +186,9 @@ eemo_rv eemo_handle_ipv6_packet(eemo_packet_buf* packet, eemo_ether_packet_info 
 	/* Clear ip_info structure */
 	memset(ip_info.ip_src, 0, NI_MAXHOST);
 	memset(ip_info.ip_dst, 0, NI_MAXHOST);
+
+	/* Copy timestamp */
+	memcpy(&ip_info.ts, &ether_info.ts, sizeof(struct timeval));
 
 	/* Packets smaller than 1 byte are malformed... */
 	if (packet->len < 1)
