@@ -105,6 +105,9 @@ eemo_rv eemo_handle_dns_payload(eemo_packet_buf* packet, eemo_ip_packet_info ip_
 /* Handle a UDP DNS packet */
 eemo_rv eemo_handle_dns_udp_packet(eemo_packet_buf* packet, eemo_ip_packet_info ip_info, u_short srcport, u_short dstport, u_short length)
 {
+	/* Skip packets that are not coming from or going to port 53 */
+	if ((srcport != DNS_PORT) && (dstport != DNS_PORT)) return ERV_SKIPPED;
+
 	return eemo_handle_dns_payload(packet, ip_info, 0, length, ip_info.is_fragment);
 }
 
@@ -114,6 +117,9 @@ eemo_rv eemo_handle_dns_tcp_packet(eemo_packet_buf* packet, eemo_ip_packet_info 
 	eemo_packet_buf* dns_data = NULL;
 	eemo_rv rv = ERV_OK;
 	u_short dns_length = 0;
+
+	/* Skip packets that are not coming from or going to port 53 */
+	if ((tcp_info.srcport != DNS_PORT) && (tcp_info.dstport != DNS_PORT)) return ERV_SKIPPED;
 
 	/* Skip SYN, RST and FIN packets */
 	if (FLAG_SET(tcp_info.flags, TCP_SYN) ||
@@ -224,39 +230,20 @@ eemo_rv eemo_init_dns_handler(void)
 	dns_parser_flags = PARSE_NONE;
 
 	/* Register UDP packet handlers */
-	rv = eemo_reg_udp_handler(UDP_ANY_PORT, DNS_PORT, &eemo_handle_dns_udp_packet, &udp_dns_in_handler_handle);
+	rv = eemo_reg_udp_handler(UDP_ANY_PORT, UDP_ANY_PORT, &eemo_handle_dns_udp_packet, &udp_dns_in_handler_handle);
 
 	if (rv != ERV_OK)
 	{
-		return rv;
-	}
-
-	rv = eemo_reg_udp_handler(DNS_PORT, UDP_ANY_PORT, &eemo_handle_dns_udp_packet, &udp_dns_out_handler_handle);
-
-	if (rv != ERV_OK)
-	{
-		eemo_unreg_udp_handler(udp_dns_in_handler_handle);
 		return rv;
 	}
 
 	/* Register DNS packet handler */
-	rv = eemo_reg_tcp_handler(TCP_ANY_PORT, DNS_PORT, &eemo_handle_dns_tcp_packet, &tcp_dns_in_handler_handle);
+	rv = eemo_reg_tcp_handler(TCP_ANY_PORT, TCP_ANY_PORT, &eemo_handle_dns_tcp_packet, &tcp_dns_in_handler_handle);
 
 	if (rv != ERV_OK)
 	{
 		eemo_unreg_udp_handler(udp_dns_in_handler_handle);
 		eemo_unreg_udp_handler(udp_dns_out_handler_handle);
-		
-		return rv;
-	}
-
-	rv = eemo_reg_tcp_handler(TCP_ANY_PORT, DNS_PORT, &eemo_handle_dns_tcp_packet, &tcp_dns_out_handler_handle);
-
-	if (rv != ERV_OK)
-	{
-		eemo_unreg_udp_handler(udp_dns_in_handler_handle);
-		eemo_unreg_udp_handler(udp_dns_out_handler_handle);
-		eemo_unreg_udp_handler(tcp_dns_in_handler_handle);
 		
 		return rv;
 	}
