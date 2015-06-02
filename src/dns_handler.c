@@ -61,7 +61,7 @@ static unsigned long tcp_dns_out_handler_handle = 0;
 static unsigned long dns_parser_flags = PARSE_NONE;
 
 /* Handle DNS payload */
-eemo_rv eemo_handle_dns_payload(eemo_packet_buf* packet, eemo_ip_packet_info ip_info, int is_tcp, unsigned short udp_len, int is_fragmented)
+eemo_rv eemo_handle_dns_payload(eemo_packet_buf* packet, eemo_ip_packet_info ip_info, int is_tcp, unsigned short srcport, unsigned short dstport, unsigned short udp_len, int is_fragmented)
 {
 	eemo_rv			rv 		= ERV_SKIPPED;
 	eemo_dns_handler*	handler_it 	= NULL;
@@ -69,6 +69,9 @@ eemo_rv eemo_handle_dns_payload(eemo_packet_buf* packet, eemo_ip_packet_info ip_
 
 	/* Parse the packet */
 	rv = eemo_parse_dns_packet(packet, &dns_packet, dns_parser_flags, udp_len, is_fragmented);
+
+	dns_packet.srcport = srcport;
+	dns_packet.dstport = dstport;
 
 	if ((rv == ERV_OK) || (rv == ERV_PARTIAL))
 	{
@@ -108,7 +111,7 @@ eemo_rv eemo_handle_dns_udp_packet(eemo_packet_buf* packet, eemo_ip_packet_info 
 	/* Skip packets that are not coming from or going to port 53 */
 	if ((srcport != DNS_PORT) && (dstport != DNS_PORT)) return ERV_SKIPPED;
 
-	return eemo_handle_dns_payload(packet, ip_info, 0, length, ip_info.is_fragment);
+	return eemo_handle_dns_payload(packet, ip_info, 0, srcport, dstport, length, ip_info.is_fragment);
 }
 
 /* Handle a TCP DNS packet */
@@ -154,7 +157,7 @@ eemo_rv eemo_handle_dns_tcp_packet(eemo_packet_buf* packet, eemo_ip_packet_info 
 		return ERV_MEMORY;
 	}
 
-	rv = eemo_handle_dns_payload(dns_data, ip_info, 1, 0, 0);
+	rv = eemo_handle_dns_payload(dns_data, ip_info, 1, tcp_info.srcport, tcp_info.dstport, 0, 0);
 
 	eemo_pbuf_free(dns_data);
 

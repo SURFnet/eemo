@@ -91,6 +91,8 @@ typedef struct eemo_dns_packet
 {
 	unsigned char		is_valid;
 	unsigned char		is_partial;
+	unsigned short		srcport;
+	unsigned short		dstport;
 	unsigned short 		query_id;
 	unsigned short		udp_len;
 	int			is_fragmented;
