@@ -43,28 +43,33 @@ eemo_SOURCES =			dns_handler.c \
 
 eemo_LDADD =			-lpcap @LIBCONFIG_LIBS@
 
-eemo_mux_CFLAGS =	 	@LIBCONFIG_CFLAGS@ @OPENSSL_CFLAGS@
+eemo_mux_CFLAGS =	 	@LIBCONFIG_CFLAGS@ @OPENSSL_CFLAGS@ @PTHREAD_CFLAGS@
 
 eemo_mux_SOURCES =		eemo_mux_main.c \
 				eemo_config.c \
 				eemo_config.h \
 				eemo_log.c \
 				eemo_log.h \
-				eemo_tlsutil.c \
-				eemo_tlsutil.h \
 				eemo_mux_muxer.c \
 				eemo_mux_muxer.h \
 				eemo_mux_proto.h \
 				eemo_tlscomm.c \
-				eemo_tlscomm.h
+				eemo_tlscomm.h \
+				eemo_tlsutil.c \
+				eemo_tlsutil.h \
+				eemo_mux_cmdxfer.c \
+				eemo_mux_cmdxfer.h \
+				mt_openssl.c \
+				mt_openssl.h
 
-eemo_mux_LDADD =		-lpcap @LIBCONFIG_LIBS@ @OPENSSL_LIBS@
+eemo_mux_LDADD =		@LIBCONFIG_LIBS@ @OPENSSL_LIBS@ @PTHREAD_LIBS@
 
-eemo_sensor_CFLAGS =		@LIBCONFIG_CFLAGS@ @OPENSSL_CFLAGS@
+eemo_sensor_CFLAGS =		@LIBCONFIG_CFLAGS@ @OPENSSL_CFLAGS@ @PTHREAD_CFLAGS@
 
 eemo_sensor_SOURCES =		eemo_sensor_main.c \
 				eemo_sensor_sensor.c \
 				eemo_sensor_sensor.h \
+				eemo_mux_proto.h \
 				eemo_config.c \
 				eemo_config.h \
 				eemo_log.c \
@@ -72,8 +77,12 @@ eemo_sensor_SOURCES =		eemo_sensor_main.c \
 				eemo_tlsutil.c \
 				eemo_tlsutil.h \
 				eemo_tlscomm.c \
-				eemo_tlscomm.h
+				eemo_tlscomm.h \
+				eemo_mux_cmdxfer.c \
+				eemo_mux_cmdxfer.h \
+				mt_openssl.c \
+				mt_openssl.h
 
-eemo_sensor_LDADD =		-lpcap @LIBCONFIG_LIBS@ @OPENSSL_LIBS@
+eemo_sensor_LDADD =		-lpcap @LIBCONFIG_LIBS@ @OPENSSL_LIBS@ @PTHREAD_LIBS@
 
 SUBDIRS =			plugins

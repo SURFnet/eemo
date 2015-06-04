@@ -43,6 +43,7 @@
 #include "eemo_config.h"
 #include "eemo_log.h"
 #include "eemo_mux_muxer.h"
+#include "mt_openssl.h"
 
 void version(void)
 {
@@ -293,6 +294,13 @@ int main(int argc, char* argv[])
 	
 	DEBUG_MSG("Initialised OpenSSL");
 
+	if (eemo_mt_openssl_init() != ERV_OK)
+	{
+		ERROR_MSG("Failed to initialise multi-threaded use of OpenSSL");
+
+		return ERV_GENERAL_ERROR;
+	}
+
 	/* Run the multiplexer until it is stopped */
 	eemo_mux_run_multiplexer();
 
@@ -309,6 +317,8 @@ int main(int argc, char* argv[])
 	signal(SIGXFSZ, SIG_DFL);
 	
 	INFO_MSG("Extensible Ethernet Monitor Sensor Multiplexer exiting");
+
+	eemo_mt_openssl_finalize();
 	
 	/* Uninitialise logging */
 	if (eemo_uninit_log() != ERV_OK)

@@ -41,17 +41,20 @@
 #include "config.h"
 
 /* Feed to multiplexer protocol */
-#define FEED_PROTO_VERSION						1
-#define FEED_GET_PROTO_VERSION					0x01
-#define FEED_REGISTER							0x02
-#define FEED_UNREGISTER							0x03
-#define FEED_DATA								0x04
+#define SENSOR_PROTO_VERSION			1
+#define SENSOR_GET_PROTO_VERSION		0x01
+#define SENSOR_REGISTER				0x02
+#define SENSOR_SET_DESCRIPTION			0x03
+#define SENSOR_UNREGISTER			0x04
+#define SENSOR_SHUTDOWN				0x05
+#define SENSOR_DATA				0x06
 
 /* Client to multiplexer protocol */
-#define MUX_CLIENT_PROTO_VERSION				1
-#define MUX_CLIENT_GET_PROTO_VERSION			0x01
-#define MUX_CLIENT_SUBSCRIBE					0x02
-#define MUX_CLIENT_UNSUBSCRIBE					0x03
+#define MUX_CLIENT_PROTO_VERSION		1
+#define MUX_CLIENT_GET_PROTO_VERSION		0x01
+#define MUX_CLIENT_SUBSCRIBE			0x02
+#define MUX_CLIENT_UNSUBSCRIBE			0x03
+#define MUX_CLIENT_SHUTDOWN			0x04
 
 #endif /* !_EEMO_MUX_PROTO_H */
 

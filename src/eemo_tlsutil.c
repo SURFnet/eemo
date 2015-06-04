@@ -40,22 +40,22 @@
 #include <openssl/ssl.h>
 #include <openssl/err.h>
 
-static const char* STR_SSL_ERROR_NONE				= "SSL_ERROR_NONE";
+static const char* STR_SSL_ERROR_NONE			= "SSL_ERROR_NONE";
 static const char* STR_SSL_ERROR_ZERO_RETURN		= "SSL_ERROR_ZERO_RETURN";
-static const char* STR_SSL_ERROR_WANT_READ			= "SSL_ERROR_WANT_READ";
-static const char* STR_SSL_ERROR_WANT_WRITE			= "SSL_ERROR_WANT_WRITE";
+static const char* STR_SSL_ERROR_WANT_READ		= "SSL_ERROR_WANT_READ";
+static const char* STR_SSL_ERROR_WANT_WRITE		= "SSL_ERROR_WANT_WRITE";
 static const char* STR_SSL_ERROR_WANT_CONNECT		= "SSL_ERROR_WANT_CONNECT";
 static const char* STR_SSL_ERROR_WANT_ACCEPT		= "SSL_ERROR_WANT_ACCEPT";
 static const char* STR_SSL_ERROR_WANT_X509_LOOKUP	= "SSL_ERROR_WANT_X509_LOOKUP";
-static const char* STR_SSL_ERROR_SYSCALL			= "SSL_ERROR_SYSCALL";
-static const char* STR_SSL_ERROR_SSL				= "SSL_ERROR_SSL";
-static const char* STR_UNKNOWN						= "UNKNOWN";
+static const char* STR_SSL_ERROR_SYSCALL		= "SSL_ERROR_SYSCALL";
+static const char* STR_SSL_ERROR_SSL			= "SSL_ERROR_SSL";
+static const char* STR_UNKNOWN				= "UNKNOWN";
 
 const char* eemo_tls_get_err(SSL* tls, int err)
 {
-	const char* 	rv			= NULL;
-	char			buf[512]	= { 0 };
-	unsigned long	e			= 0;
+	const char* 	rv		= NULL;
+	char		buf[512]	= { 0 };
+	unsigned long	e		= 0;
 		
 	switch(SSL_get_error(tls, err))
 	{

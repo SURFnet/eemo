@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010-2014 SURFnet bv
+ * Copyright (c) 2010-2015 SURFnet bv
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -40,8 +40,14 @@
 #include "eemo.h"
 #include "eemo_api.h"
 
+/* Initialise the sensor */
+eemo_rv eemo_sensor_init(void);
+
 /* Run the sensor */
 void eemo_sensor_run(void);
+
+/* Uninitialise the sensor */
+eemo_rv eemo_sensor_finalize(void);
 
 #endif /* !_EEMO_SENSOR_SENSOR_H */
 

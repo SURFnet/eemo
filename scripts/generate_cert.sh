@@ -8,8 +8,8 @@ DAYS=365
 # The certificate will be output as eemo_self_signed.cer in PEM format,
 # the key will be output as eemo_self_signed.key, also in PEM format.
 # Change the variable below to use a different name.
-OUTCER="eemo_self_signed.cer"
-OUTKEY="eemo_self_signed.key"
+OUTCER="eemo_self_signed_cert.pem"
+OUTKEY="eemo_self_signed_key.pem"
 
 # Start by generating a key
 echo "Temporary passphrase" > /tmp/tmp-pf

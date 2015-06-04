@@ -248,6 +248,56 @@ eemo_rv eemo_conf_free_string_array(char** array, int count)
 	return ERV_OK;
 }
 
+/* Get a byte string value */
+eemo_rv eemo_conf_get_bytestring(const char* base_path, const char* sub_path, unsigned char** value, size_t* len)
+{
+	char*	str_val		= NULL;
+	size_t	i		= 0;
+
+	if ((base_path == NULL) || (sub_path == NULL) || (value == NULL) || (len == NULL))
+	{
+		return ERV_PARAM_INVALID;
+	}
+
+	/* Get the data as a string value first */
+	if (eemo_conf_get_string(base_path, sub_path, &str_val, NULL) != ERV_OK)
+	{
+		return ERV_CONFIG_ERROR;
+	}
+
+	if (str_val == NULL)
+	{
+		/* No value configured, exit early */
+		*value = NULL;
+		*len = 0;
+
+		return ERV_OK;
+	}
+
+	if (strlen(str_val) % 2 != 0)
+	{
+		/* The string cannot have an odd length if it's a byte string */
+		free(str_val);
+
+		return ERV_CONFIG_ERROR;
+	}
+
+	/* Convert the value from hexadecimal to bytes */
+	*len = strlen(str_val) / 2;
+	*value = (unsigned char*) malloc((*len) * sizeof(unsigned char));
+
+	for (i = 0; i < *len; i++)
+	{
+		char	byte[3]	= { 0 };
+
+		strncpy(byte, &str_val[i * 2], 2);
+
+		(*value)[i] = (unsigned char) strtoul(byte, NULL, 16);
+	}
+
+	return ERV_OK;
+}
+
 /* Get a pointer to the internal configuration structure */
 const config_t* eemo_conf_get_config_t(void)
 {

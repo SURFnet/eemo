@@ -77,5 +77,11 @@ typedef unsigned long eemo_rv;
 #define ERV_CONFIG_NO_STRING	0x80000010	/* The requested configuration item is not a string */
 #define ERV_MODULE_INIT_FAIL	0x80000011	/* The module failed to initialise (see log) */
 
+/* Sensor/multiplexer messages */
+#define ERV_MUXCONN_ERROR	0x80003000	/* An error occurred while establishing a connection with the multiplexer */
+#define ERV_MUXCONN_FATAL	0x80003001	/* A fatal error occurred while establishing a connection with the multiplexer */
+#define ERV_MUXCONN_PROTO_ERR	0x80003002	/* A protocol error occurred while communicating with the multiplexer */
+#define ERV_FEED_NO_ACCESS	0x80003003	/* Access to the feed was denied */
+
 #endif /* !_EEMO_H */
 

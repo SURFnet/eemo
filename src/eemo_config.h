@@ -61,6 +61,9 @@ eemo_rv eemo_conf_get_string_array(const char* base_path, const char* sub_path, 
 /* Free an array of string values */
 eemo_rv eemo_conf_free_string_array(char** array, int count);
 
+/* Get a byte string value */
+eemo_rv eemo_conf_get_bytestring(const char* base_path, const char* sub_path, unsigned char** value, size_t* len);
+
 /* Release the configuration handler */
 eemo_rv eemo_uninit_config_handling(void);
 
