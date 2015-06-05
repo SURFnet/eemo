@@ -1,3 +1,5 @@
+/* $Id$ */
+
 /*
  * Copyright (c) 2010-2015 SURFnet bv
  * All rights reserved.
@@ -30,18 +32,20 @@
 
 /*
  * The Extensible Ethernet Monitor Sensor Multiplexer (EEMO)
- * Main muxer code
+ * Support module for multi-threaded invocation of OpenSSL
  */
 
-#ifndef _EEMO_MUX_MUXER_H
-#define _EEMO_MUX_MUXER_H
+#ifndef _EEMO_MT_OPENSSL_H
+#define _EEMO_MT_OPENSSL_H
 
 #include "config.h"
 #include "eemo.h"
-#include "eemo_api.h"
 
-/* Run the multiplexer */
-void eemo_mux_run_multiplexer(void);
+/* Initialise multi-threaded use of OpenSSL */
+eemo_rv eemo_mt_openssl_init(void);
 
-#endif /* !_EEMO_MUX_MUXER_H */
+/* Uninitialise multi-threaded use of OpenSSL */
+eemo_rv eemo_mt_openssl_finalize(void);
+
+#endif /* !_EEMO_MT_OPENSSL_H */
 

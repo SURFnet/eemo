@@ -1,5 +1,7 @@
+/* $Id$ */
+
 /*
- * Copyright (c) 2010-2015 SURFnet bv
+ * Copyright (c) 2010-2014 SURFnet bv
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -30,18 +32,66 @@
 
 /*
  * The Extensible Ethernet Monitor Sensor Multiplexer (EEMO)
- * Main muxer code
+ * Protocol command transfer
  */
 
-#ifndef _EEMO_MUX_MUXER_H
-#define _EEMO_MUX_MUXER_H
+#ifndef _EEMO_MUX_CMDXFER_H
+#define _EEMO_MUX_CMDXFER_H
 
 #include "config.h"
 #include "eemo.h"
 #include "eemo_api.h"
+#include <openssl/ssl.h>
+#include <stdint.h>
+#include <time.h>
+#include <sys/time.h>
+#include <pthread.h>
 
-/* Run the multiplexer */
-void eemo_mux_run_multiplexer(void);
+/* Command data structure */
+typedef struct
+{
+	uint16_t	cmd_id;
+	uint32_t	cmd_len;
+	uint8_t*	cmd_data;
+}
+eemo_mux_cmd;
 
-#endif /* !_EEMO_MUX_MUXER_H */
+/* Packet information */
+typedef struct
+{
+	struct timeval	pkt_ts;
+	uint8_t*	pkt_data;
+	uint32_t	pkt_len;
+	int32_t		pkt_refctr;
+	pthread_mutex_t	pkt_refmutex;
+}
+eemo_mux_pkt;
+
+/* Receive a command */
+eemo_rv eemo_cx_recv(SSL* socket, eemo_mux_cmd* recv_cmd);
+
+/* Send a command */
+eemo_rv eemo_cx_send(SSL* socket, const uint16_t cmd_id, const uint32_t cmd_len, const uint8_t* cmd_data);
+
+/* Clean up a command data structure */
+void eemo_cx_cmd_free(eemo_mux_cmd* recv_cmd);
+
+/* Serialize a captured packet and its metadata and transmit it */
+eemo_rv eemo_cx_send_pkt_sensor(SSL* socket, struct timeval ts, const uint8_t* pkt_data, const uint32_t pkt_len);
+
+eemo_rv eemo_cx_send_pkt_client(SSL* socket, const eemo_mux_pkt* pkt);
+
+/* Deserialize a captured packet and its metadata */
+eemo_mux_pkt* eemo_cx_deserialize_pkt(eemo_mux_cmd* pkt_cmd);
+
+/* Create a shallow copy of a packet (increases the reference counter) */
+eemo_mux_pkt* eemo_cx_pkt_copy(eemo_mux_pkt* pkt);
+
+/* Clone a packet (creates a deep copy) */
+eemo_mux_pkt* eemo_cx_pkt_clone(const eemo_mux_pkt* pkt);
+
+/* Release the reference to a packet (frees storage when the reference counter reaches zero) */
+void eemo_cx_pkt_free(eemo_mux_pkt* pkt);
+
+#endif /* !_EEMO_MUX_CMDXFER_H */
 

@@ -1,7 +1,5 @@
-/* $Id$ */
-
 /*
- * Copyright (c) 2010-2014 SURFnet bv
+ * Copyright (c) 2010-2015 SURFnet bv
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -55,6 +53,7 @@
 #define MUX_CLIENT_SUBSCRIBE			0x02
 #define MUX_CLIENT_UNSUBSCRIBE			0x03
 #define MUX_CLIENT_SHUTDOWN			0x04
+#define MUX_CLIENT_DATA				0x05
 
 #endif /* !_EEMO_MUX_PROTO_H */
 

@@ -611,7 +611,7 @@ void eemo_sensor_pcap_cb(u_char* user_ptr, const struct pcap_pkthdr* hdr, const 
 	}
 
 	/* Send the captured packet to the multiplexer */
-	if (eemo_cx_send_pkt(tls, hdr->ts, data, hdr->len) != ERV_OK)
+	if (eemo_cx_send_pkt_sensor(tls, hdr->ts, data, hdr->len) != ERV_OK)
 	{
 		ERROR_MSG("Failed to transmit captured packet to mux server, stopping capture");
 

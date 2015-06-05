@@ -1,3 +1,5 @@
+/* $Id$ */
+
 /*
  * Copyright (c) 2010-2015 SURFnet bv
  * All rights reserved.
@@ -30,18 +32,83 @@
 
 /*
  * The Extensible Ethernet Monitor Sensor Multiplexer (EEMO)
- * Main muxer code
+ * Support module for multi-threaded invocation of OpenSSL
  */
-
-#ifndef _EEMO_MUX_MUXER_H
-#define _EEMO_MUX_MUXER_H
 
 #include "config.h"
 #include "eemo.h"
-#include "eemo_api.h"
+#include "eemo_log.h"
+#include <openssl/crypto.h>
+#include <pthread.h>
 
-/* Run the multiplexer */
-void eemo_mux_run_multiplexer(void);
+/* Mutexes for use by OpenSSL */
+static pthread_mutex_t*	mutex_buf	= NULL;
 
-#endif /* !_EEMO_MUX_MUXER_H */
+/* Locking function */
+static void eemo_openssl_mt_int_lock(int mode, int n, const char* file, int line)
+{
+	if (mode & CRYPTO_LOCK)
+	{
+		pthread_mutex_lock(&mutex_buf[n]);
+	}
+	else
+	{
+		pthread_mutex_unlock(&mutex_buf[n]);
+	}
+}
+
+/* Thread ID function */
+static unsigned long eemo_openssl_mt_int_threadid(void)
+{
+	return (unsigned long) pthread_self();
+}
+
+/* Initialise multi-threaded use of OpenSSL */
+eemo_rv eemo_mt_openssl_init(void)
+{
+	int	i	= 0;
+
+	/* Allocate space for mutexes */
+	mutex_buf = (pthread_mutex_t*) malloc(CRYPTO_num_locks() * sizeof(pthread_mutex_t));
+
+	if (mutex_buf == NULL)
+	{
+		return ERV_MEMORY;
+	}
+
+	/* Initialise mutexes */
+	for (i = 0; i < CRYPTO_num_locks(); i++)
+	{
+		pthread_mutex_init(&mutex_buf[i], NULL);
+	}
+
+	CRYPTO_set_id_callback(eemo_openssl_mt_int_threadid);
+	CRYPTO_set_locking_callback(eemo_openssl_mt_int_lock);
+
+	INFO_MSG("Initialised multi-threaded use of OpenSSL");
+
+	return ERV_OK;
+}
+
+/* Uninitialise multi-threaded use of OpenSSL */
+eemo_rv eemo_mt_openssl_finalize(void)
+{
+	int	i	= 0;
+
+	CRYPTO_set_id_callback(NULL);
+	CRYPTO_set_locking_callback(NULL);
+
+	/* Uninitialise mutexes */
+	for (i = 0; i < CRYPTO_num_locks(); i++)
+	{
+		pthread_mutex_destroy(&mutex_buf[i]);
+	}
+
+	free(mutex_buf);
+	mutex_buf = NULL;
+
+	INFO_MSG("Finalised multi-threaded use of OpenSSL");
+
+	return ERV_OK;
+}
 
