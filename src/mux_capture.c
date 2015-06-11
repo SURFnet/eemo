@@ -22,7 +22,7 @@
  * DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
  * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
  * GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHMUX
  * IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
@@ -31,23 +31,29 @@
 
 /*
  * The Extensible Ethernet Monitor (EEMO)
- * Ethernet packet capturing
+ * Handling capture feed(s) from a multiplexer
  */
-
-#ifndef _EEMO_ETHER_CAPTURE_H
-#define _EEMO_ETHER_CAPTURE_H
 
 #include "config.h"
 #include "eemo.h"
+#include "eemo_log.h"
+#include "eemo_config.h"
+#include "mux_capture.h"
 
 /* Initialise direct capturing */
-eemo_rv eemo_ether_capture_init(const char* interface);
+eemo_rv eemo_mux_capture_init(void)
+{
+	return ERV_OK;
+}
 
 /* Uninitialise direct capturing */
-eemo_rv eemo_ether_capture_finalize(void);
+eemo_rv eemo_mux_capture_finalize(void)
+{
+	return ERV_OK;
+}
 
 /* Run the direct capture */
-void eemo_ether_capture_run(void);
-
-#endif /* !_EEMO_ETHER_CAPTURE_H */
+void eemo_mux_capture_run(void)
+{
+}
 

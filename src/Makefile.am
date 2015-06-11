@@ -24,8 +24,14 @@ eemo_SOURCES =			dns_handler.c \
 				eemo_main.c \
 				eemo_packet.c \
 				eemo_packet.h \
+				eemo_capture.c \
+				eemo_capture.h \
 				ether_capture.c \
 				ether_capture.h \
+				file_capture.c \
+				file_capture.h \
+				mux_capture.c \
+				mux_capture.h \
 				ether_handler.c \
 				ether_handler.h \
 				icmp_handler.c \

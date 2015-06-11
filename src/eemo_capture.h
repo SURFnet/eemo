@@ -1,6 +1,5 @@
 /*
  * Copyright (c) 2010-2015 SURFnet bv
- * Copyright (c) 2014-2015 Roland van Rijswijk-Deij
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -31,23 +30,23 @@
 
 /*
  * The Extensible Ethernet Monitor (EEMO)
- * Ethernet packet capturing
+ * Capture handling
  */
 
-#ifndef _EEMO_ETHER_CAPTURE_H
-#define _EEMO_ETHER_CAPTURE_H
+#ifndef _EEMO_CAPTURE_H
+#define _EEMO_CAPTURE_H
 
 #include "config.h"
 #include "eemo.h"
 
-/* Initialise direct capturing */
-eemo_rv eemo_ether_capture_init(const char* interface);
+/* Initialise capturing */
+eemo_rv eemo_capture_init(const char* interface, const char* savefile);
 
-/* Uninitialise direct capturing */
-eemo_rv eemo_ether_capture_finalize(void);
+/* Uninitialise capturing */
+eemo_rv eemo_capture_finalize(void);
 
-/* Run the direct capture */
-void eemo_ether_capture_run(void);
+/* Run the capture until interrupted */
+void eemo_capture_run(void);
 
-#endif /* !_EEMO_ETHER_CAPTURE_H */
+#endif /* !_EEMO_CAPTURE_H */
 
