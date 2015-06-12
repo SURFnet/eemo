@@ -155,7 +155,7 @@ static void eemo_mux_new_sensor(const int sensor_socket)
 		}
 		else
 		{
-			INFO_MSG("New sensor connected from %s", inet_ntop(AF_INET6, (struct in6_addr*) &inet6_addr->sin6_addr, &addr_str[0], sizeof(struct in6_addr)));
+			INFO_MSG("New sensor connected from %s", inet_ntop(AF_INET6, (struct in6_addr*) &inet6_addr->sin6_addr, &addr_str[0], INET6_ADDRSTRLEN));
 
 			strcpy(new_sensor->ip_str, addr_str);
 		}
@@ -355,7 +355,7 @@ static void eemo_mux_new_client(const int client_socket)
 		}
 		else
 		{
-			INFO_MSG("New client connected from %s", inet_ntop(AF_INET6, (struct in6_addr*) &inet6_addr->sin6_addr, &addr_str[0], sizeof(struct in6_addr)));
+			INFO_MSG("New client connected from %s", inet_ntop(AF_INET6, (struct in6_addr*) &inet6_addr->sin6_addr, &addr_str[0], INET6_ADDRSTRLEN));
 
 			strcpy(new_client->ip_str, addr_str);
 		}
@@ -876,6 +876,8 @@ static eemo_rv eemo_mux_handle_client_packet(const int socket)
 
 						free(subs_it->guid);
 						free(subs_it);
+
+						result = MUX_SUBS_RES_OK;
 
 						break;
 					}
