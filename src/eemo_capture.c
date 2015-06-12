@@ -128,7 +128,7 @@ eemo_rv eemo_capture_init(const char* interface, const char* savefile)
 		rv = eemo_file_capture_init(savefile);
 		break;
 	case EEMO_CAPTURE_MUX:
-		rv = eemo_mux_capture_init();
+		rv = eemo_mux_capture_init(&eemo_handle_ether_packet);
 		break;
 	}
 

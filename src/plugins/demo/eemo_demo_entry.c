@@ -61,7 +61,7 @@ static unsigned long long	dns_r_counter		= 0;
 /* Sample UDP handler */
 eemo_rv eemo_demo_udp_handler(eemo_packet_buf* pkt, eemo_ip_packet_info ip_info, u_short srcport, u_short dstport, u_short length)
 {
-	INFO_MSG("UDPv%d packet from %s:%d to %s:%d (UDP size %d)", ip_info.ip_type, ip_info.ip_src, srcport, ip_info.ip_dst, dstport, length);
+	DEBUG_MSG("UDPv%d packet from %s:%d to %s:%d (UDP size %d)", ip_info.ip_type, ip_info.ip_src, srcport, ip_info.ip_dst, dstport, length);
 
 	udp_counter++;
 	all_counter++;
@@ -72,7 +72,7 @@ eemo_rv eemo_demo_udp_handler(eemo_packet_buf* pkt, eemo_ip_packet_info ip_info,
 /* Sample TCP handler */
 eemo_rv eemo_demo_tcp_handler(eemo_packet_buf* pkt, eemo_ip_packet_info ip_info, eemo_tcp_packet_info tcp_info)
 {
-	INFO_MSG("TCPv%d packet from %s:%d to %s:%d", ip_info.ip_type, ip_info.ip_src, tcp_info.srcport, ip_info.ip_dst, tcp_info.dstport);
+	DEBUG_MSG("TCPv%d packet from %s:%d to %s:%d", ip_info.ip_type, ip_info.ip_src, tcp_info.srcport, ip_info.ip_dst, tcp_info.dstport);
 
 	tcp_counter++;
 	all_counter++;

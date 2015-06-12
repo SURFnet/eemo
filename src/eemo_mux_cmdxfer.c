@@ -47,8 +47,8 @@
 #include <endian.h>
 
 /* Define this to log information about recv/xmit of commands */
-#define DBG_CMDXFER
-/* #undef DBG_CMDXFER */
+/*#define DBG_CMDXFER*/
+#undef DBG_CMDXFER
 
 #ifdef DBG_CMDXFER
 	#define DBGCMD(...)	DEBUG_MSG(__VA_ARGS__)
@@ -165,6 +165,8 @@ eemo_mux_pkt* eemo_cx_new_packet(const struct timeval ts, const uint8_t* data, c
 
 		return NULL;
 	}
+
+	pthread_mutexattr_destroy(&pkt_mutex_attr);
 
 	memset(new_pkt, 0, sizeof(eemo_mux_pkt));
 

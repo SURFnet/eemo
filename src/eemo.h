@@ -83,6 +83,7 @@ typedef unsigned long eemo_rv;
 #define ERV_MUXCONN_PROTO_ERR	0x80003002	/* A protocol error occurred while communicating with the multiplexer */
 #define ERV_FEED_NO_ACCESS	0x80003003	/* Access to the feed was denied */
 #define ERV_CLIENT_ERROR	0x80003004	/* There was an error communicating with a client */
+#define ERV_TLS_ERROR		0x80003005	/* A TLS error occurred */
 #define ERV_QUEUE_OVERFLOW	0x80003100	/* Client packet queue overflow */
 #define ERV_QUEUE_OK		0x80003101	/* Client packet queue no longer overflowing */
 

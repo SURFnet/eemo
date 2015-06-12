@@ -46,6 +46,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <dlfcn.h>
+#include <pthread.h>
 
 /* The list of modules */
 static eemo_module_spec* modules = NULL;

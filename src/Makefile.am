@@ -4,7 +4,7 @@ sbin_PROGRAMS = 		eemo \
 				eemo_mux \
 				eemo_sensor
 
-eemo_CFLAGS =			@LIBCONFIG_CFLAGS@ @PTHREAD_CFLAGS@
+eemo_CFLAGS =			@LIBCONFIG_CFLAGS@ @PTHREAD_CFLAGS@ @OPENSSL_CFLAGS@
 
 eemo_SOURCES =			dns_handler.c \
 				dns_handler.h \
@@ -32,6 +32,15 @@ eemo_SOURCES =			dns_handler.c \
 				file_capture.h \
 				mux_capture.c \
 				mux_capture.h \
+				eemo_mux_proto.h \
+				eemo_mux_cmdxfer.c \
+				eemo_mux_cmdxfer.h \
+				eemo_tlscomm.c \
+				eemo_tlscomm.h \
+				eemo_tlsutil.c \
+				eemo_tlsutil.h \
+				mt_openssl.c \
+				mt_openssl.h \
 				ether_handler.c \
 				ether_handler.h \
 				icmp_handler.c \
@@ -47,7 +56,7 @@ eemo_SOURCES =			dns_handler.c \
 				utlist.h \
 				uthash.h
 
-eemo_LDADD =			-lpcap @LIBCONFIG_LIBS@ @PTHREAD_LIBS@
+eemo_LDADD =			-lpcap @LIBCONFIG_LIBS@ @PTHREAD_LIBS@ @OPENSSL_LIBS@
 
 eemo_mux_CFLAGS =	 	@LIBCONFIG_CFLAGS@ @OPENSSL_CFLAGS@ @PTHREAD_CFLAGS@
 

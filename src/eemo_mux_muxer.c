@@ -77,6 +77,7 @@ static sensor_spec* sensors = NULL;
 typedef struct client_subs
 {
 	int			id;				/* ID of sensor subscribed to */
+	char*			guid;				/* GUID of the feed subscribed to */
 	struct client_subs*	next;
 }
 client_subs;
@@ -238,6 +239,7 @@ static void eemo_mux_new_sensor(const int sensor_socket)
 	LL_APPEND(sensors, new_sensor);
 
 	INFO_MSG("Registered sensor with ID %d", new_sensor->id);
+
 }
 
 /* Shut down a sensor */
@@ -279,6 +281,7 @@ static void eemo_mux_shutdown_sensor(sensor_spec* sensor, const int is_graceful)
 static void eemo_mux_unregister_sensor(const int socket, const int is_graceful)
 {
 	sensor_spec*	sensor_it	= NULL;
+	client_spec*	client_it	= NULL;
 	
 	LL_FOREACH(sensors, sensor_it)
 	{
@@ -289,7 +292,23 @@ static void eemo_mux_unregister_sensor(const int socket, const int is_graceful)
 			LL_DELETE(sensors, sensor_it);
 		
 			INFO_MSG("Unregistered sensor %d (%s)", sensor_it->id, sensor_it->ip_str);
-		
+	
+			/* Update client subscriptions */
+			LL_FOREACH(clients, client_it)
+			{
+				client_subs*	subs_it	= NULL;
+
+				LL_FOREACH(client_it->subscriptions, subs_it)
+				{
+					if (subs_it->id == sensor_it->id)
+					{
+						subs_it->id = -1;
+
+						INFO_MSG("Client from %s will no longer receive data from sensor %d", client_it->ip_str, sensor_it->id);
+					}
+				}
+			}
+
 			free(sensor_it->feed_guid);
 			free(sensor_it->feed_desc);
 			free(sensor_it);
@@ -501,9 +520,10 @@ static void eemo_mux_unregister_client(const int socket, const int is_graceful)
 
 			LL_FOREACH_SAFE(client_it->subscriptions, subs_it, subs_tmp)
 			{
+				free(subs_it->guid);
 				free(subs_it);
 			}
-		
+
 			free(client_it);
 			
 			return;			
@@ -554,6 +574,8 @@ static eemo_rv eemo_mux_handle_sensor_packet(const int socket)
 		break;
 	case SENSOR_REGISTER:
 		{
+			client_spec*	client_it	= NULL;
+
 			if (sensor_it->feed_guid != NULL)
 			{
 				free(sensor_it->feed_guid);
@@ -565,6 +587,22 @@ static eemo_rv eemo_mux_handle_sensor_packet(const int socket)
 			INFO_MSG("Sensor %d feed GUID = %s", sensor_it->id, sensor_it->feed_guid);
 
 			eemo_cx_cmd_free(&cmd);
+	
+			/* Update client subscriptions */
+			LL_FOREACH(clients, client_it)
+			{
+				client_subs*	subs_it	= NULL;
+
+				LL_FOREACH(client_it->subscriptions, subs_it)
+				{
+					if (strcasecmp(sensor_it->feed_guid, subs_it->guid) == 0)
+					{
+						subs_it->id = sensor_it->id;
+
+						INFO_MSG("Client from %s will now receive feed data from sensor %d", client_it->ip_str, sensor_it->id);
+					}
+				}
+			}
 
 			/* Send ACK */
 			return eemo_cx_send(sensor_it->tls, SENSOR_REGISTER, 0, NULL);
@@ -590,6 +628,8 @@ static eemo_rv eemo_mux_handle_sensor_packet(const int socket)
 		break;
 	case SENSOR_UNREGISTER:
 		{
+			client_spec*	client_it	= NULL;
+
 			INFO_MSG("Sensor %d has unregistered feed %s (%s)", sensor_it->id, sensor_it->feed_guid, sensor_it->feed_desc);
 
 			eemo_cx_cmd_free(&cmd);
@@ -599,6 +639,22 @@ static eemo_rv eemo_mux_handle_sensor_packet(const int socket)
 
 			sensor_it->feed_guid = NULL;
 			sensor_it->feed_desc = NULL;
+
+			/* Update client subscriptions */
+			LL_FOREACH(clients, client_it)
+			{
+				client_subs*	subs_it	= NULL;
+
+				LL_FOREACH(client_it->subscriptions, subs_it)
+				{
+					if (subs_it->id == sensor_it->id)
+					{
+						subs_it->id = -1;
+
+						INFO_MSG("Client from %s will no longer receive data from sensor %d", client_it->ip_str, sensor_it->id);
+					}
+				}
+			}
 
 			/* Send ACK */
 			return eemo_cx_send(sensor_it->tls, SENSOR_UNREGISTER, 0, NULL);
@@ -633,14 +689,6 @@ static eemo_rv eemo_mux_handle_sensor_packet(const int socket)
 			client_subs*	subs_it		= NULL;
 			client_subs*	subs_tmp	= NULL;
 
-			/* Acknowledge receipt */
-			if ((rv = eemo_cx_send(sensor_it->tls, SENSOR_DATA, 0, NULL)) != ERV_OK)
-			{
-				ERROR_MSG("Failed to send acknowledgement for data");
-
-				return rv;
-			}
-
 			/* Unpack the data */
 			eemo_mux_pkt*	pkt	= eemo_cx_deserialize_pkt(&cmd);
 
@@ -653,15 +701,21 @@ static eemo_rv eemo_mux_handle_sensor_packet(const int socket)
 				{
 					if (subs_it->id == sensor_it->id)
 					{
-						if ((rv = eemo_cq_enqueue(client_it->q, eemo_cx_pkt_copy(pkt))) != ERV_OK)
+						if ((rv = eemo_cq_enqueue(client_it->q, pkt)) != ERV_OK)
 						{
 							if (rv == ERV_QUEUE_OVERFLOW)
 							{
 								WARNING_MSG("Client queue overflow for client from %s", client_it->ip_str);
+
+								client_it->pkt_count++;
+								client_it->byte_count += pkt->pkt_len;
 							}
 							else if (rv == ERV_QUEUE_OK)
 							{
 								INFO_MSG("Client queue no longer overflowing for client from %s", client_it->ip_str);
+
+								client_it->pkt_count++;
+								client_it->byte_count += pkt->pkt_len;
 							}
 							else
 							{
@@ -669,6 +723,11 @@ static eemo_rv eemo_mux_handle_sensor_packet(const int socket)
 
 								eemo_mux_unregister_client(client_it->socket, 0);
 							}
+						}
+						else
+						{
+							client_it->pkt_count++;
+							client_it->byte_count += pkt->pkt_len;
 						}
 					}
 				}
@@ -716,6 +775,8 @@ static eemo_rv eemo_mux_handle_client_packet(const int socket)
 	{
 		ERROR_MSG("Failed to receive command data from client socket %d", socket);
 
+		eemo_cx_cmd_free(&cmd);
+
 		return rv;
 	}
 
@@ -735,28 +796,63 @@ static eemo_rv eemo_mux_handle_client_packet(const int socket)
 		break;
 	case MUX_CLIENT_SUBSCRIBE:
 		{
-			uint8_t	result		= 0;
+			uint8_t	result		= MUX_SUBS_RES_NX;
 			char*	subs_guid	= (char*) cmd.cmd_data;
 
 			if (cmd.cmd_len > 0)
 			{
 				sensor_spec*	sensor_it	= NULL;
 				sensor_spec*	sensor_tmp	= NULL;
+				client_subs*	subs_it		= NULL;
+				int		subs_exists	= 0;
 
-				LL_FOREACH_SAFE(sensors, sensor_it, sensor_tmp)
+				/* Check if the subscription already exists */
+				LL_FOREACH(client_it->subscriptions, subs_it)
 				{
-					if (strcmp(sensor_it->feed_guid, subs_guid) == 0)
+					if (strcasecmp(subs_it->guid, subs_guid) == 0)
 					{
-						client_subs*	new_subs	= (client_subs*) malloc(sizeof(client_subs));
-
-						new_subs->id = sensor_it->id;
-						LL_APPEND(client_it->subscriptions, new_subs);
-
-						result = 1;
+						subs_exists = 1;
 						break;
 					}
 				}
+
+				if (!subs_exists)
+				{
+					LL_FOREACH_SAFE(sensors, sensor_it, sensor_tmp)
+					{
+						if (strcmp(sensor_it->feed_guid, subs_guid) == 0)
+						{
+							client_subs*	new_subs	= (client_subs*) malloc(sizeof(client_subs));
+	
+							new_subs->guid = strdup(subs_guid);
+							new_subs->id = sensor_it->id;
+							LL_APPEND(client_it->subscriptions, new_subs);
+	
+							result = MUX_SUBS_RES_OK;
+							break;
+						}
+					}
+	
+					if (result == MUX_SUBS_RES_NX)
+					{
+						client_subs*	new_subs	= (client_subs*) malloc(sizeof(client_subs));
+
+						new_subs->guid = strdup(subs_guid);
+						new_subs->id = -1;
+						LL_APPEND(client_it->subscriptions, new_subs);
+
+						WARNING_MSG("Client from %s subscribed to absent feed %s", client_it->ip_str, subs_guid);
+					}
+				}
+				else
+				{
+					ERROR_MSG("Client from %s attempted to subscribe to a feed that it has already subscribed to");
+
+					result = MUX_SUBS_RES_ERR;
+				}
 			}
+
+			eemo_cx_cmd_free(&cmd);
 
 			/* Send status back */
 			return eemo_cx_send(client_it->tls, MUX_CLIENT_SUBSCRIBE, sizeof(uint8_t), (const uint8_t*) &result);
@@ -769,25 +865,17 @@ static eemo_rv eemo_mux_handle_client_packet(const int socket)
 
 			if (cmd.cmd_len > 0)
 			{
-				sensor_spec*	sensor_it	= NULL;
-				sensor_spec*	sensor_tmp	= NULL;
+				client_subs*	subs_it		= NULL;
+				client_subs*	subs_tmp	= NULL;
 
-				LL_FOREACH_SAFE(sensors, sensor_it, sensor_tmp)
+				LL_FOREACH_SAFE(client_it->subscriptions, subs_it, subs_tmp)
 				{
-					if (strcmp(sensor_it->feed_guid, unsubs_guid) == 0)
+					if (strcasecmp(subs_it->guid, unsubs_guid) == 0)
 					{
-						client_subs*	subs_it	= NULL;
+						LL_DELETE(client_it->subscriptions, subs_it);
 
-						LL_FOREACH(client_it->subscriptions, subs_it)
-						{
-							if (subs_it->id == sensor_it->id)
-							{
-								LL_DELETE(client_it->subscriptions, subs_it);
-
-								result = 1;
-								break;
-							}
-						}
+						free(subs_it->guid);
+						free(subs_it);
 
 						break;
 					}
@@ -809,6 +897,8 @@ static eemo_rv eemo_mux_handle_client_packet(const int socket)
 					ERROR_MSG("Client from %s sent invalid unsubscribe command", client_it->ip_str);
 				}
 			}
+
+			eemo_cx_cmd_free(&cmd);
 
 			/* Send status back */
 			return eemo_cx_send(client_it->tls, MUX_CLIENT_SUBSCRIBE, sizeof(uint8_t), (const uint8_t*) &result);
@@ -839,6 +929,8 @@ static eemo_rv eemo_mux_handle_client_packet(const int socket)
 	default:
 		{
 			ERROR_MSG("Unknown command received from client from %s on socket %d", client_it->ip_str, socket);
+
+			eemo_cx_cmd_free(&cmd);
 
 			return ERV_GENERAL_ERROR;
 		}
@@ -1261,6 +1353,7 @@ static void eemo_mux_disconnect_clients(void)
 
 		LL_FOREACH_SAFE(client_it->subscriptions, subs_it, subs_tmp)
 		{
+			free(subs_it->guid);
 			free(subs_it);
 		}
 		

@@ -37,6 +37,7 @@
 #include <string.h>
 #include <signal.h>
 #include <sys/types.h>
+#include <pthread.h>
 #include "eemo.h"
 #include "eemo_api.h"
 #include "eemo_packet.h"
@@ -457,6 +458,9 @@ int main(int argc, char* argv[])
 	{
 		free(interface);
 	}
+
+	/* Suppress valgrind warning */
+	pthread_exit(NULL);
 
 	return 0;
 }

@@ -50,6 +50,7 @@ static void* eemo_cq_int_threadproc(void* params)
 	client_queue*	q		= (client_queue*) params;
 	cq_entry*	sendq		= NULL;
 	cq_entry*	sendq_it	= NULL;
+	cq_entry*	cleanup		= NULL;
 
 	DEBUG_MSG("Entering client queue thread procedure (0x%08x)", (unsigned int) pthread_self());
 
@@ -97,7 +98,9 @@ static void* eemo_cq_int_threadproc(void* params)
 			/* Release queued packet */
 			eemo_cx_pkt_free(sendq_it->cq_pkt);
 
+			cleanup = sendq_it;
 			sendq_it = sendq_it->next;
+			free(cleanup);
 		}
 	}
 
@@ -146,13 +149,14 @@ client_queue* eemo_cq_new(SSL* tls, const size_t maxlen)
 	new_client->client_run = 1;
 	new_client->client_state = 1;
 	new_client->q_overflow = 0;
+	new_client->tls = tls;
 	
 	/* Launch client thread */
 	pthread_attr_init(&ct_attr);
 
 	pthread_attr_setdetachstate(&ct_attr, PTHREAD_CREATE_JOINABLE);
 
-	if (pthread_create(&new_client->client_thread, &ct_attr, eemo_cq_int_threadproc, NULL) != 0)
+	if (pthread_create(&new_client->client_thread, &ct_attr, eemo_cq_int_threadproc, (void*) new_client) != 0)
 	{
 		ERROR_MSG("Failed to launch new client thread");
 
@@ -203,6 +207,8 @@ eemo_rv eemo_cq_enqueue(client_queue* q, eemo_mux_pkt* pkt)
 		q->q_head->prev = NULL;
 
 		eemo_cx_pkt_free(dequeue->cq_pkt);
+
+		free(dequeue);
 	}
 	else if ((q->q_overflow) && (q->q_len < q->q_maxlen))
 	{
@@ -216,8 +222,9 @@ eemo_rv eemo_cq_enqueue(client_queue* q, eemo_mux_pkt* pkt)
 
 	memset(new_entry, 0, sizeof(cq_entry));
 
-	new_entry->cq_pkt = pkt;
+	new_entry->cq_pkt = eemo_cx_pkt_copy(pkt);
 	new_entry->next = NULL;
+	new_entry->prev = NULL;
 
 	if (q->q_head == NULL)
 	{
@@ -231,6 +238,7 @@ eemo_rv eemo_cq_enqueue(client_queue* q, eemo_mux_pkt* pkt)
 	else
 	{
 		new_entry->prev = q->q_tail;
+		q->q_tail->next = new_entry;
 		q->q_tail = new_entry;
 	}
 
@@ -247,6 +255,9 @@ eemo_rv eemo_cq_enqueue(client_queue* q, eemo_mux_pkt* pkt)
 /* Finalise the client */
 void eemo_cq_stop(client_queue* q)
 {
+	cq_entry*	q_it	= NULL;
+	cq_entry*	q_tmp	= NULL;
+
 	assert(q != NULL);
 
 	/* Lock the client queue */
@@ -266,6 +277,17 @@ void eemo_cq_stop(client_queue* q)
 	/* Clean up */
 	pthread_mutex_destroy(&q->q_mutex);
 	pthread_cond_destroy(&q->q_signal);
+
+	q_it = q->q_head;
+
+	while (q_it != NULL)
+	{
+		q_tmp = q_it;
+		q_it = q_it->next;
+		eemo_cx_pkt_free(q_tmp->cq_pkt);
+		free(q_tmp);
+	}
+
 	free(q);
 }
 

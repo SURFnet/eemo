@@ -55,5 +55,9 @@
 #define MUX_CLIENT_SHUTDOWN			0x04
 #define MUX_CLIENT_DATA				0x05
 
+#define MUX_SUBS_RES_NX				0
+#define MUX_SUBS_RES_OK				1
+#define MUX_SUBS_RES_ERR			2
+
 #endif /* !_EEMO_MUX_PROTO_H */
 

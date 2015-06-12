@@ -36,6 +36,7 @@
 #include <signal.h>
 #include <sys/types.h>
 #include <openssl/ssl.h>
+#include <openssl/err.h>
 #include "eemo.h"
 #include "eemo_api.h"
 #include "eemo_config.h"
@@ -316,7 +317,14 @@ int main(int argc, char* argv[])
 	
 	INFO_MSG("Extensible Ethernet Monitor Sensor Multiplexer exiting");
 
+	if (eemo_uninit_config_handling() != ERV_OK)
+	{
+		ERROR_MSG("Failed to uninitialise configuration handling");
+	}
+
 	eemo_mt_openssl_finalize();
+
+	ERR_free_strings();
 	
 	/* Uninitialise logging */
 	if (eemo_uninit_log() != ERV_OK)

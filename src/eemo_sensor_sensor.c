@@ -49,6 +49,7 @@
 #include <signal.h>
 #include <stdlib.h>
 #include <openssl/ssl.h>
+#include <openssl/err.h>
 #include <arpa/inet.h>
 #include <netinet/in.h>
 #include <sys/socket.h>
@@ -148,6 +149,8 @@ eemo_rv eemo_sensor_finalize(void)
 	free(sensor_desc);
 	free(sensor_filter);
 	free(mux_hostname);
+
+	ERR_free_strings();
 
 	return ERV_OK;
 }
@@ -603,8 +606,6 @@ shutdown:
 /* PCAP callback handler */
 void eemo_sensor_pcap_cb(u_char* user_ptr, const struct pcap_pkthdr* hdr, const u_char* data)
 {
-	eemo_mux_cmd	cmd	= { 0, 0, NULL };
-
 	if (sensor_exit)
 	{
 		pcap_breakloop(pcap_handle);
@@ -617,17 +618,6 @@ void eemo_sensor_pcap_cb(u_char* user_ptr, const struct pcap_pkthdr* hdr, const 
 
 		pcap_breakloop(pcap_handle);
 	}
-
-	if ((eemo_cx_recv(tls, &cmd) != ERV_OK) || (cmd.cmd_id != SENSOR_DATA) || (cmd.cmd_len != 0))
-	{
-		ERROR_MSG("Multiplex server failed to send correct acknowledgement for data transmitted");
-
-		eemo_cx_cmd_free(&cmd);
-
-		pcap_breakloop(pcap_handle);
-	}
-
-	eemo_cx_cmd_free(&cmd);
 }
 
 /* Start and run capture */
