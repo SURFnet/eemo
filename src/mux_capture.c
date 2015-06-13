@@ -666,6 +666,7 @@ errorcond:
 
 				/* Process the packet */
 				pkt_count++;
+				bytes_recv += pkt->pkt_len;
 
 				if ((handler)(&pktbuf, pkt->pkt_ts) == ERV_HANDLED) pkt_handled++;
 
@@ -680,8 +681,6 @@ errorcond:
 						INFO_MSG("Received %llu bytes from the multiplexer", bytes_recv);
 					}
 				}
-
-				bytes_recv += pkt->pkt_len;
 
 				eemo_cx_pkt_free(pkt);
 				

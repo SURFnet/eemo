@@ -125,7 +125,6 @@ static void eemo_mux_new_sensor(const int sensor_socket)
 {
 	struct sockaddr_storage	sensor_addr 			= { 0 };
 	socklen_t		addr_len			= sizeof(struct sockaddr_storage);
-	struct sockaddr_in6*	inet6_addr			= (struct sockaddr_in6*) &sensor_addr;
 	int			sensor_sock			= -1;
 	char			addr_str[INET6_ADDRSTRLEN]	= { 0 };
 	sensor_spec*		new_sensor			= (sensor_spec*) malloc(sizeof(sensor_spec));
@@ -147,15 +146,19 @@ static void eemo_mux_new_sensor(const int sensor_socket)
 	
 	if (sensor_addr.ss_family == AF_INET6)
 	{
-		if (IN6_IS_ADDR_V4MAPPED(&inet6_addr->sin6_addr))
-		{
-			INFO_MSG("New sensor connected from %d.%d.%d.%d", inet6_addr->sin6_addr.s6_addr[12], inet6_addr->sin6_addr.s6_addr[13], inet6_addr->sin6_addr.s6_addr[14], inet6_addr->sin6_addr.s6_addr[15]);
+		struct sockaddr_in6	inet6_addr;
 
-			snprintf(new_sensor->ip_str, INET6_ADDRSTRLEN, "%d.%d.%d.%d", inet6_addr->sin6_addr.s6_addr[12], inet6_addr->sin6_addr.s6_addr[13], inet6_addr->sin6_addr.s6_addr[14], inet6_addr->sin6_addr.s6_addr[15]);
+		memcpy(&inet6_addr, &sensor_addr, sizeof(struct sockaddr_in6));
+
+		if (IN6_IS_ADDR_V4MAPPED(&inet6_addr.sin6_addr))
+		{
+			INFO_MSG("New sensor connected from %d.%d.%d.%d", inet6_addr.sin6_addr.s6_addr[12], inet6_addr.sin6_addr.s6_addr[13], inet6_addr.sin6_addr.s6_addr[14], inet6_addr.sin6_addr.s6_addr[15]);
+
+			snprintf(new_sensor->ip_str, INET6_ADDRSTRLEN, "%d.%d.%d.%d", inet6_addr.sin6_addr.s6_addr[12], inet6_addr.sin6_addr.s6_addr[13], inet6_addr.sin6_addr.s6_addr[14], inet6_addr.sin6_addr.s6_addr[15]);
 		}
 		else
 		{
-			INFO_MSG("New sensor connected from %s", inet_ntop(AF_INET6, (struct in6_addr*) &inet6_addr->sin6_addr, &addr_str[0], INET6_ADDRSTRLEN));
+			INFO_MSG("New sensor connected from %s", inet_ntop(AF_INET6, (struct in6_addr*) &inet6_addr.sin6_addr, &addr_str[0], INET6_ADDRSTRLEN));
 
 			strcpy(new_sensor->ip_str, addr_str);
 		}
@@ -325,7 +328,6 @@ static void eemo_mux_new_client(const int client_socket)
 {
 	struct sockaddr_storage	client_addr 			= { 0 };
 	socklen_t		addr_len			= sizeof(struct sockaddr_storage);
-	struct sockaddr_in6*	inet6_addr			= (struct sockaddr_in6*) &client_addr;
 	int			client_sock			= -1;
 	char			addr_str[INET6_ADDRSTRLEN]	= { 0 };
 	client_spec*		new_client			= (client_spec*) malloc(sizeof(client_spec));
@@ -347,15 +349,19 @@ static void eemo_mux_new_client(const int client_socket)
 	
 	if (client_addr.ss_family == AF_INET6)
 	{
-		if (IN6_IS_ADDR_V4MAPPED(&inet6_addr->sin6_addr))
-		{
-			INFO_MSG("New client connected from %d.%d.%d.%d", inet6_addr->sin6_addr.s6_addr[12], inet6_addr->sin6_addr.s6_addr[13], inet6_addr->sin6_addr.s6_addr[14], inet6_addr->sin6_addr.s6_addr[15]);
+		struct sockaddr_in6	inet6_addr;
 
-			snprintf(new_client->ip_str, INET6_ADDRSTRLEN, "%d.%d.%d.%d", inet6_addr->sin6_addr.s6_addr[12], inet6_addr->sin6_addr.s6_addr[13], inet6_addr->sin6_addr.s6_addr[14], inet6_addr->sin6_addr.s6_addr[15]);
+		memcpy(&inet6_addr, &client_addr, sizeof(struct sockaddr_in6));
+
+		if (IN6_IS_ADDR_V4MAPPED(&inet6_addr.sin6_addr))
+		{
+			INFO_MSG("New client connected from %d.%d.%d.%d", inet6_addr.sin6_addr.s6_addr[12], inet6_addr.sin6_addr.s6_addr[13], inet6_addr.sin6_addr.s6_addr[14], inet6_addr.sin6_addr.s6_addr[15]);
+
+			snprintf(new_client->ip_str, INET6_ADDRSTRLEN, "%d.%d.%d.%d", inet6_addr.sin6_addr.s6_addr[12], inet6_addr.sin6_addr.s6_addr[13], inet6_addr.sin6_addr.s6_addr[14], inet6_addr.sin6_addr.s6_addr[15]);
 		}
 		else
 		{
-			INFO_MSG("New client connected from %s", inet_ntop(AF_INET6, (struct in6_addr*) &inet6_addr->sin6_addr, &addr_str[0], INET6_ADDRSTRLEN));
+			INFO_MSG("New client connected from %s", inet_ntop(AF_INET6, (struct in6_addr*) &inet6_addr.sin6_addr, &addr_str[0], INET6_ADDRSTRLEN));
 
 			strcpy(new_client->ip_str, addr_str);
 		}
