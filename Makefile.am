@@ -25,10 +25,14 @@ doc_DATA =		AUTHORS \
 			README.md
 
 noinst_SCRIPTS =	eemo.spec \
-			eemo.rc
+			eemo.rc \
+			eemo_mux.rc \
+			eemo_sensor.rc
 
 dist_noinst_SCRIPTS =	eemo.spec.in \
-			eemo.rc
+			eemo.rc \
+			eemo_mux.rc \
+			eemo_sensor.rc 
 
 eemo.spec: eemo.spec.in
 	sed -e 's/_EEMO_VERSION_/@VERSION@/g' < $(srcdir)/eemo.spec.in > eemo.spec

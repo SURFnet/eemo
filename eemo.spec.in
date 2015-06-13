@@ -47,6 +47,8 @@ make install
 # Install RC script
 install -d %{buildroot}%{_initrddir}
 install -m0755 eemo.rc %{buildroot}%{_initrddir}/eemo
+install -m0755 eemo_mux.rc %{buildroot}%{_initrddir}/eemo_mux
+install -m0755 eemo_sensor.rc %{buildroot}%{_initrddir}/eemo_sensor
 
 %clean
 rm -rf %{buildroot}
@@ -54,6 +56,7 @@ rm -rf %{buildroot}
 %files
 %defattr(-,root,root,-)
 %{_initrddir}/eemo
+%{_bindir}/eemo_generate_cert.sh
 %{_sbindir}/eemo
 %{_sbindir}/eemo_mux
 %{_sbindir}/eemo_sensor
