@@ -5,7 +5,7 @@
 # Program version
 
 define([EEMO_VERSION_MAJOR], [0])
-define([EEMO_VERSION_MINOR], [2])
+define([EEMO_VERSION_MINOR], [3])
 define([EEMO_VERSION_BUILDREV], esyscmd([sh -c "git rev-list --count HEAD|tr -d '\n'"]))
 define([PACKAGE_SUFFIX], [])
 
@@ -190,6 +190,7 @@ AC_CONFIG_FILES([
 	src/plugins/icmpfragmon/Makefile
 	src/plugins/dnsqrlog/Makefile
 	config/Makefile
+	scripts/Makefile
 ])
 
 AC_OUTPUT

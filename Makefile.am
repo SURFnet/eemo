@@ -33,4 +33,4 @@ dist_noinst_SCRIPTS =	eemo.spec.in \
 eemo.spec: eemo.spec.in
 	sed -e 's/_EEMO_VERSION_/@VERSION@/g' < $(srcdir)/eemo.spec.in > eemo.spec
 
-SUBDIRS = src config
+SUBDIRS = src config scripts

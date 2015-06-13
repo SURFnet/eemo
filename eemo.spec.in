@@ -12,6 +12,7 @@ Requires:	libconfig >= 1.3.2
 Requires:	libpcap >= 0.9.4
 BuildRequires:	libconfig-devel >= 1.3.2
 BuildRequires:	libpcap-devel >= 0.9.4
+BuildRequires:	openssl-devel >= 1.0.0
 BuildRoot:	%{_tmppath}/%{name}-%{version}-%{release}-buildroot
 
 %description
@@ -54,12 +55,16 @@ rm -rf %{buildroot}
 %defattr(-,root,root,-)
 %{_initrddir}/eemo
 %{_sbindir}/eemo
+%{_sbindir}/eemo_mux
+%{_sbindir}/eemo_sensor
 %{_docdir}/eemo/AUTHORS
 %{_docdir}/eemo/ChangeLog
 %{_docdir}/eemo/LICENSE
 %{_docdir}/eemo/NEWS
 %{_docdir}/eemo/README
 %{_docdir}/eemo/sample-eemo.conf
+%{_docdir}/eemo/sample-eemo_mux.conf
+%{_docdir}/eemo/sample-eemo_sensor.conf
 
 %files plugins
 %defattr(-,root,root,-)
