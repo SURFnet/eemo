@@ -56,6 +56,8 @@ rm -rf %{buildroot}
 %files
 %defattr(-,root,root,-)
 %{_initrddir}/eemo
+%{_initrddir}/eemo_mux
+%{_initrddir}/eemo_sensor
 %{_bindir}/eemo_generate_cert.sh
 %{_sbindir}/eemo
 %{_sbindir}/eemo_mux
@@ -64,7 +66,7 @@ rm -rf %{buildroot}
 %{_docdir}/eemo/ChangeLog
 %{_docdir}/eemo/LICENSE
 %{_docdir}/eemo/NEWS
-%{_docdir}/eemo/README
+%{_docdir}/eemo/README.md
 %{_docdir}/eemo/sample-eemo.conf
 %{_docdir}/eemo/sample-eemo_mux.conf
 %{_docdir}/eemo/sample-eemo_sensor.conf
