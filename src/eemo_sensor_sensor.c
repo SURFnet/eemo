@@ -39,6 +39,7 @@
 #include "eemo_sensor_sensor.h"
 #include "eemo_config.h"
 #include "eemo_tlsutil.h"
+#include "eemo_tlscomm.h"
 #include "eemo_mux_cmdxfer.h"
 #include "eemo_mux_proto.h"
 #include <unistd.h>
@@ -360,7 +361,7 @@ int eemo_sensor_connect_mux(void)
 		free(key_file);
 		
 		/* Set TLS options */
-		if (SSL_CTX_set_cipher_list(tls_ctx, "HIGH:!DSS:!aNULL@STRENGTH'") != 1)
+		if (SSL_CTX_set_cipher_list(tls_ctx, EEMO_MUX_CIPHERSUITES) != 1)
 		{
 			ERROR_MSG("Failed to select safe TLS ciphers, giving up");
 			

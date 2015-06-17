@@ -52,6 +52,7 @@
 #include <unistd.h>
 #include <errno.h>
 #include "eemo_tlsutil.h"
+#include "eemo_tlscomm.h"
 #include <openssl/rand.h>
 #include <openssl/err.h>
 #include <openssl/engine.h>
@@ -243,7 +244,7 @@ eemo_rv eemo_mux_capture_init(eemo_mux_capture_handle_pkt_fn handler_fn)
 	free(client_key);
 		
 	/* Set TLS options */
-	if (SSL_CTX_set_cipher_list(tls_ctx, "HIGH:!DSS:!aNULL@STRENGTH'") != 1)
+	if (SSL_CTX_set_cipher_list(tls_ctx, EEMO_MUX_CIPHERSUITES) != 1)
 	{
 		ERROR_MSG("Failed to select safe TLS ciphers, giving up");
 			

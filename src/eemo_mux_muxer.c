@@ -1069,7 +1069,7 @@ static int eemo_mux_setup_sensor_socket(void)
 	free(key_file);
 	
 	/* Set TLS options */
-	if (SSL_CTX_set_cipher_list(sensor_tls_ctx, "HIGH:!DSS:!aNULL@STRENGTH'") != 1)
+	if (SSL_CTX_set_cipher_list(sensor_tls_ctx, EEMO_MUX_CIPHERSUITES) != 1)
 	{
 		ERROR_MSG("Failed to select safe TLS ciphers, giving up");
 		
@@ -1254,7 +1254,7 @@ static int eemo_mux_setup_client_socket(void)
 	free(key_file);
 	
 	/* Set TLS options */
-	if (SSL_CTX_set_cipher_list(client_tls_ctx, "HIGH:!DSS:!aNULL@STRENGTH'") != 1)
+	if (SSL_CTX_set_cipher_list(client_tls_ctx, EEMO_MUX_CIPHERSUITES) != 1)
 	{
 		ERROR_MSG("Failed to select safe TLS ciphers, giving up");
 		
