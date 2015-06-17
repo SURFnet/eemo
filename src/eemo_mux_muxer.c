@@ -54,6 +54,8 @@
 #include <openssl/x509.h>
 #include <arpa/inet.h>
 #include <netinet/in.h>
+#include <openssl/ec.h>
+#include <openssl/bn.h>
 
 /* Sensor administration */
 typedef struct sensor_spec
@@ -958,7 +960,7 @@ static int eemo_mux_setup_sensor_socket(void)
 	char*			cert_file	= NULL;
 	char*			key_file	= NULL;
 	char*			cert_dir	= NULL;
-	
+	EC_KEY*			dh_key		= NULL;
 	
 	/* Open socket */
 	if ((sensor_socket = socket(AF_INET6, SOCK_STREAM, 0)) < 0)
@@ -1008,6 +1010,33 @@ static int eemo_mux_setup_sensor_socket(void)
 		
 		return -1;
 	}
+
+	/* Set DH behaviour */
+	dh_key = EC_KEY_new_by_curve_name(NID_X9_62_prime256v1);
+	
+	if (dh_key == NULL)
+	{
+		ERROR_MSG("Failed to generate a new ECC key for ephemeral DH");
+
+		SSL_CTX_free(sensor_tls_ctx);
+		sensor_tls_ctx = NULL;
+		close(sensor_socket);
+
+		return -1;
+	}
+
+	if (SSL_CTX_set_tmp_ecdh(sensor_tls_ctx, dh_key) != 1)
+	{
+		ERROR_MSG("Failed to set DH parameters on TLS context");
+
+		SSL_CTX_free(sensor_tls_ctx);
+		sensor_tls_ctx = NULL;
+		close(sensor_socket);
+
+		return -1;
+	}
+
+	EC_KEY_free(dh_key);
 	
 	/* Load the certificate and private key */
 	if ((eemo_conf_get_string("sensors", "server_cert", &cert_file, NULL) != ERV_OK) || (cert_file == NULL))
@@ -1144,6 +1173,7 @@ static int eemo_mux_setup_client_socket(void)
 	char*			cert_file	= NULL;
 	char*			key_file	= NULL;
 	char*			cert_dir	= NULL;
+	EC_KEY*			dh_key		= NULL;
 	
 	/* Open socket */
 	if ((client_socket = socket(AF_INET6, SOCK_STREAM, 0)) < 0)
@@ -1193,6 +1223,33 @@ static int eemo_mux_setup_client_socket(void)
 		
 		return -1;
 	}
+	
+	/* Set DH behaviour */
+	dh_key = EC_KEY_new_by_curve_name(NID_X9_62_prime256v1);
+	
+	if (dh_key == NULL)
+	{
+		ERROR_MSG("Failed to generate a new ECC key for ephemeral DH");
+
+		SSL_CTX_free(client_tls_ctx);
+		client_tls_ctx = NULL;
+		close(client_socket);
+
+		return -1;
+	}
+
+	if (SSL_CTX_set_tmp_ecdh(client_tls_ctx, dh_key) != 1)
+	{
+		ERROR_MSG("Failed to set DH parameters on TLS context");
+
+		SSL_CTX_free(client_tls_ctx);
+		client_tls_ctx = NULL;
+		close(client_socket);
+
+		return -1;
+	}
+
+	EC_KEY_free(dh_key);
 	
 	/* Load the certificate and private key */
 	if ((eemo_conf_get_string("clients", "server_cert", &cert_file, NULL) != ERV_OK) || (cert_file == NULL))
