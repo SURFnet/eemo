@@ -191,11 +191,11 @@ eemo_rv eemo_mux_capture_init(eemo_mux_capture_handle_pkt_fn handler_fn)
 	}
 
 	/* Set up new TLS context */
-	tls_ctx = SSL_CTX_new(TLSv1_client_method());
+	tls_ctx = SSL_CTX_new(TLSv1_2_client_method());
 	
 	if (tls_ctx == NULL)
 	{
-		ERROR_MSG("Failed to setup up TLS context");
+		ERROR_MSG("Failed to setup up TLS 1.2 context");
 
 		free(client_cert);
 		free(client_key);

@@ -92,7 +92,7 @@ ACX_DLOPEN
 ACX_PCAP
 PKG_CHECK_MODULES([LIBCONFIG], [libconfig >= 1.3.2],, AC_MSG_ERROR([libconfig 1.3.2 or newer not found]))
 ACX_PTHREAD
-PKG_CHECK_MODULES([OPENSSL], [openssl >= 0.9.8],, AC_MSG_ERROR([OpenSSL 0.9.8 or newer not found]))
+PKG_CHECK_MODULES([OPENSSL], [openssl >= 1.0.1],, AC_MSG_ERROR([OpenSSL 1.0.1 or newer not found]))
 
 # Check for headers
 AC_CHECK_HEADERS([pcap.h])

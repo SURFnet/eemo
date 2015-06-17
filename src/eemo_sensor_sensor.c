@@ -281,11 +281,11 @@ int eemo_sensor_connect_mux(void)
 		eemo_rv		rv		= ERV_OK;
 		
 		/* Set up new TLS context */
-		tls_ctx = SSL_CTX_new(TLSv1_client_method());
+		tls_ctx = SSL_CTX_new(TLSv1_2_client_method());
 	
 		if (tls_ctx == NULL)
 		{
-			ERROR_MSG("Failed to setup up TLS v1 on the client socket");
+			ERROR_MSG("Failed to setup up TLS v1.2 on the client socket");
 			
 			close(mux_socket);
 			

@@ -998,11 +998,11 @@ static int eemo_mux_setup_sensor_socket(void)
 	INFO_MSG("Sensor server bound to port %d", server_port);
 	
 	/* Now set up TLS */
-	sensor_tls_ctx = SSL_CTX_new(TLSv1_server_method());
+	sensor_tls_ctx = SSL_CTX_new(TLSv1_2_server_method());
 	
 	if (sensor_tls_ctx == NULL)
 	{
-		ERROR_MSG("Failed to setup up TLS v1 on the server socket");
+		ERROR_MSG("Failed to setup up TLS v1.2 on the server socket");
 		
 		close(sensor_socket);
 		
@@ -1183,11 +1183,11 @@ static int eemo_mux_setup_client_socket(void)
 	INFO_MSG("Client server bound to port %d", server_port);
 	
 	/* Now set up TLS */
-	client_tls_ctx = SSL_CTX_new(TLSv1_server_method());
+	client_tls_ctx = SSL_CTX_new(TLSv1_2_server_method());
 	
 	if (client_tls_ctx == NULL)
 	{
-		ERROR_MSG("Failed to setup up TLS v1 on the client server socket");
+		ERROR_MSG("Failed to setup up TLS v1.2 on the client server socket");
 		
 		close(client_socket);
 		
