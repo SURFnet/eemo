@@ -44,7 +44,7 @@
 #include <openssl/ssl.h>
 #include <stdint.h>
 #include <assert.h>
-#include <endian.h>
+#include "endian_compat.h"
 
 /* Define this to log information about recv/xmit of commands */
 /*#define DBG_CMDXFER*/

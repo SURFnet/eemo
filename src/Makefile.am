@@ -54,7 +54,8 @@ eemo_SOURCES =			dns_handler.c \
 				udp_handler.c \
 				udp_handler.h \
 				utlist.h \
-				uthash.h
+				uthash.h \
+				endian_compat.h
 
 eemo_LDADD =			-lpcap @LIBCONFIG_LIBS@ @PTHREAD_LIBS@ @OPENSSL_LIBS@
 
@@ -77,7 +78,8 @@ eemo_mux_SOURCES =		eemo_mux_main.c \
 				eemo_mux_client.c \
 				eemo_mux_client.h \
 				mt_openssl.c \
-				mt_openssl.h
+				mt_openssl.h \
+				endian_compat.h
 
 eemo_mux_LDADD =		@LIBCONFIG_LIBS@ @OPENSSL_LIBS@ @PTHREAD_LIBS@
 
@@ -98,7 +100,8 @@ eemo_sensor_SOURCES =		eemo_sensor_main.c \
 				eemo_mux_cmdxfer.c \
 				eemo_mux_cmdxfer.h \
 				mt_openssl.c \
-				mt_openssl.h
+				mt_openssl.h \
+				endian_compat.h
 
 eemo_sensor_LDADD =		-lpcap @LIBCONFIG_LIBS@ @OPENSSL_LIBS@ @PTHREAD_LIBS@
 

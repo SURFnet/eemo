@@ -160,7 +160,7 @@ case "${host_cpu}-${host_os}" in
         ;;
 
         *-darwin*)
-        ax_pthread_flags="-pthread $ax_pthread_flags"
+        ax_pthread_flags="-Wno-error=unused-command-line-argument -pthread $ax_pthread_flags"
         ;;
 esac
 
