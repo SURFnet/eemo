@@ -531,48 +531,9 @@ void eemo_mux_capture_run(void)
 					goto errorcond;
 				}
 
-				if (eemo_cx_recv(tls, &cmd) != ERV_OK)
-				{
-					ERROR_MSG("Failed to receive feed registration confirmation for feed %s", feed_it->feed_guid);
+				INFO_MSG("Registered for feed %s", feed_it->feed_guid);
 
-					eemo_cx_cmd_free(&cmd);
-
-					goto errorcond;
-				}
-
-				if (cmd.cmd_len != 1)
-				{
-					ERROR_MSG("Invalid response from multiplexer to registration request for feed %s", feed_it->feed_guid);
-
-					eemo_cx_cmd_free(&cmd);
-
-					goto errorcond;
-				}
-
-				if (cmd.cmd_data[0] == 1)
-				{
-					INFO_MSG("Registered successfully for feed %s", feed_it->feed_guid);
-					subs_count++;
-				}
-				else if (cmd.cmd_data[0] == 0)
-				{
-					WARNING_MSG("Registered successfully for feed %s, but feed not (yet) available", feed_it->feed_guid);
-					subs_count++;
-				}
-				else if (cmd.cmd_data[0] == 2)
-				{
-					ERROR_MSG("Registration for feed %s failed, duplicate registration detected by the multiplexer", feed_it->feed_guid);
-				}
-				else
-				{
-					ERROR_MSG("The multiplexer returned an unknown error while registering for feed %s", feed_it->feed_guid);
-
-					eemo_cx_cmd_free(&cmd);
-
-					goto errorcond;
-				}
-
-				eemo_cx_cmd_free(&cmd);
+				subs_count++;
 			}
 
 			if (subs_count == 0)
@@ -692,48 +653,12 @@ errorcond:
 
 	if (tls != NULL)
 	{
-		eemo_mux_cmd	cmd	= { 0, 0, NULL };
-		feed_spec*	feed_it	= NULL;
-
-		/* Try to unsubscribe from the feeds */
-		LL_FOREACH(feeds, feed_it)
-		{
-			if (eemo_cx_send(tls, MUX_CLIENT_UNSUBSCRIBE, (strlen(feed_it->feed_guid) + 1), (const uint8_t*) feed_it->feed_guid) != ERV_OK)
-			{
-				ERROR_MSG("Failed to send unsubscribe request for feed %s to the multiplexer", feed_it->feed_guid);
-	
-				goto tlsteardown;
-			}
-	
-			if (eemo_cx_recv(tls, &cmd) != ERV_OK)
-			{
-				ERROR_MSG("Failed to receive an unsubscribe confirmation from the multiplexer for feed %s", feed_it->feed_guid);
-
-				eemo_cx_cmd_free(&cmd);
-	
-				goto tlsteardown;
-			}
-
-			eemo_cx_cmd_free(&cmd);
-		}
-
 		/* Attempt to unregister the client */
 		if (eemo_cx_send(tls, MUX_CLIENT_SHUTDOWN, 0, NULL) != ERV_OK)
 		{
 			ERROR_MSG("Failed to send client shutdown command to the multiplexer");
-
-			goto tlsteardown;
 		}
 
-		if (eemo_cx_recv(tls, &cmd) != ERV_OK)
-		{
-			ERROR_MSG("Multiplexer failed to acknowledge client shutdown");
-		}
-
-		eemo_cx_cmd_free(&cmd);
-
-		/* Again, ugly, but makes the code more readable */
-tlsteardown:
 		SSL_shutdown(tls);
 		SSL_free(tls);
 		tls = NULL;

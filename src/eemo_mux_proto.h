@@ -48,10 +48,9 @@
 #define SENSOR_DATA				0x06
 
 /* Client to multiplexer protocol */
-#define MUX_CLIENT_PROTO_VERSION		1
+#define MUX_CLIENT_PROTO_VERSION		2
 #define MUX_CLIENT_GET_PROTO_VERSION		0x01
 #define MUX_CLIENT_SUBSCRIBE			0x02
-#define MUX_CLIENT_UNSUBSCRIBE			0x03
 #define MUX_CLIENT_SHUTDOWN			0x04
 #define MUX_CLIENT_DATA				0x05
 

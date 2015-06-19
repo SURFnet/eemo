@@ -862,56 +862,7 @@ static eemo_rv eemo_mux_handle_client_packet(const int socket)
 
 			eemo_cx_cmd_free(&cmd);
 
-			/* Send status back */
-			return eemo_cx_send(client_it->tls, MUX_CLIENT_SUBSCRIBE, sizeof(uint8_t), (const uint8_t*) &result);
-		}
-		break;
-	case MUX_CLIENT_UNSUBSCRIBE:
-		{
-			uint8_t	result		= 0;
-			char*	unsubs_guid	= (char*) cmd.cmd_data;
-
-			if (cmd.cmd_len > 0)
-			{
-				client_subs*	subs_it		= NULL;
-				client_subs*	subs_tmp	= NULL;
-
-				LL_FOREACH_SAFE(client_it->subscriptions, subs_it, subs_tmp)
-				{
-					if (strcasecmp(subs_it->guid, unsubs_guid) == 0)
-					{
-						LL_DELETE(client_it->subscriptions, subs_it);
-
-						free(subs_it->guid);
-						free(subs_it);
-
-						result = MUX_SUBS_RES_OK;
-
-						break;
-					}
-				}
-			}
-
-			if (result)
-			{
-				INFO_MSG("Unsubscribed client from %s from feed %s", client_it->ip_str, unsubs_guid);
-			}
-			else
-			{
-				if (cmd.cmd_len != 0)
-				{
-					WARNING_MSG("Could not unsubscribe client from %s from feed %s, was the feed already disconnected?", client_it->ip_str, unsubs_guid);
-				}
-				else
-				{
-					ERROR_MSG("Client from %s sent invalid unsubscribe command", client_it->ip_str);
-				}
-			}
-
-			eemo_cx_cmd_free(&cmd);
-
-			/* Send status back */
-			return eemo_cx_send(client_it->tls, MUX_CLIENT_SUBSCRIBE, sizeof(uint8_t), (const uint8_t*) &result);
+			return ERV_OK;
 		}
 		break;
 	case MUX_CLIENT_SHUTDOWN:
@@ -920,19 +871,9 @@ static eemo_rv eemo_mux_handle_client_packet(const int socket)
 
 			eemo_cx_cmd_free(&cmd);
 
-			/* Send ACK */
-			if (eemo_cx_send(client_it->tls, MUX_CLIENT_SHUTDOWN, 0, NULL) != ERV_OK)
-			{
-				WARNING_MSG("Failed to acknowledge shutdown of the client");
-
-				eemo_mux_unregister_client(socket, 0);
-			}
-			else
-			{
-				/* Gracefully disconnect and unregister the client */
-				eemo_mux_unregister_client(socket, 1);
-			}
-
+			/* Gracefully disconnect and unregister the client */
+			eemo_mux_unregister_client(socket, 1);
+			
 			return ERV_OK;
 		}
 		break;
