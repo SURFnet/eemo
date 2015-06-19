@@ -33,7 +33,7 @@ To build eemo, you will need a modern set of autotools installed and the followi
  - POSIX-compliant build system
  - libpcap
  - libconfig >= 1.3.2
- - OpenSSL 0.9.8 or up
+ - OpenSSL 1.0.1 or up (NOTE: changed since r0.3.136 -- higher version required for ephemeral DH using ECC in sensor, multiplexer and client TLS connections)
 
 3. BUILDING
 ===========
