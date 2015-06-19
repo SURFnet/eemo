@@ -70,6 +70,9 @@ rm -rf %{buildroot}
 %{_docdir}/eemo/sample-eemo.conf
 %{_docdir}/eemo/sample-eemo_mux.conf
 %{_docdir}/eemo/sample-eemo_sensor.conf
+%{_docdir}/eemo/eemo.init
+%{_docdir}/eemo/eemo_sensor.init
+%{_docdir}/eemo/eemo_mux.init
 
 %files plugins
 %defattr(-,root,root,-)
