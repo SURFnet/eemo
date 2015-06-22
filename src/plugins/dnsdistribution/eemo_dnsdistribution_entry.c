@@ -42,7 +42,7 @@
 #include "eemo_plugin_log.h"
 #include "eemo_dnsdistribution_stats.h"
 
-const static char* plugin_description = "EEMO DNS distribution statistics plugin " PACKAGE_VERSION;
+const static char* plugin_description = "EEMO DNS distribution statistics (in progress) plugin " PACKAGE_VERSION;
 
 /* Handler handle */
 static unsigned long stats_dns_handler_handle = 0;
@@ -50,16 +50,25 @@ static unsigned long stats_dns_handler_handle = 0;
 /* Plugin initialisation */
 eemo_rv eemo_dnsdistribution_init(eemo_export_fn_table_ptr eemo_fn, const char* conf_base_path)
 {
+	char*	file_general			= NULL;
 	char*	file_qname_popularity		= NULL;
 	char*	file_ttl			= NULL;
+	char*	file_sigs_per_resp		= NULL;
 	char** 	resolver_ips			= NULL;
-	int 	ip_count			= NULL;
+	int 	ip_count			= 0;
+	int	emit_interval			= 0;
 	eemo_rv rv				= ERV_OK;
 
 	/* Initialise logging for the plugin */
 	eemo_init_plugin_log(eemo_fn->log);
 
 	/* Retrieve configuration */
+	if (((eemo_fn->conf_get_string)(conf_base_path, "stats_file_general", &file_general, NULL) != ERV_OK) ||
+	    (file_general == NULL))
+	{
+		return ERV_CONFIG_ERROR;
+	}
+
 	if (((eemo_fn->conf_get_string)(conf_base_path, "stats_file_qname_popularity", &file_qname_popularity, NULL) != ERV_OK) ||
 	    (file_qname_popularity == NULL))
 	{
@@ -72,13 +81,24 @@ eemo_rv eemo_dnsdistribution_init(eemo_export_fn_table_ptr eemo_fn, const char* 
                 return ERV_CONFIG_ERROR;
         }
 
+	if (((eemo_fn->conf_get_string)(conf_base_path, "stats_file_sigs_per_resp", &file_sigs_per_resp, NULL) != ERV_OK) ||
+            (file_sigs_per_resp == NULL))
+        {
+                return ERV_CONFIG_ERROR;
+        }
+
 	if (((eemo_fn->conf_get_string_array)(conf_base_path, "resolver_ips", &resolver_ips, &ip_count) != ERV_OK))
         {
                 return ERV_CONFIG_ERROR;
         }
 
+	if ((eemo_fn->conf_get_int)(conf_base_path, "emit_interval", &emit_interval, 0) != ERV_OK)
+	{
+		return ERV_CONFIG_ERROR;
+	}
+
 	/* Initialise the DNS statistics counter */
-	eemo_dnsdistribution_stats_init(file_qname_popularity, file_ttl, resolver_ips, ip_count);
+	eemo_dnsdistribution_stats_init(file_general, file_qname_popularity, file_ttl, file_sigs_per_resp, resolver_ips, ip_count, emit_interval);
 
 	/* Register DNS query handler */
 	rv = (eemo_fn->reg_dns_handler)(&eemo_dnsdistribution_stats_handleqr, PARSE_QUERY | PARSE_RESPONSE | PARSE_CANONICALIZE_NAME, &stats_dns_handler_handle);

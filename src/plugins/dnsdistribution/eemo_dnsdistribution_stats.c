@@ -45,6 +45,7 @@
 #include <stdlib.h>
 #include <signal.h>
 #include <unistd.h>
+#include <time.h>
 
 #define IP_ANY	"*"
 
@@ -81,10 +82,22 @@ static struct cache_hit_ratio
 } chr;
 
 /* Configuration */
+static char*	stat_file_general			= NULL;
 static char*	stat_file_qname_popularity		= NULL;
 static char*	stat_file_ttl				= NULL;
+static char*	stat_file_sigs_per_resp			= NULL;
 static char**	ips_resolver				= NULL;
-static int	ips_count				= NULL;
+static int	ips_count				= 0;
+static int 	stat_emit_interval			= 0;
+static int	nr_quer					= 0;
+static int	nr_quer_out				= 0;
+static int	nr_resp					= 0;
+static int	nr_frag					= 0;
+static int	nr_trun					= 0;
+static int	nr_trun_with_sigs			= 0;
+static int 	nr_sigs					= 0;
+static int	nr_resp_with_sigs			= 0;
+static struct	timespec time_before;
 static struct 	hashentry_si *qname_table	 	= NULL;
 static struct	ll_hashtable 	*ttl_table_ALL		= NULL;
 static struct	ll_hashtable 	*ttl_table_A		= NULL;
@@ -94,12 +107,114 @@ static struct	ll_hashtable 	*ttl_table_NS		= NULL;
 static struct	ll_hashtable 	*ttl_table_SOA		= NULL;
 static struct	ll_hashtable 	*ttl_table_CNAME	= NULL;
 static struct	ll_hashtable 	*ttl_table_DNSKEY	= NULL;
+static struct	ll_hashtable 	*ttl_table_RRSIG	= NULL;
 static struct	ll_hashtable 	*ttl_table_TXT		= NULL;
 static struct	ll_hashtable 	*ttl_table_MX		= NULL;
-struct 	ll_hashtable *ttl_tables 			= NULL;
+static struct 	ll_hashtable *ttl_tables 		= NULL;
+static struct	hashentry_ii *sigs_per_resp_table	= NULL;
+
+void init_var(void)
+{	
+	struct ll_hashtable *s		= NULL; /* Temporary struct for iteration */
+
+	/* Initialize the TTL tables */
+	ttl_table_ALL		= ( struct ll_hashtable* ) malloc ( sizeof ( struct ll_hashtable) );
+	ttl_table_A  		= ( struct ll_hashtable* ) malloc ( sizeof ( struct ll_hashtable) );
+	ttl_table_AAAA  	= ( struct ll_hashtable* ) malloc ( sizeof ( struct ll_hashtable) );
+	ttl_table_PTR  		= ( struct ll_hashtable* ) malloc ( sizeof ( struct ll_hashtable) );
+	ttl_table_NS  		= ( struct ll_hashtable* ) malloc ( sizeof ( struct ll_hashtable) );
+	ttl_table_SOA		= ( struct ll_hashtable* ) malloc ( sizeof ( struct ll_hashtable) );
+	ttl_table_CNAME		= ( struct ll_hashtable* ) malloc ( sizeof ( struct ll_hashtable) );
+	ttl_table_DNSKEY	= ( struct ll_hashtable* ) malloc ( sizeof ( struct ll_hashtable) );
+	ttl_table_RRSIG		= ( struct ll_hashtable* ) malloc ( sizeof ( struct ll_hashtable) );
+	ttl_table_TXT		= ( struct ll_hashtable* ) malloc ( sizeof ( struct ll_hashtable) );
+	ttl_table_MX		= ( struct ll_hashtable* ) malloc ( sizeof ( struct ll_hashtable) );
+	ttl_table_ALL->tag	= "ALL";
+	ttl_table_A->tag	= "A";
+	ttl_table_AAAA->tag	= "AAAA";
+	ttl_table_PTR->tag	= "PTR";
+	ttl_table_NS->tag	= "NS";
+	ttl_table_SOA->tag	= "SOA";
+	ttl_table_CNAME->tag	= "CNAME";
+	ttl_table_DNSKEY->tag	= "DNSKEY";
+	ttl_table_RRSIG->tag	= "RRSIG";
+	ttl_table_TXT->tag	= "TXT";
+	ttl_table_MX->tag	= "MX";
+	LL_APPEND(ttl_tables, ttl_table_ALL);
+	LL_APPEND(ttl_tables, ttl_table_A);
+	LL_APPEND(ttl_tables, ttl_table_AAAA);
+	LL_APPEND(ttl_tables, ttl_table_PTR);
+	LL_APPEND(ttl_tables, ttl_table_NS);
+	LL_APPEND(ttl_tables, ttl_table_SOA);
+	LL_APPEND(ttl_tables, ttl_table_CNAME);
+	LL_APPEND(ttl_tables, ttl_table_DNSKEY);
+	LL_APPEND(ttl_tables, ttl_table_RRSIG);
+	LL_APPEND(ttl_tables, ttl_table_TXT);
+	LL_APPEND(ttl_tables, ttl_table_MX);
+	
+	LL_FOREACH(ttl_tables, s)
+	{	
+		s->table 	=  NULL;
+	}
+
+	/* Initialize cache hit ratio statistics */
+	chr.QUERIES 		= 0;
+	chr.RESPONSES 		= 0;
+
+	/* Initialize the variables for counting signatures */
+	nr_quer			= 0;
+	nr_quer_out		= 0;
+	nr_sigs 		= 0;
+	nr_frag			= 0;
+	nr_trun			= 0;
+	nr_trun_with_sigs	= 0;
+	nr_resp			= 0;
+	nr_resp_with_sigs	= 0;
+
+}
+
+/* Free memory of all variables used in a stat reset (i.e. the filepath values are not freed) */
+void free_var(void)
+{
+	struct hashentry_si *s 		= NULL; /* Temporary struct for iteration */
+	struct hashentry_si *tmp 	= NULL; /* Temporary struct for iteration */
+	struct ll_hashtable *ttl_table  = NULL;
+	struct hashentry_ii *s_ii	= NULL;
+	struct hashentry_ii *tmp_ii	= NULL;
+	
+	/* Free memory of TTL hashtables */
+	LL_FOREACH(ttl_tables, ttl_table)
+	{
+		struct hashentry_si *s, *tmp;
+		HASH_ITER(hh, ttl_table->table, s, tmp)
+		{
+			HASH_DEL(ttl_table->table, s);
+			free(s->name);
+			free(s);
+		}
+		LL_DELETE(ttl_tables, ttl_table);
+	}
+
+	/* Free memory of nr_sigs_per_resp hashtable */
+	HASH_ITER(hh, sigs_per_resp_table, s_ii, tmp_ii)
+	{		
+		HASH_DEL(sigs_per_resp_table, s_ii);
+		free(s_ii);
+	}
+
+	/* Free memory of qname hashtable */
+	HASH_ITER(hh, qname_table, s, tmp)
+	{
+		HASH_DEL(qname_table, s);
+		free(s->name);
+		free(s);
+	}
+}
 
 /* Statistics file */
 FILE*	stat_fp_qname_popularity			= NULL;
+FILE*	stat_fp_general					= NULL;
+FILE*	stat_fp_sigs_per_resp				= NULL;
 
 /* Sorts two hash_si items, based on their (integer) value */
 int sort_on_value_descending(struct hashentry_si* a, struct hashentry_si* b)
@@ -116,30 +231,49 @@ int sort_on_key_ascending(struct hashentry_ii* a, struct hashentry_ii* b)
 /* Write statistics to file */
 void write_stats(void)
 {
-	/* Printing QNAME popularity statistics */
 	int ln 				= 1;
-	stat_fp_qname_popularity 	= fopen(stat_file_qname_popularity, "w");
+	stat_fp_general		 	= fopen(stat_file_general, "a");
+	stat_fp_qname_popularity 	= fopen(stat_file_qname_popularity, "a");
+	stat_fp_sigs_per_resp 		= fopen(stat_file_sigs_per_resp, "a");
 	struct ll_hashtable *ttl_table 	= NULL;
 
+	/* Variables used in timing */
+	struct timespec time_after;
+	long int passed_time_s = 0;
+	long int passed_time_ns = 0;
+	float passed_time_total = 0;
+
+	clock_gettime(CLOCK_REALTIME, &time_after);
+
+	/* General simple statistics*/
+	passed_time_s = time_after.tv_sec - time_before.tv_sec;
+	passed_time_ns = time_after.tv_nsec - time_before.tv_nsec;
+	passed_time_total = (float) passed_time_s + (float) passed_time_ns/1000000000;
+
+	if (stat_fp_general != NULL)
+	{
+		/* passed time, queries, fragmented, truncated, truncated with sigs, responses, signatures, responses with signatures, chr*/
+		fprintf(stat_fp_general, "%.3f\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%0.2f\n", passed_time_total, nr_quer, nr_resp, nr_quer_out, nr_frag, nr_trun, nr_trun_with_sigs, nr_sigs, nr_resp_with_sigs, 100 - (((double) chr.RESPONSES/ (double) chr.QUERIES)*100));
+		fflush(stat_fp_general);
+		fclose(stat_fp_general);	
+	}
+
+	/* Printing QNAME popularity statistics */
 	if (stat_fp_qname_popularity != NULL)
 	{		
 		struct hashentry_si *s		= NULL;
 		struct hashentry_si *tmp 	= NULL;
 
-		INFO_MSG("Q: A total of %d unique query names were requested", HASH_COUNT(qname_table));		
-
 		/* Sort the qname hashtable */
 		HASH_SORT( qname_table, sort_on_value_descending);
-
-		/* Write the statistics to the file */
-		fprintf(stat_fp_qname_popularity, "# 'Query name popularity'\t'Query name'\n");
 
 		HASH_ITER(hh, qname_table, s, tmp)
 		{
 			fprintf(stat_fp_qname_popularity, "%u\t%u\t%s\n", ln, s->value, s->name);
 			ln++;
 		}
-
+		fprintf(stat_fp_qname_popularity, "\n\n");
+		
 		fflush(stat_fp_qname_popularity);
 		fclose(stat_fp_qname_popularity);
 	}
@@ -149,7 +283,7 @@ void write_stats(void)
 	{
 		char filepath[1024] = {0};
 		snprintf(filepath, 1024, "%s.%s", stat_file_ttl, ttl_table->tag);
-		FILE* stat_fp_ttl 		= fopen(filepath, "w");
+		FILE* stat_fp_ttl 		= fopen(filepath, "a");
 		int total  			= HASH_COUNT(ttl_table->table);
 		struct hashentry_ii *t		= NULL; 	/* Temporary structs for iteration */
 		struct hashentry_ii *tm		= NULL; 	/* Temporary structs for iteration */
@@ -179,12 +313,11 @@ void write_stats(void)
 				HASH_ADD_INT( ttl_table_cdf, key, d);	
 			}
 		}	
-		INFO_MSG("R: A total of %-6d unique RR sets (%-4d unique TTLs) were returned and stored in '%s'", total, HASH_COUNT(ttl_table_cdf), filepath)
+		/* INFO_MSG("R: A total of %-6d unique RR sets (%-4d unique TTLs) were returned and stored in '%s'", total, HASH_COUNT(ttl_table_cdf), filepath); */
 
 		HASH_SORT( ttl_table_cdf, sort_on_key_ascending); 
 			
 		/* Calculate the CDF values as percentages and print them to the file */
-		fprintf(stat_fp_ttl, "# 'TTL'\t'Occurrences'\t'CDF value'\n");
 		fprintf(stat_fp_ttl, "0\t0\t0\n");  /* First entry is 0,0 */
 		HASH_ITER(hh, ttl_table_cdf, t, tm)
 		{
@@ -194,38 +327,75 @@ void write_stats(void)
 			HASH_DEL(ttl_table_cdf, t);
 			free(t);
 		}
+		fprintf(stat_fp_ttl, "\n\n");
 		
 		fflush(stat_fp_ttl);
 		fclose(stat_fp_ttl);
 	}
 
-	/* Cache hit ratio */
-	INFO_MSG("Cache hit ratio: %0.2f%%", 100 - (((double) chr.RESPONSES/ (double) chr.QUERIES)*100));
+	/* Printing number of signatures per query statistics */
+	if (stat_fp_sigs_per_resp != NULL)
+	{
+                HASH_SORT( sigs_per_resp_table, sort_on_key_ascending);
+
+		struct hashentry_ii *s_ii	= NULL;
+		struct hashentry_ii *tmp_ii	= NULL;
+		HASH_ITER(hh, sigs_per_resp_table, s_ii, tmp_ii)
+		{
+			fprintf(stat_fp_sigs_per_resp, "%d\t%d\n", s_ii->key, s_ii->value);
+		}
+		fprintf(stat_fp_sigs_per_resp, "\n\n");		
+		
+		fflush(stat_fp_sigs_per_resp);
+		fclose(stat_fp_sigs_per_resp);
+	}	
 }
+
+/* Reset statistics */
+void reset_stats(void)
+{
+	free_var();	
+	init_var();
+
+	/* Initialize the timer */
+	clock_gettime(CLOCK_REALTIME, &time_before);
+}
+
 
 /* Signal handler for alarms & user signals */
 void signal_handler(int signum)
 {
-	if (signum == SIGUSR1)
+	if (signum == SIGUSR2)
 	{
-		DEBUG_MSG("Received user signal to dump statistics");
+		reset_stats();
+	}
+	else if (signum == SIGUSR1)
+	{
+		write_stats();
+		reset_stats();
 	}
 	else if (signum == SIGALRM)
 	{
-		DEBUG_MSG("Received automated alarm to dump statistics");
+		write_stats();
+		reset_stats();
+		alarm(stat_emit_interval);
 	}
 }
 
 /* Initialise the DNS query counter module */
-void eemo_dnsdistribution_stats_init(char* stats_file_qname_popularity, char* stats_file_ttl, char** resolver_ips, int ip_count)
+void eemo_dnsdistribution_stats_init(char* stats_file_general, char* stats_file_qname_popularity, char* stats_file_ttl, char* stats_file_sigs_per_resp, char** resolver_ips, int ip_count, int emit_interval)
 {
+	stat_file_general 		= stats_file_general;
 	stat_file_qname_popularity 	= stats_file_qname_popularity;
 	stat_file_ttl 			= stats_file_ttl;
+	stat_file_sigs_per_resp		= stats_file_sigs_per_resp;
 	ips_resolver 			= resolver_ips;
 	ips_count 			= ip_count;
+	stat_emit_interval		= emit_interval;
 	int i 				= 0;
+	struct ll_hashtable *ttl_table 	= NULL;
 
-	INFO_MSG("Writing statistics to the files called %s and %s.x", stat_file_qname_popularity, stat_file_ttl);
+	INFO_MSG("Writing statistics to the files %s, %s and %s.x", stat_file_general, stat_file_qname_popularity, stat_file_ttl);
 
 	for (i = 0; i < ips_count; i++)
 	{
@@ -234,48 +404,34 @@ void eemo_dnsdistribution_stats_init(char* stats_file_qname_popularity, char* st
 
 	/* Register signal handler */
 	signal(SIGUSR1, signal_handler);
+	signal(SIGUSR2, signal_handler);
 	signal(SIGALRM, signal_handler);
 
-	/* Initialize the TTL tables */
-	ttl_table_ALL		= ( struct ll_hashtable* ) malloc ( sizeof ( struct ll_hashtable) );
-	ttl_table_A  		= ( struct ll_hashtable* ) malloc ( sizeof ( struct ll_hashtable) );
-	ttl_table_AAAA  	= ( struct ll_hashtable* ) malloc ( sizeof ( struct ll_hashtable) );
-	ttl_table_PTR  		= ( struct ll_hashtable* ) malloc ( sizeof ( struct ll_hashtable) );
-	ttl_table_NS  		= ( struct ll_hashtable* ) malloc ( sizeof ( struct ll_hashtable) );
-	ttl_table_SOA		= ( struct ll_hashtable* ) malloc ( sizeof ( struct ll_hashtable) );
-	ttl_table_CNAME		= ( struct ll_hashtable* ) malloc ( sizeof ( struct ll_hashtable) );
-	ttl_table_DNSKEY	= ( struct ll_hashtable* ) malloc ( sizeof ( struct ll_hashtable) );
-	ttl_table_TXT		= ( struct ll_hashtable* ) malloc ( sizeof ( struct ll_hashtable) );
-	ttl_table_MX		= ( struct ll_hashtable* ) malloc ( sizeof ( struct ll_hashtable) );
-	ttl_table_ALL->tag	= "ALL";
-	ttl_table_A->tag	= "A";
-	ttl_table_AAAA->tag	= "AAAA";
-	ttl_table_PTR->tag	= "PTR";
-	ttl_table_NS->tag	= "NS";
-	ttl_table_SOA->tag	= "SOA";
-	ttl_table_CNAME->tag	= "CNAME";
-	ttl_table_DNSKEY->tag	= "DNSKEY";
-	ttl_table_TXT->tag	= "TXT";
-	ttl_table_MX->tag	= "MX";
-	LL_APPEND(ttl_tables, ttl_table_ALL);
-	LL_APPEND(ttl_tables, ttl_table_A);
-	LL_APPEND(ttl_tables, ttl_table_AAAA);
-	LL_APPEND(ttl_tables, ttl_table_PTR);
-	LL_APPEND(ttl_tables, ttl_table_NS);
-	LL_APPEND(ttl_tables, ttl_table_SOA);
-	LL_APPEND(ttl_tables, ttl_table_CNAME);
-	LL_APPEND(ttl_tables, ttl_table_DNSKEY);
-	LL_APPEND(ttl_tables, ttl_table_TXT);
-	LL_APPEND(ttl_tables, ttl_table_MX);
-	struct ll_hashtable *s; /* Temporary struct for iteration*/ 
-	LL_FOREACH(ttl_tables, s)
-	{	
-		s->table 	=  NULL;
+	if (stat_emit_interval > 0)
+	{
+		INFO_MSG("Emitting statistics every %d seconds", stat_emit_interval);
+		/* alarm(stat_emit_interval);*/
+	}
+	else
+	{
+		INFO_MSG("Not emitting statistics per interval");	
 	}
 
-	/* Initialize cache hit ratio statistics */
-	chr.QUERIES 	= 0;
-	chr.RESPONSES 	= 0;
+	init_var();
+
+	/* Create empty output files */
+	fclose(fopen(stat_file_general, "w"));
+	fclose(fopen(stat_file_qname_popularity, "w"));
+	fclose(fopen(stat_file_sigs_per_resp, "w"));
+	LL_FOREACH(ttl_tables, ttl_table)
+	{
+		char filepath[1024] = {0};
+		snprintf(filepath, 1024, "%s.%s", stat_file_ttl, ttl_table->tag);
+		fclose(fopen(filepath, "w"));
+	}
+
+	/* Initialize the timer */
+	clock_gettime(CLOCK_REALTIME, &time_before);
 }
 
 /* Uninitialise the DNS query counter module */
@@ -286,12 +442,13 @@ void eemo_dnsdistribution_stats_uninit(eemo_conf_free_string_array_fn free_strin
 	struct ll_hashtable *ttl_table  = NULL;
 
 	/* Unregister signal handlers */
-	alarm(0);
+	/* alarm(0); */
 	signal(SIGUSR1, SIG_DFL);
+	signal(SIGUSR2, SIG_DFL);
 	signal(SIGALRM, SIG_DFL);
 	
 	/* Write statistics */
-	write_stats();
+	/* write_stats(); */
 
 	/* Free memory of TTL hashtables */
 	LL_FOREACH(ttl_tables, ttl_table)
@@ -315,6 +472,7 @@ void eemo_dnsdistribution_stats_uninit(eemo_conf_free_string_array_fn free_strin
 	}
 	
 	/* Free memory of the files */
+	free(stat_file_general);
 	free(stat_file_qname_popularity);
 	free(stat_file_ttl);
 }
@@ -327,20 +485,31 @@ eemo_rv eemo_dnsdistribution_stats_handleqr(eemo_ip_packet_info ip_info, int is_
 
 	if (dns_packet->qr_flag)
 	{
-		int i = 0;
+		int sigs_in_resp = 0;
+		int i 		= 0;
+	
 		/* This is a response */
-
+	
 		/* Count only valid responses */
 		if (!dns_packet->is_valid)
 		{
 			return ERV_SKIPPED;
 		}
+
 		/* Log TTL value of responses */
 		/* Only consider messsages towards the selected resolver */
 		for (i = 0; i < ips_count; i++)
 		{
-			if (!strcmp(ip_info.ip_dst, ips_resolver[i]) || !strcmp(ip_info.ip_dst, IP_ANY))
+			if ((!strcmp(ip_info.ip_dst, ips_resolver[i]) || !strcmp(ip_info.ip_dst, IP_ANY)) && dns_packet->srcport == 53 && dns_packet->dstport != 53)
 			{
+				struct hashentry_ii *search_entry = NULL;
+				nr_resp++;
+			
+				/* Count number of fragmented responses */	
+				if (dns_packet->is_fragmented)
+				{
+					nr_frag++;
+				}
 				/* Only 'authoritative answers' are considered in the cache hit ratio*/
 				if (dns_packet->aa_flag == 1)
 				{
@@ -349,6 +518,13 @@ eemo_rv eemo_dnsdistribution_stats_handleqr(eemo_ip_packet_info ip_info, int is_
 				
 				LL_FOREACH(dns_packet->answers, rr_it)
 				{
+					/* Check if the RR set is a signature */
+					if(rr_it->type == DNS_QTYPE_RRSIG)
+					{	
+						nr_sigs++;
+						sigs_in_resp++;
+					}
+
 					struct hashentry_si *s  = NULL;
 					/* Select the right hashtable */
 			
@@ -375,6 +551,9 @@ eemo_rv eemo_dnsdistribution_stats_handleqr(eemo_ip_packet_info ip_info, int is_
 					case DNS_QTYPE_DNSKEY:
 						HASH_FIND_STR ( ttl_table_DNSKEY->table, rr_it->name , s );
 						break;
+					case DNS_QTYPE_RRSIG:
+						HASH_FIND_STR ( ttl_table_RRSIG->table, rr_it->name , s );
+						break;
 					case DNS_QTYPE_TXT:
 						HASH_FIND_STR ( ttl_table_TXT->table, rr_it->name , s );
 						break;
@@ -390,8 +569,7 @@ eemo_rv eemo_dnsdistribution_stats_handleqr(eemo_ip_packet_info ip_info, int is_
 						/* Name was never received before: add to ttl_table, ignore otherwise */
 						struct hashentry_si *d = NULL;
 						d = ( struct hashentry_si* ) malloc ( sizeof ( struct hashentry_si ) );
-						d->name = malloc( strlen( rr_it->name )+1 );
-						strcpy(d->name, rr_it->name);
+						d->name = strdup(rr_it->name);
 						d->value = rr_it->ttl;
 
 						switch( rr_it->type )
@@ -417,6 +595,9 @@ eemo_rv eemo_dnsdistribution_stats_handleqr(eemo_ip_packet_info ip_info, int is_
 						case DNS_QTYPE_DNSKEY:
 							HASH_ADD_KEYPTR ( hh, ttl_table_DNSKEY->table, d->name, strlen ( d->name ), d );
 							break;
+						case DNS_QTYPE_RRSIG:
+							HASH_ADD_KEYPTR ( hh, ttl_table_RRSIG->table, d->name, strlen ( d->name ), d );
+							break;
 						case DNS_QTYPE_TXT:
 							HASH_ADD_KEYPTR ( hh, ttl_table_TXT->table, d->name, strlen ( d->name ), d );
 							break;
@@ -438,12 +619,34 @@ eemo_rv eemo_dnsdistribution_stats_handleqr(eemo_ip_packet_info ip_info, int is_
 						/* Name was never received before: add to ttl_table */
 						struct hashentry_si *d = NULL;
 						d = ( struct hashentry_si* ) malloc ( sizeof ( struct hashentry_si ) );
-						d->name = malloc( strlen( rr_it->name )+1 );
-						strcpy(d->name, rr_it->name);
+						d->name = strdup(rr_it->name);
 						d->value = rr_it->ttl;
 
 						HASH_ADD_KEYPTR ( hh, ttl_table_ALL->table, d->name, strlen ( d->name ), d );
 					}
+				}
+				
+				if (sigs_in_resp  > 0) nr_resp_with_sigs++;                                                     
+				/* Store the number of signatures in the hashtable */
+				HASH_FIND_INT(sigs_per_resp_table, &sigs_in_resp, search_entry);
+				if (search_entry != NULL )
+				{
+					search_entry->value++;
+				}
+				else
+				{
+					struct hashentry_ii *new_entry = NULL;
+					new_entry  = ( struct hashentry_ii* ) malloc ( sizeof ( struct hashentry_ii ) );
+					new_entry->key = sigs_in_resp;
+					new_entry->value = 1;
+					HASH_ADD_INT( sigs_per_resp_table, key, new_entry);	
+				}
+			
+				/* Check if packet is truncated */
+				if (dns_packet->tc_flag)
+				{
+					nr_trun++;
+					if (sigs_in_resp > 0) nr_trun_with_sigs++;				
 				}
 				break;
 			}
@@ -458,10 +661,13 @@ eemo_rv eemo_dnsdistribution_stats_handleqr(eemo_ip_packet_info ip_info, int is_
 		{
 			return ERV_SKIPPED;
 		}
+
 		for (i = 0; i < ips_count; i++)
 		{
-			if (!strcmp(ip_info.ip_dst, ips_resolver[i]) || !strcmp(ip_info.ip_dst, IP_ANY))
+			/* Incoming queries */
+			if ((!strcmp(ip_info.ip_dst, ips_resolver[i]) || !strcmp(ip_info.ip_dst, IP_ANY)) && dns_packet->srcport != 53 && dns_packet->dstport == 53)
 			{
+				nr_quer++;
 				chr.QUERIES++; /* Cache hit ratio statistics */
 				LL_FOREACH(dns_packet->questions, query_it)
 				{
@@ -486,6 +692,11 @@ eemo_rv eemo_dnsdistribution_stats_handleqr(eemo_ip_packet_info ip_info, int is_
 				}
 			break;
 			}
+			/* Outgoing queries */
+			else if ((!strcmp(ip_info.ip_src, ips_resolver[i]) || !strcmp(ip_info.ip_src, IP_ANY)) && dns_packet->srcport != 53 && dns_packet->dstport == 53)
+			{
+				nr_quer_out++;
+			}			
 		}
 	}
 

@@ -51,7 +51,7 @@
 #include <ctype.h>
 
 /* Initialise the DNS query counter module */
-void eemo_dnsdistribution_stats_init(char* stats_file_qname_popularity, char* stats_file_ttl, char** resolver_ips, int ip_count);
+void eemo_dnsdistribution_stats_init(char* stats_file_general, char* stats_file_qname_popularity, char* stats_file_ttl, char* stats_file_sigs_per_resp, char** resolver_ips, int ip_count, int emit_interval);
 
 /* Uninitialise the DNS query counter module */
 void eemo_dnsdistribution_stats_uninit(eemo_conf_free_string_array_fn free_strings);
