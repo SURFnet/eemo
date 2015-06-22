@@ -44,6 +44,7 @@
 #include <stdarg.h>
 #include <syslog.h>
 #include <stdlib.h>
+#include <pthread.h>
 
 /* The log level */
 static int log_level = EEMO_LOGLEVEL;
@@ -57,10 +58,14 @@ static int log_syslog = 1;
 /* Should we log to stdout? */
 static int log_stdout = 0;
 
+/* Log mutex */
+static pthread_mutex_t log_mutex;
+
 /* Initialise logging */
 eemo_rv eemo_init_log(void)
 {
-	char* log_file_path = NULL;
+	pthread_mutexattr_t	lm_attr;
+	char* 			log_file_path 	= NULL;
 
 	/* Retrieve the log level specified in the configuration file; this will override the default log level */
 	if (eemo_conf_get_int("logging", "loglevel", &log_level, EEMO_LOGLEVEL) != ERV_OK)
@@ -104,12 +109,24 @@ eemo_rv eemo_init_log(void)
 		return ERV_LOG_INIT_FAIL;
 	}
 
+	/* Initialise log mutex */
+	pthread_mutexattr_init(&lm_attr);
+
+	pthread_mutexattr_settype(&lm_attr, PTHREAD_MUTEX_RECURSIVE);
+
+	if (pthread_mutex_init(&log_mutex, &lm_attr) != 0)
+	{
+		return ERV_LOG_INIT_FAIL;
+	}
+
 	return ERV_OK;
 }
 
 /* Uninitialise logging */
 eemo_rv eemo_uninit_log(void)
 {
+	pthread_mutex_destroy(&log_mutex);
+	
 	/* Close the log file if necessary */
 	if (log_file != NULL)
 	{
@@ -117,6 +134,17 @@ eemo_rv eemo_uninit_log(void)
 	}
 
 	return ERV_OK;
+}
+
+/* Lock/unlock log mutex */
+static void eemo_log_lock(void)
+{
+	pthread_mutex_lock(&log_mutex);
+}
+
+static void eemo_log_unlock(void)
+{
+	pthread_mutex_unlock(&log_mutex);
 }
 
 /* Log something */
@@ -131,6 +159,8 @@ void eemo_log(const int log_at_level, const char* file, const int line, const ch
 	{
 		return;
 	}
+
+	eemo_log_lock();
 
 	/* Print the log message */
 	va_start(args, format);
@@ -184,5 +214,7 @@ void eemo_log(const int log_at_level, const char* file, const int line, const ch
 	{
 		syslog(log_at_level, "%s", log_buf);
 	}
+
+	eemo_log_unlock();
 }
 

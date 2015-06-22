@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2010-2015 SURFnet bv
+ * Copyright (c) 2015 Roland van Rijswijk-Deij
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -29,34 +30,40 @@
  */
 
 /*
- * The Extensible Ethernet Monitor Sensor Multiplexer(EEMO)
- * Multiplexer protocols
+ * The Extensible Ethernet Monitor (EEMO)
+ * Compatibility file for endianess functions
  */
 
-#ifndef _EEMO_MUX_PROTO_H
-#define _EEMO_MUX_PROTO_H
+#ifndef _ENDIAN_COMPAT_H
+#define _ENDIAN_COMPAT_H
 
-#include "config.h"
+#ifdef __APPLE__
 
-/* Feed to multiplexer protocol */
-#define SENSOR_PROTO_VERSION			1
-#define SENSOR_GET_PROTO_VERSION		0x01
-#define SENSOR_REGISTER				0x02
-#define SENSOR_SET_DESCRIPTION			0x03
-#define SENSOR_UNREGISTER			0x04
-#define SENSOR_SHUTDOWN				0x05
-#define SENSOR_DATA				0x06
+/* OS X does not provide the BSD/Linux endianess functions, redefine local equivalents */
 
-/* Client to multiplexer protocol */
-#define MUX_CLIENT_PROTO_VERSION		2
-#define MUX_CLIENT_GET_PROTO_VERSION		0x01
-#define MUX_CLIENT_SUBSCRIBE			0x02
-#define MUX_CLIENT_SHUTDOWN			0x04
-#define MUX_CLIENT_DATA				0x05
+#include <machine/endian.h>
+#include <libkern/OSByteOrder.h>
+ 
+#define htobe16(x) OSSwapHostToBigInt16(x)
+#define htole16(x) OSSwapHostToLittleInt16(x)
+#define be16toh(x) OSSwapBigToHostInt16(x)
+#define le16toh(x) OSSwapLittleToHostInt16(x)
+  
+#define htobe32(x) OSSwapHostToBigInt32(x)
+#define htole32(x) OSSwapHostToLittleInt32(x)
+#define be32toh(x) OSSwapBigToHostInt32(x)
+#define le32toh(x) OSSwapLittleToHostInt32(x)
+   
+#define htobe64(x) OSSwapHostToBigInt64(x)
+#define htole64(x) OSSwapHostToLittleInt64(x)
+#define be64toh(x) OSSwapBigToHostInt64(x)
+#define le64toh(x) OSSwapLittleToHostInt64(x)
 
-#define MUX_SUBS_RES_NX				0
-#define MUX_SUBS_RES_OK				1
-#define MUX_SUBS_RES_ERR			2
+#else /* __APPLE__ */
 
-#endif /* !_EEMO_MUX_PROTO_H */
+#include <endian.h>
+
+#endif /* !__APPLE__ */
+
+#endif /* !_ENDIAN_COMPAT_H */
 

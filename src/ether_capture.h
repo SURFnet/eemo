@@ -1,7 +1,6 @@
-/* $Id$ */
-
 /*
- * Copyright (c) 2010-2011 SURFnet bv
+ * Copyright (c) 2010-2015 SURFnet bv
+ * Copyright (c) 2014-2015 Roland van Rijswijk-Deij
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -39,12 +38,16 @@
 #define _EEMO_ETHER_CAPTURE_H
 
 #include "config.h"
-#include <pcap.h>
 #include "eemo.h"
-#include "eemo_packet.h"
 
-/* Capture and handle the specified number of packets on the specified interface, optionally using a filter */
-eemo_rv eemo_capture_and_handle(const char* interface_or_file, int packet_count, const char* net_filter, const int is_savefile);
+/* Initialise direct capturing */
+eemo_rv eemo_ether_capture_init(const char* interface);
+
+/* Uninitialise direct capturing */
+eemo_rv eemo_ether_capture_finalize(void);
+
+/* Run the direct capture */
+void eemo_ether_capture_run(void);
 
 #endif /* !_EEMO_ETHER_CAPTURE_H */
 

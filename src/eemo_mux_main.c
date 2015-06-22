@@ -1,7 +1,5 @@
-/* $Id$ */
-
 /*
- * Copyright (c) 2010-2014 SURFnet bv
+ * Copyright (c) 2010-2015 SURFnet bv
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -38,11 +36,13 @@
 #include <signal.h>
 #include <sys/types.h>
 #include <openssl/ssl.h>
+#include <openssl/err.h>
 #include "eemo.h"
 #include "eemo_api.h"
 #include "eemo_config.h"
 #include "eemo_log.h"
 #include "eemo_mux_muxer.h"
+#include "mt_openssl.h"
 
 void version(void)
 {
@@ -293,6 +293,13 @@ int main(int argc, char* argv[])
 	
 	DEBUG_MSG("Initialised OpenSSL");
 
+	if (eemo_mt_openssl_init() != ERV_OK)
+	{
+		ERROR_MSG("Failed to initialise multi-threaded use of OpenSSL");
+
+		return ERV_GENERAL_ERROR;
+	}
+
 	/* Run the multiplexer until it is stopped */
 	eemo_mux_run_multiplexer();
 
@@ -309,6 +316,15 @@ int main(int argc, char* argv[])
 	signal(SIGXFSZ, SIG_DFL);
 	
 	INFO_MSG("Extensible Ethernet Monitor Sensor Multiplexer exiting");
+
+	if (eemo_uninit_config_handling() != ERV_OK)
+	{
+		ERROR_MSG("Failed to uninitialise configuration handling");
+	}
+
+	eemo_mt_openssl_finalize();
+
+	ERR_free_strings();
 	
 	/* Uninitialise logging */
 	if (eemo_uninit_log() != ERV_OK)

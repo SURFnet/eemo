@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010-2011 SURFnet bv
+ * Copyright (c) 2010-2015 SURFnet bv
  * Copyright (c) 2014-2015 Roland van Rijswijk-Deij
  * All rights reserved.
  *
@@ -31,7 +31,7 @@
 
 /*
  * The Extensible Ethernet Monitor (EEMO)
- * Ethernet packet capturing
+ * PCAP file processing
  */
 
 #include "config.h"
@@ -44,6 +44,8 @@
 #include <signal.h>
 #include <pcap.h>
 #include <time.h>
+#include <string.h>
+#include <stdlib.h>
 
 #define SNAPLEN			65536
 #define DEBUG_PACKET_FILE	"/tmp/eemo.packet"
@@ -166,10 +168,10 @@ static void eemo_pcap_callback(u_char* user_ptr, const struct pcap_pkthdr* hdr, 
 }
 
 /* Initialise direct capturing */
-eemo_rv eemo_ether_capture_init(const char* interface)
+eemo_rv eemo_file_capture_init(const char* savefile)
 {
-	const char*	cap_if				= NULL;
-	char 		errbuf[PCAP_ERRBUF_SIZE]	= { 0 };
+	char 	errbuf[PCAP_ERRBUF_SIZE]	= { 0 };
+	char*	open_file			= NULL;
 	
 	handle = NULL;
 
@@ -180,6 +182,20 @@ eemo_rv eemo_ether_capture_init(const char* interface)
 	/* Retrieve configuration */
 	eemo_conf_get_int("capture", "stats_interval", &capture_stats_interval, 0);
 	eemo_conf_get_bool("capture", "debug_log_packet", &log_current_packet, 0);
+
+	if (savefile == NULL)
+	{
+		if ((eemo_conf_get_string("capture", "file", &open_file, NULL) != ERV_OK) || (open_file == NULL))
+		{
+			ERROR_MSG("Failed to retrieve name of PCAP file from the configuration");
+
+			return ERV_CONFIG_ERROR;
+		}
+	}
+	else
+	{
+		open_file = strdup(savefile);
+	}
 
 	if (capture_stats_interval > 0)
 	{
@@ -200,47 +216,38 @@ eemo_rv eemo_ether_capture_init(const char* interface)
 		}
 	}
 
-	/* Determine the default interface if none was specified */
-	cap_if = (interface == NULL) ? pcap_lookupdev(errbuf) : interface;
-
-	if (cap_if == NULL)
-	{
-		/* No capture interface available or specified */
-		ERROR_MSG("Unable to find a valid capturing interface");
-
-		return ERV_ETH_NOT_EXIST;
-	}
-
-	INFO_MSG("Opening device %s for packet capture", cap_if);
-
-	/* Open the device in promiscuous mode */
-	handle = pcap_open_live(cap_if, SNAPLEN, 1, 1000, errbuf);
+	/* Open the previously saved capture file */
+	handle = pcap_open_offline(open_file, errbuf);
 
 	if (handle == NULL)
 	{
-		/* Failed to open interface for capturing */
-		ERROR_MSG("Failed to open interface %s for capturing", cap_if);
+		/* Failed to open the capture file */
+		ERROR_MSG("Failed to open PCAP capture file %s", open_file);
+
+		free(open_file);
 
 		return ERV_NO_ACCESS;
 	}
 
-	INFO_MSG("%s configured for capturing", cap_if);
+	INFO_MSG("Will read packets from PCAP file %s", open_file);
 
-	INFO_MSG("Live capture initialised successfully");
+	INFO_MSG("PCAP processing initialised successfully");
+
+	free(open_file);
 
 	return ERV_OK;
 }
 
 /* Uninitialise direct capturing */
-eemo_rv eemo_ether_capture_finalize(void)
+eemo_rv eemo_file_capture_finalize(void)
 {
-	INFO_MSG("Uninitialised live capture");
+	INFO_MSG("PCAP processing uninitialised");
 
 	return ERV_OK;
 }
 
 /* Run the direct capture */
-void eemo_ether_capture_run(void)
+void eemo_file_capture_run(void)
 {
 	/* Register the signal handler for termination */
 	signal(SIGINT, stop_signal_handler);
@@ -248,7 +255,7 @@ void eemo_ether_capture_run(void)
 	signal(SIGTERM, stop_signal_handler);
 
 	/* Capture the specified number of packets */
-	INFO_MSG("Starting packet capture");
+	INFO_MSG("Starting packet playback");
 
 	if (pcap_loop(handle, 0, &eemo_pcap_callback, NULL) == -1)
 	{
@@ -265,7 +272,7 @@ void eemo_ether_capture_run(void)
 		fclose(debug_packet_file);
 	}
 
-	INFO_MSG("Packet capture ended, captured %llu packets of which %llu were handled", capture_ctr, handled_ctr);
+	INFO_MSG("Packet playback ended, read %llu packets of which %llu were handled", capture_ctr, handled_ctr);
 
 	pcap_close(handle);
 

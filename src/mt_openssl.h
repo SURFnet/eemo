@@ -1,3 +1,5 @@
+/* $Id$ */
+
 /*
  * Copyright (c) 2010-2015 SURFnet bv
  * All rights reserved.
@@ -29,34 +31,21 @@
  */
 
 /*
- * The Extensible Ethernet Monitor Sensor Multiplexer(EEMO)
- * Multiplexer protocols
+ * The Extensible Ethernet Monitor Sensor Multiplexer (EEMO)
+ * Support module for multi-threaded invocation of OpenSSL
  */
 
-#ifndef _EEMO_MUX_PROTO_H
-#define _EEMO_MUX_PROTO_H
+#ifndef _EEMO_MT_OPENSSL_H
+#define _EEMO_MT_OPENSSL_H
 
 #include "config.h"
+#include "eemo.h"
 
-/* Feed to multiplexer protocol */
-#define SENSOR_PROTO_VERSION			1
-#define SENSOR_GET_PROTO_VERSION		0x01
-#define SENSOR_REGISTER				0x02
-#define SENSOR_SET_DESCRIPTION			0x03
-#define SENSOR_UNREGISTER			0x04
-#define SENSOR_SHUTDOWN				0x05
-#define SENSOR_DATA				0x06
+/* Initialise multi-threaded use of OpenSSL */
+eemo_rv eemo_mt_openssl_init(void);
 
-/* Client to multiplexer protocol */
-#define MUX_CLIENT_PROTO_VERSION		2
-#define MUX_CLIENT_GET_PROTO_VERSION		0x01
-#define MUX_CLIENT_SUBSCRIBE			0x02
-#define MUX_CLIENT_SHUTDOWN			0x04
-#define MUX_CLIENT_DATA				0x05
+/* Uninitialise multi-threaded use of OpenSSL */
+eemo_rv eemo_mt_openssl_finalize(void);
 
-#define MUX_SUBS_RES_NX				0
-#define MUX_SUBS_RES_OK				1
-#define MUX_SUBS_RES_ERR			2
-
-#endif /* !_EEMO_MUX_PROTO_H */
+#endif /* !_EEMO_MT_OPENSSL_H */
 

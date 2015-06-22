@@ -1,5 +1,7 @@
+/* $Id$ */
+
 /*
- * Copyright (c) 2010-2015 SURFnet bv
+ * Copyright (c) 2010-2014 SURFnet bv
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -29,34 +31,54 @@
  */
 
 /*
- * The Extensible Ethernet Monitor Sensor Multiplexer(EEMO)
- * Multiplexer protocols
+ * The Extensible Ethernet Monitor Sensor Multiplexer (EEMO)
+ * Client handling and queueing
  */
 
-#ifndef _EEMO_MUX_PROTO_H
-#define _EEMO_MUX_PROTO_H
+#ifndef _EEMO_MUX_CLIENT_H
+#define _EEMO_MUX_CLIENT_H
 
 #include "config.h"
+#include "eemo.h"
+#include "eemo_api.h"
+#include "eemo_mux_cmdxfer.h"
+#include <pthread.h>
+#include <openssl/ssl.h>
 
-/* Feed to multiplexer protocol */
-#define SENSOR_PROTO_VERSION			1
-#define SENSOR_GET_PROTO_VERSION		0x01
-#define SENSOR_REGISTER				0x02
-#define SENSOR_SET_DESCRIPTION			0x03
-#define SENSOR_UNREGISTER			0x04
-#define SENSOR_SHUTDOWN				0x05
-#define SENSOR_DATA				0x06
+/* Queue item */
+typedef struct cq_entry
+{
+	eemo_mux_pkt*		cq_pkt;
+	struct cq_entry*	next;
+	struct cq_entry*	prev;
+}
+cq_entry;
 
-/* Client to multiplexer protocol */
-#define MUX_CLIENT_PROTO_VERSION		2
-#define MUX_CLIENT_GET_PROTO_VERSION		0x01
-#define MUX_CLIENT_SUBSCRIBE			0x02
-#define MUX_CLIENT_SHUTDOWN			0x04
-#define MUX_CLIENT_DATA				0x05
+/* Client queue */
+typedef struct client_queue
+{
+	SSL*		tls;		/* TLS connection */
+	cq_entry*	q_head;		/* The head of the queue */
+	cq_entry*	q_tail;		/* The tail of the queue */
+	size_t		q_len;		/* The length of the queue */
+	size_t		q_maxlen;	/* The maximum queue length */
+	pthread_mutex_t	q_mutex;	/* Queue access mutex */
+	pthread_cond_t	q_signal;	/* Queue signal */
+	pthread_t	client_thread;	/* The client thread */
+	int		client_run;	/* Should the client thread be running? */
+	int		client_state;	/* Is the client connection OK? */
+	int		q_overflow;	/* Is the packet queue overflowing? */
+}
+client_queue;
 
-#define MUX_SUBS_RES_NX				0
-#define MUX_SUBS_RES_OK				1
-#define MUX_SUBS_RES_ERR			2
+/* Create a new client handler */
+client_queue* eemo_cq_new(SSL* tls, const size_t maxlen);
 
-#endif /* !_EEMO_MUX_PROTO_H */
+/* Enqueue a new packet for the client */
+eemo_rv eemo_cq_enqueue(client_queue* q, eemo_mux_pkt* pkt);
+
+/* Finalise the client */
+void eemo_cq_stop(client_queue* q);
+
+#endif /* !_EEMO_MUX_CLIENT_H */
 

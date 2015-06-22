@@ -29,34 +29,24 @@
  */
 
 /*
- * The Extensible Ethernet Monitor Sensor Multiplexer(EEMO)
- * Multiplexer protocols
+ * The Extensible Ethernet Monitor (EEMO)
+ * Capture handling
  */
 
-#ifndef _EEMO_MUX_PROTO_H
-#define _EEMO_MUX_PROTO_H
+#ifndef _EEMO_CAPTURE_H
+#define _EEMO_CAPTURE_H
 
 #include "config.h"
+#include "eemo.h"
 
-/* Feed to multiplexer protocol */
-#define SENSOR_PROTO_VERSION			1
-#define SENSOR_GET_PROTO_VERSION		0x01
-#define SENSOR_REGISTER				0x02
-#define SENSOR_SET_DESCRIPTION			0x03
-#define SENSOR_UNREGISTER			0x04
-#define SENSOR_SHUTDOWN				0x05
-#define SENSOR_DATA				0x06
+/* Initialise capturing */
+eemo_rv eemo_capture_init(const char* interface, const char* savefile);
 
-/* Client to multiplexer protocol */
-#define MUX_CLIENT_PROTO_VERSION		2
-#define MUX_CLIENT_GET_PROTO_VERSION		0x01
-#define MUX_CLIENT_SUBSCRIBE			0x02
-#define MUX_CLIENT_SHUTDOWN			0x04
-#define MUX_CLIENT_DATA				0x05
+/* Uninitialise capturing */
+eemo_rv eemo_capture_finalize(void);
 
-#define MUX_SUBS_RES_NX				0
-#define MUX_SUBS_RES_OK				1
-#define MUX_SUBS_RES_ERR			2
+/* Run the capture until interrupted */
+void eemo_capture_run(void);
 
-#endif /* !_EEMO_MUX_PROTO_H */
+#endif /* !_EEMO_CAPTURE_H */
 

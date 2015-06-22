@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010-2014 SURFnet bv
+ * Copyright (c) 2010-2015 SURFnet bv
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -36,11 +36,13 @@
 #include <signal.h>
 #include <sys/types.h>
 #include <openssl/ssl.h>
+#include <openssl/rand.h>
 #include "eemo.h"
 #include "eemo_api.h"
 #include "eemo_config.h"
 #include "eemo_log.h"
 #include "eemo_sensor_sensor.h"
+#include "mt_openssl.h"
 
 void version(void)
 {
@@ -56,6 +58,7 @@ void usage(void)
 	printf("Extensible Ethernet Monitor Sensor (eemo_sensor) version %s\n\n", VERSION);
 	printf("Usage:\n");
 	printf("\teemo_sensor [-c <config>] [-f] [-p <pidfile>]\n");
+	printf("\teemo_sensor -G\n");
 	printf("\teemo_sensor -h\n");
 	printf("\teemo_sensor -v\n");
 	printf("\n");
@@ -65,9 +68,33 @@ void usage(void)
 	printf("\t-p <pidfile>  Specify the PID file to write the daemon process ID to\n");
 	printf("\t              Defaults to %s\n", DEFAULT_EEMO_SENSOR_PIDFILE);
 	printf("\n");
+	printf("\t-G            Generate a new random feed GUID\n");
+	printf("\n");
 	printf("\t-h            Print this help message\n");
 	printf("\n");
 	printf("\t-v            Print the version number\n");
+}
+
+void generate_guid(void)
+{
+	unsigned char	guid_buf[16]	= { 0 };
+	int		i		= 0;
+
+	if (RAND_bytes(guid_buf, 16) != 1)
+	{
+		fprintf(stderr, "Failed to generate a new random GUID\n");
+
+		exit(1);
+	}
+
+	printf("New random GUID for sensor feed ID:\n\n");
+
+	for (i = 0; i < 16; i++)
+	{
+		printf("%02x", guid_buf[i]);
+	}
+
+	printf("\n");
 }
 
 void write_pid(const char* pid_path, pid_t pid)
@@ -129,15 +156,16 @@ void signal_handler(int signum)
 
 int main(int argc, char* argv[])
 {
-	char* config_path = NULL;
-	char* pid_path = NULL;
-	int daemon = 1;
-	int c = 0;
-	int pid_path_set = 0;
-	int daemon_set = 0;
-	pid_t pid = 0;
+	char*	config_path	= NULL;
+	char*	pid_path	= NULL;
+	int 	daemon		= 1;
+	int 	c		= 0;
+	int 	pid_path_set	= 0;
+	int 	daemon_set	= 0;
+	pid_t 	pid		= 0;
+	eemo_rv	rv		= ERV_OK;
 	
-	while ((c = getopt(argc, argv, "fc:p:hv")) != -1)
+	while ((c = getopt(argc, argv, "fc:p:Ghv")) != -1)
 	{
 		switch(c)
 		{
@@ -165,6 +193,11 @@ int main(int argc, char* argv[])
 			}
 			
 			pid_path_set = 1;
+			break;
+		case 'G':
+			generate_guid();
+
+			return 0;
 			break;
 		case 'h':
 			usage();
@@ -291,8 +324,28 @@ int main(int argc, char* argv[])
 	
 	DEBUG_MSG("Initialised OpenSSL");
 
-	/* Run the multiplexer until it is stopped */
-	eemo_sensor_run();
+	if (eemo_mt_openssl_init() != ERV_OK)
+	{
+		ERROR_MSG("Failed to initialise multi-thread use of OpenSSL");
+
+		return ERV_GENERAL_ERROR;
+	}
+
+	/* Initialise the sensor */
+	if (eemo_sensor_init() == ERV_OK)
+	{
+		/* Run the multiplexer until it is stopped */
+		eemo_sensor_run();
+
+		/* Uninitialise the sensor */
+		eemo_sensor_finalize();
+	}
+	else
+	{
+		ERROR_MSG("Failed to initialise the sensor");
+
+		rv = ERV_GENERAL_ERROR;
+	}
 
 	/* Remove signal handlers */
 	signal(SIGABRT, SIG_DFL);
@@ -307,6 +360,8 @@ int main(int argc, char* argv[])
 	signal(SIGXFSZ, SIG_DFL);
 	
 	INFO_MSG("Extensible Ethernet Monitor Sensor exiting");
+
+	eemo_mt_openssl_finalize();
 	
 	/* Uninitialise logging */
 	if (eemo_uninit_log() != ERV_OK)
@@ -317,6 +372,6 @@ int main(int argc, char* argv[])
 	free(pid_path);
 	free(config_path);
 
-	return 0;
+	return rv;
 }
 

@@ -37,6 +37,7 @@
 #include <string.h>
 #include <signal.h>
 #include <sys/types.h>
+#include <pthread.h>
 #include "eemo.h"
 #include "eemo_api.h"
 #include "eemo_packet.h"
@@ -47,7 +48,7 @@
 #include "dns_handler.h"
 #include "dns_types.h"
 #include "ifaddr_lookup.h"
-#include "ether_capture.h"
+#include "eemo_capture.h"
 #include "eemo_config.h"
 #include "eemo_modules.h"
 #include "eemo_log.h"
@@ -398,9 +399,15 @@ int main(int argc, char* argv[])
 	}
 
 	/* Start capturing */
-	if (eemo_capture_and_handle(savefile_set ? savefile_path : interface, -1, NULL, savefile_set) != ERV_OK)
+	if (eemo_capture_init(interface, savefile_path) != ERV_OK)
 	{
-		ERROR_MSG("Failed to start packet capture");
+		ERROR_MSG("Failed to initialise capture, giving up");
+	}
+	else
+	{
+		eemo_capture_run();
+
+		eemo_capture_finalize();
 	}
 
 	INFO_MSG("Stopping the Extensible Ethernet Monitor (eemo) version %s", VERSION);
@@ -451,6 +458,9 @@ int main(int argc, char* argv[])
 	{
 		free(interface);
 	}
+
+	/* Suppress valgrind warning */
+	pthread_exit(NULL);
 
 	return 0;
 }

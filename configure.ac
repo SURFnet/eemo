@@ -5,7 +5,7 @@
 # Program version
 
 define([EEMO_VERSION_MAJOR], [0])
-define([EEMO_VERSION_MINOR], [2])
+define([EEMO_VERSION_MINOR], [3])
 define([EEMO_VERSION_BUILDREV], esyscmd([sh -c "git rev-list --count HEAD|tr -d '\n'"]))
 define([PACKAGE_SUFFIX], [])
 
@@ -92,7 +92,7 @@ ACX_DLOPEN
 ACX_PCAP
 PKG_CHECK_MODULES([LIBCONFIG], [libconfig >= 1.3.2],, AC_MSG_ERROR([libconfig 1.3.2 or newer not found]))
 ACX_PTHREAD
-PKG_CHECK_MODULES([OPENSSL], [openssl >= 0.9.8],, AC_MSG_ERROR([OpenSSL 0.9.8 or newer not found]))
+PKG_CHECK_MODULES([OPENSSL], [openssl >= 1.0.1],, AC_MSG_ERROR([OpenSSL 1.0.1 or newer not found]))
 
 # Check for headers
 AC_CHECK_HEADERS([pcap.h])
@@ -191,6 +191,7 @@ AC_CONFIG_FILES([
 	src/plugins/icmpfragmon/Makefile
 	src/plugins/dnsqrlog/Makefile
 	config/Makefile
+	scripts/Makefile
 ])
 
 AC_OUTPUT

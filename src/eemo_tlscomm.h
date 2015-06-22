@@ -1,7 +1,6 @@
-/* $Id$ */
-
 /*
- * Copyright (c) 2010-2014 SURFnet bv
+ * Copyright (c) 2010-2015 SURFnet bv
+ * Copyright (c) 2015 Roland van Rijswijk-Deij
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -42,9 +41,13 @@
 #include "eemo.h"
 #include "eemo_api.h"
 #include <stdint.h>
+#include <openssl/ssl.h>
+
+/* Cipher suites we support (only ECC-based DH) */
+#define EEMO_MUX_CIPHERSUITES	"ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-AES256-GCM-SHA384:DHE-RSA-AES128-GCM-SHA256:kEDH+AESGCM:ECDHE-RSA-AES128-SHA256:ECDHE-ECDSA-AES128-SHA256:ECDHE-RSA-AES128-SHA:ECDHE-ECDSA-AES128-SHA:ECDHE-RSA-AES256-SHA384:ECDHE-ECDSA-AES256-SHA384:ECDHE-RSA-AES256-SHA:ECDHE-ECDSA-AES256-SHA:!aNULL:!eNULL:!EXPORT:!DSS:!DES:!RC4:!3DES:!MD5:!PSK:!DHE"
 
 /* Receive a specified number of bytes from a socket via TLS */
-int tls_sock_read_bytes(SSL* tls, unsigned char* data, const size_t len);
+int tls_sock_read_bytes(SSL* tls, uint8_t* data, const size_t len);
 
 /* Receive an unsigned short value via TLS */
 int tls_sock_read_ushort(SSL* tls, uint16_t* value);
@@ -53,13 +56,13 @@ int tls_sock_read_ushort(SSL* tls, uint16_t* value);
 int tls_sock_read_uint(SSL* tls, uint32_t* value);
 
 /* Send the specified number of bytes to a socket using TLS */
-int tls_sock_write_bytes(SSL* tls, unsigned char* data, const size_t len);
+int tls_sock_write_bytes(SSL* tls, const uint8_t* data, const size_t len);
 
 /* Send an unsigned short value via TLS */
-int tls_sock_write_ushort(SSL* tls, uint16_t value);
+int tls_sock_write_ushort(SSL* tls, const uint16_t value);
 
 /* Send an unsigned int value via TLS */
-int tls_sock_write_uint(SSL* tls, uint32_t value);
+int tls_sock_write_uint(SSL* tls, const uint32_t value);
 
 #endif /* !_EEMO_TLSCOMM_H */
 

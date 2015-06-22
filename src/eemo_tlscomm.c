@@ -103,7 +103,7 @@ int tls_sock_read_uint(SSL* tls, uint32_t* value)
 }
 
 /* Send the specified number of bytes to a socket using TLS */
-int tls_sock_write_bytes(SSL* tls, unsigned char* data, const size_t len)
+int tls_sock_write_bytes(SSL* tls, const uint8_t* data, const size_t len)
 {
 	int num_written = SSL_write(tls, data, len);
 	
@@ -126,7 +126,7 @@ int tls_sock_write_bytes(SSL* tls, unsigned char* data, const size_t len)
 }
 
 /* Send an unsigned short value via TLS */
-int tls_sock_write_ushort(SSL* tls, uint16_t value)
+int tls_sock_write_ushort(SSL* tls, const uint16_t value)
 {
 	uint16_t send_value = htons(value);
 	
@@ -134,7 +134,7 @@ int tls_sock_write_ushort(SSL* tls, uint16_t value)
 }
 
 /* Send an unsigned int value via TLS */
-int tls_sock_write_uint(SSL* tls, uint32_t value)
+int tls_sock_write_uint(SSL* tls, const uint32_t value)
 {
 	uint32_t send_value = htonl(value);
 	

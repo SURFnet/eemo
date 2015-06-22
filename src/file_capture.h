@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2010-2015 SURFnet bv
+ * Copyright (c) 2014-2015 Roland van Rijswijk-Deij
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -21,7 +22,7 @@
  * DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
  * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
  * GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHFILE
  * IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
@@ -29,34 +30,24 @@
  */
 
 /*
- * The Extensible Ethernet Monitor Sensor Multiplexer(EEMO)
- * Multiplexer protocols
+ * The Extensible Ethernet Monitor (EEMO)
+ * PCAP file processing
  */
 
-#ifndef _EEMO_MUX_PROTO_H
-#define _EEMO_MUX_PROTO_H
+#ifndef _EEMO_FILE_CAPTURE_H
+#define _EEMO_FILE_CAPTURE_H
 
 #include "config.h"
+#include "eemo.h"
 
-/* Feed to multiplexer protocol */
-#define SENSOR_PROTO_VERSION			1
-#define SENSOR_GET_PROTO_VERSION		0x01
-#define SENSOR_REGISTER				0x02
-#define SENSOR_SET_DESCRIPTION			0x03
-#define SENSOR_UNREGISTER			0x04
-#define SENSOR_SHUTDOWN				0x05
-#define SENSOR_DATA				0x06
+/* Initialise direct capturing */
+eemo_rv eemo_file_capture_init(const char* savefile);
 
-/* Client to multiplexer protocol */
-#define MUX_CLIENT_PROTO_VERSION		2
-#define MUX_CLIENT_GET_PROTO_VERSION		0x01
-#define MUX_CLIENT_SUBSCRIBE			0x02
-#define MUX_CLIENT_SHUTDOWN			0x04
-#define MUX_CLIENT_DATA				0x05
+/* Uninitialise direct capturing */
+eemo_rv eemo_file_capture_finalize(void);
 
-#define MUX_SUBS_RES_NX				0
-#define MUX_SUBS_RES_OK				1
-#define MUX_SUBS_RES_ERR			2
+/* Run the direct capture */
+void eemo_file_capture_run(void);
 
-#endif /* !_EEMO_MUX_PROTO_H */
+#endif /* !_EEMO_FILE_CAPTURE_H */
 
