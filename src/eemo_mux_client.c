@@ -190,7 +190,7 @@ eemo_rv eemo_cq_enqueue(client_queue* q, eemo_mux_pkt* pkt)
 	pthread_mutex_lock(&q->q_mutex);
 
 	/* Check if the queue is overflowing */
-	if (q->q_overflow || (q->q_len == q->q_maxlen))
+	if (q->q_len == q->q_maxlen)
 	{
 		cq_entry*	dequeue	= NULL;
 
@@ -203,12 +203,22 @@ eemo_rv eemo_cq_enqueue(client_queue* q, eemo_mux_pkt* pkt)
 
 		/* Dequeue the head element */
 		dequeue = q->q_head;
-		q->q_head = q->q_head->next;
-		q->q_head->prev = NULL;
 
-		eemo_cx_pkt_free(dequeue->cq_pkt);
+		if (dequeue != NULL)
+		{
+			q->q_head = q->q_head->next;
+			q->q_head->prev = NULL;
 
-		free(dequeue);
+			eemo_cx_pkt_free(dequeue->cq_pkt);
+
+			free(dequeue);
+		}
+		else
+		{
+			ERROR_MSG("Cannot dequeue element, queue length has reached the maximum value but there appears to be nothing in the queue! This is bad... giving up.");
+
+			assert(dequeue != NULL);
+		}
 	}
 	else if ((q->q_overflow) && (q->q_len < q->q_maxlen))
 	{
