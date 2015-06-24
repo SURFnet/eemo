@@ -576,7 +576,7 @@ errorcond:
 			FD_ZERO(&select_socks);
 			FD_SET(mux_socket, &select_socks);
 
-			rv = select(FD_SETSIZE, &select_socks, NULL, NULL, &timeout);
+			rv = select(mux_socket + 1 /* max_fd */, &select_socks, NULL, NULL, &timeout);
 
 			if (rv < 0)
 			{

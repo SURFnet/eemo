@@ -1371,28 +1371,39 @@ static void eemo_mux_disconnect_clients(void)
 }
 
 /* Build the file descriptor set for select(...) */
-void eemo_mux_build_fd_set(fd_set* select_socks, const int sensor_server_socket, const int client_server_socket)
+static void eemo_mux_build_fd_set(fd_set* select_socks, const int sensor_server_socket, const int client_server_socket, int* max_fd)
 {
+	assert(max_fd != NULL);
+	assert(select_socks != NULL);
+
 	sensor_spec*	sensor_it 	= NULL;
 	client_spec* 	client_it 	= NULL;
+	int		local_max_fd	= -1;
 	
 	FD_ZERO(select_socks);
 
 	/* Add sensor and client server sockets */
 	FD_SET(sensor_server_socket, select_socks);
+	local_max_fd = (sensor_server_socket > local_max_fd) ? sensor_server_socket : local_max_fd;
+
 	FD_SET(client_server_socket, select_socks);
+	local_max_fd = (client_server_socket > local_max_fd) ? client_server_socket : local_max_fd;
 	
 	/* Add sensor data sockets */
 	LL_FOREACH(sensors, sensor_it)
 	{
 		FD_SET(sensor_it->socket, select_socks);
+		local_max_fd = (sensor_it->socket > local_max_fd) ? sensor_it->socket : local_max_fd;
 	}
 	
 	/* Add client data sockets */
 	LL_FOREACH(clients, client_it)
 	{
 		FD_SET(client_it->socket, select_socks);
+		local_max_fd = (client_it->socket > local_max_fd) ? client_it->socket : local_max_fd;
 	}
+
+	*max_fd = local_max_fd + 1;
 }
 
 /* Main communications loop */
@@ -1405,6 +1416,7 @@ void eemo_mux_comm_loop(void)
 	client_spec*	client_it		= NULL;
 	client_spec*	client_tmp		= NULL;
 	fd_set		select_socks;
+	int		max_fd			= 0;
 	
 	/* Set up sensor server socket */
 	sensor_server_socket = eemo_mux_setup_sensor_socket();
@@ -1435,9 +1447,9 @@ void eemo_mux_comm_loop(void)
 	{
 		struct timeval timeout = { 1, 0 }; /* 1 second */
 		
-		eemo_mux_build_fd_set(&select_socks, sensor_server_socket, client_server_socket);	
+		eemo_mux_build_fd_set(&select_socks, sensor_server_socket, client_server_socket, &max_fd);	
 		
-		int rv = select(FD_SETSIZE, &select_socks, NULL, NULL, &timeout);
+		int rv = select(max_fd, &select_socks, NULL, NULL, &timeout);
 		
 		if (rv < 0)
 		{
@@ -1461,8 +1473,9 @@ void eemo_mux_comm_loop(void)
 		{
 			/* New sensor */
 			eemo_mux_new_sensor(sensor_server_socket);
-			
-			rv--;
+		
+			/* The set of file descriptors has been altered! */
+			continue;
 		}
 		
 		if (rv && FD_ISSET(client_server_socket, &select_socks))
@@ -1470,7 +1483,8 @@ void eemo_mux_comm_loop(void)
 			/* New client */
 			eemo_mux_new_client(client_server_socket);
 			
-			rv--;
+			/* The set of file descriptors has been altered! */
+			continue;
 		}
 		
 		if (rv) LL_FOREACH_SAFE(sensors, sensor_it, sensor_tmp)
