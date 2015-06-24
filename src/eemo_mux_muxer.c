@@ -844,7 +844,7 @@ static eemo_rv eemo_mux_handle_client_packet(const int socket)
 							new_subs->id = sensor_it->id;
 							LL_APPEND(client_it->subscriptions, new_subs);
 
-							INFO_MSG("Client from %s subscribed to feed %s (\"%s\") from sensor %d", client_it->ip_str, subs_guid, sensor_it->feed_desc, sensor_it->id);
+							INFO_MSG("Client from %s subscribed to feed %s from sensor %d (%s)", client_it->ip_str, subs_guid, sensor_it->id, sensor_it->ip_str);
 	
 							result = MUX_SUBS_RES_OK;
 							break;
