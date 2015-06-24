@@ -219,6 +219,8 @@ eemo_rv eemo_cq_enqueue(client_queue* q, eemo_mux_pkt* pkt)
 
 			assert(dequeue != NULL);
 		}
+
+		q->q_len--;
 	}
 	else if ((q->q_overflow) && (q->q_len < q->q_maxlen))
 	{

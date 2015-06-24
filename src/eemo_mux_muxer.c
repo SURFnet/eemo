@@ -829,7 +829,14 @@ static eemo_rv eemo_mux_handle_client_packet(const int socket)
 				{
 					LL_FOREACH_SAFE(sensors, sensor_it, sensor_tmp)
 					{
-						if (strcmp(sensor_it->feed_guid, subs_guid) == 0)
+						if (sensor_it->feed_guid == NULL)
+						{
+							WARNING_MSG("Skipping sensor that has not yet registered");
+
+							continue;
+						}
+
+						if (strcasecmp(sensor_it->feed_guid, subs_guid) == 0)
 						{
 							client_subs*	new_subs	= (client_subs*) malloc(sizeof(client_subs));
 	
