@@ -670,5 +670,9 @@ errorcond:
 	signal(SIGINT, SIG_DFL);
 	signal(SIGHUP, SIG_DFL);
 	signal(SIGTERM, SIG_DFL);
+
+	/* Log final tally */
+	INFO_MSG("Captured %llu packets %llu of which were handled by a plug-in", pkt_count, pkt_handled);
+	INFO_MSG("Received %llu bytes from the multiplexer", bytes_recv);
 }
 
