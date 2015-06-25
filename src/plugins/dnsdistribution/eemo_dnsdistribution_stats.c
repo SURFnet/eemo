@@ -110,7 +110,17 @@ static struct	ll_hashtable 	*ttl_table_DNSKEY	= NULL;
 static struct	ll_hashtable 	*ttl_table_RRSIG	= NULL;
 static struct	ll_hashtable 	*ttl_table_TXT		= NULL;
 static struct	ll_hashtable 	*ttl_table_MX		= NULL;
-static struct 	ll_hashtable *ttl_tables 		= NULL;
+static struct	ll_hashtable 	*ttl_changed_A		= NULL;
+static struct	ll_hashtable 	*ttl_changed_AAAA	= NULL;
+static struct	ll_hashtable 	*ttl_changed_PTR	= NULL;
+static struct	ll_hashtable 	*ttl_changed_NS		= NULL;
+static struct	ll_hashtable 	*ttl_changed_SOA	= NULL;
+static struct	ll_hashtable 	*ttl_changed_CNAME	= NULL;
+static struct	ll_hashtable 	*ttl_changed_DNSKEY	= NULL;
+static struct	ll_hashtable 	*ttl_changed_RRSIG	= NULL;
+static struct	ll_hashtable 	*ttl_changed_TXT	= NULL;
+static struct	ll_hashtable 	*ttl_changed_MX		= NULL;
+static struct 	ll_hashtable 	*ttl_tables 		= NULL;
 static struct	hashentry_ii *sigs_per_resp_table	= NULL;
 
 void init_var(void)
@@ -129,6 +139,16 @@ void init_var(void)
 	ttl_table_RRSIG		= ( struct ll_hashtable* ) malloc ( sizeof ( struct ll_hashtable) );
 	ttl_table_TXT		= ( struct ll_hashtable* ) malloc ( sizeof ( struct ll_hashtable) );
 	ttl_table_MX		= ( struct ll_hashtable* ) malloc ( sizeof ( struct ll_hashtable) );
+	ttl_changed_A  		= ( struct ll_hashtable* ) malloc ( sizeof ( struct ll_hashtable) );
+	ttl_changed_AAAA  	= ( struct ll_hashtable* ) malloc ( sizeof ( struct ll_hashtable) );
+	ttl_changed_PTR  	= ( struct ll_hashtable* ) malloc ( sizeof ( struct ll_hashtable) );
+	ttl_changed_NS  	= ( struct ll_hashtable* ) malloc ( sizeof ( struct ll_hashtable) );
+	ttl_changed_SOA		= ( struct ll_hashtable* ) malloc ( sizeof ( struct ll_hashtable) );
+	ttl_changed_CNAME	= ( struct ll_hashtable* ) malloc ( sizeof ( struct ll_hashtable) );
+	ttl_changed_DNSKEY	= ( struct ll_hashtable* ) malloc ( sizeof ( struct ll_hashtable) );
+	ttl_changed_RRSIG	= ( struct ll_hashtable* ) malloc ( sizeof ( struct ll_hashtable) );
+	ttl_changed_TXT		= ( struct ll_hashtable* ) malloc ( sizeof ( struct ll_hashtable) );
+	ttl_changed_MX		= ( struct ll_hashtable* ) malloc ( sizeof ( struct ll_hashtable) );
 	ttl_table_ALL->tag	= "ALL";
 	ttl_table_A->tag	= "A";
 	ttl_table_AAAA->tag	= "AAAA";
@@ -140,6 +160,16 @@ void init_var(void)
 	ttl_table_RRSIG->tag	= "RRSIG";
 	ttl_table_TXT->tag	= "TXT";
 	ttl_table_MX->tag	= "MX";
+	ttl_changed_A->tag	= "CHANGED.A";
+	ttl_changed_AAAA->tag	= "CHANGED.AAAA";
+	ttl_changed_PTR->tag	= "CHANGED.PTR";
+	ttl_changed_NS->tag	= "CHANGED.NS";
+	ttl_changed_SOA->tag	= "CHANGED.SOA";
+	ttl_changed_CNAME->tag	= "CHANGED.CNAME";
+	ttl_changed_DNSKEY->tag	= "CHANGED.DNSKEY";
+	ttl_changed_RRSIG->tag	= "CHANGED.RRSIG";
+	ttl_changed_TXT->tag	= "CHANGED.TXT";
+	ttl_changed_MX->tag	= "CHANGED.MX";
 	LL_APPEND(ttl_tables, ttl_table_ALL);
 	LL_APPEND(ttl_tables, ttl_table_A);
 	LL_APPEND(ttl_tables, ttl_table_AAAA);
@@ -151,6 +181,16 @@ void init_var(void)
 	LL_APPEND(ttl_tables, ttl_table_RRSIG);
 	LL_APPEND(ttl_tables, ttl_table_TXT);
 	LL_APPEND(ttl_tables, ttl_table_MX);
+	LL_APPEND(ttl_tables, ttl_changed_A);
+	LL_APPEND(ttl_tables, ttl_changed_AAAA);
+	LL_APPEND(ttl_tables, ttl_changed_PTR);
+	LL_APPEND(ttl_tables, ttl_changed_NS);
+	LL_APPEND(ttl_tables, ttl_changed_SOA);
+	LL_APPEND(ttl_tables, ttl_changed_CNAME);
+	LL_APPEND(ttl_tables, ttl_changed_DNSKEY);
+	LL_APPEND(ttl_tables, ttl_changed_RRSIG);
+	LL_APPEND(ttl_tables, ttl_changed_TXT);
+	LL_APPEND(ttl_tables, ttl_changed_MX);
 	
 	LL_FOREACH(ttl_tables, s)
 	{	
@@ -177,6 +217,7 @@ void init_var(void)
 void free_var(void)
 {
 	struct hashentry_si *s 		= NULL; /* Temporary struct for iteration */
+						/* For now, we dont care if the TTL value is changed twice within our time span, so no else statement */
 	struct hashentry_si *tmp 	= NULL; /* Temporary struct for iteration */
 	struct ll_hashtable *ttl_table  = NULL;
 	struct hashentry_ii *s_ii	= NULL;
@@ -231,6 +272,7 @@ int sort_on_key_ascending(struct hashentry_ii* a, struct hashentry_ii* b)
 /* Write statistics to file */
 void write_stats(void)
 {
+	INFO_MSG("Writing stats..");
 	int ln 				= 1;
 	stat_fp_general		 	= fopen(stat_file_general, "a");
 	stat_fp_qname_popularity 	= fopen(stat_file_qname_popularity, "a");
@@ -252,6 +294,7 @@ void write_stats(void)
 
 	if (stat_fp_general != NULL)
 	{
+		INFO_MSG("Writing general stats..");
 		/* passed time, queries, fragmented, truncated, truncated with sigs, responses, signatures, responses with signatures, chr*/
 		fprintf(stat_fp_general, "%.3f\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%0.2f\n", passed_time_total, nr_quer, nr_resp, nr_quer_out, nr_frag, nr_trun, nr_trun_with_sigs, nr_sigs, nr_resp_with_sigs, 100 - (((double) chr.RESPONSES/ (double) chr.QUERIES)*100));
 		fflush(stat_fp_general);
@@ -261,6 +304,7 @@ void write_stats(void)
 	/* Printing QNAME popularity statistics */
 	if (stat_fp_qname_popularity != NULL)
 	{		
+		INFO_MSG("Writing QNAME popularity stats..");
 		struct hashentry_si *s		= NULL;
 		struct hashentry_si *tmp 	= NULL;
 
@@ -277,10 +321,11 @@ void write_stats(void)
 		fflush(stat_fp_qname_popularity);
 		fclose(stat_fp_qname_popularity);
 	}
-	
+		
 	/* Printing TTL occurrences statistics */
 	LL_FOREACH(ttl_tables, ttl_table)
 	{
+		INFO_MSG("Writing TTL %s table stats..", ttl_table->tag);
 		char filepath[1024] = {0};
 		snprintf(filepath, 1024, "%s.%s", stat_file_ttl, ttl_table->tag);
 		FILE* stat_fp_ttl 		= fopen(filepath, "a");
@@ -313,7 +358,6 @@ void write_stats(void)
 				HASH_ADD_INT( ttl_table_cdf, key, d);	
 			}
 		}	
-		/* INFO_MSG("R: A total of %-6d unique RR sets (%-4d unique TTLs) were returned and stored in '%s'", total, HASH_COUNT(ttl_table_cdf), filepath); */
 
 		HASH_SORT( ttl_table_cdf, sort_on_key_ascending); 
 			
@@ -336,6 +380,7 @@ void write_stats(void)
 	/* Printing number of signatures per query statistics */
 	if (stat_fp_sigs_per_resp != NULL)
 	{
+		INFO_MSG("Writing signatures per query statistics..");
                 HASH_SORT( sigs_per_resp_table, sort_on_key_ascending);
 
 		struct hashentry_ii *s_ii	= NULL;
@@ -410,7 +455,7 @@ void eemo_dnsdistribution_stats_init(char* stats_file_general, char* stats_file_
 	if (stat_emit_interval > 0)
 	{
 		INFO_MSG("Emitting statistics every %d seconds", stat_emit_interval);
-		/* alarm(stat_emit_interval);*/
+		alarm(stat_emit_interval); 
 	}
 	else
 	{
@@ -420,9 +465,9 @@ void eemo_dnsdistribution_stats_init(char* stats_file_general, char* stats_file_
 	init_var();
 
 	/* Create empty output files */
-	fclose(fopen(stat_file_general, "w"));
+	/* fclose(fopen(stat_file_general, "w"));
 	fclose(fopen(stat_file_qname_popularity, "w"));
-	fclose(fopen(stat_file_sigs_per_resp, "w"));
+	fclose(fopen(stat_file_sigs_per_resp, "w"));*/
 	LL_FOREACH(ttl_tables, ttl_table)
 	{
 		char filepath[1024] = {0};
@@ -437,19 +482,16 @@ void eemo_dnsdistribution_stats_init(char* stats_file_general, char* stats_file_
 /* Uninitialise the DNS query counter module */
 void eemo_dnsdistribution_stats_uninit(eemo_conf_free_string_array_fn free_strings)
 {
+	INFO_MSG("Uninitialize DNS distribution plugin..");
 	struct hashentry_si *s 		= NULL; /* Temporary struct for iteration */
 	struct hashentry_si *tmp 	= NULL; /* Temporary struct for iteration */
 	struct ll_hashtable *ttl_table  = NULL;
 
 	/* Unregister signal handlers */
-	/* alarm(0); */
 	signal(SIGUSR1, SIG_DFL);
 	signal(SIGUSR2, SIG_DFL);
 	signal(SIGALRM, SIG_DFL);
 	
-	/* Write statistics */
-	/* write_stats(); */
-
 	/* Free memory of TTL hashtables */
 	LL_FOREACH(ttl_tables, ttl_table)
 	{
@@ -475,6 +517,7 @@ void eemo_dnsdistribution_stats_uninit(eemo_conf_free_string_array_fn free_strin
 	free(stat_file_general);
 	free(stat_file_qname_popularity);
 	free(stat_file_ttl);
+	free(stat_file_sigs_per_resp);
 }
 
 /* Handle DNS query packets and log the statistics */
@@ -525,9 +568,9 @@ eemo_rv eemo_dnsdistribution_stats_handleqr(eemo_ip_packet_info ip_info, int is_
 						sigs_in_resp++;
 					}
 
-					struct hashentry_si *s  = NULL;
-					/* Select the right hashtable */
-			
+					struct hashentry_si *s  = NULL; /* Search entry */
+
+					/* Select the right hashtable */			
 					switch( rr_it->type )
 					{
 					case DNS_QTYPE_A:
@@ -567,7 +610,7 @@ eemo_rv eemo_dnsdistribution_stats_handleqr(eemo_ip_packet_info ip_info, int is_
 					if (s == NULL)
 					{
 						/* Name was never received before: add to ttl_table, ignore otherwise */
-						struct hashentry_si *d = NULL;
+						struct hashentry_si *d = NULL; /* new entry */
 						d = ( struct hashentry_si* ) malloc ( sizeof ( struct hashentry_si ) );
 						d->name = strdup(rr_it->name);
 						d->value = rr_it->ttl;
@@ -609,6 +652,107 @@ eemo_rv eemo_dnsdistribution_stats_handleqr(eemo_ip_packet_info ip_info, int is_
 							free(d->name);
 							free(d);
 							break;
+						}
+					}
+					/* Name was received before, an entry should be placed in the corresponding CHANGED table if the TTL is changed */
+					else if (s->value != rr_it->ttl)
+					{
+						/* Check if the CHANGED table already contains an entry for the name/query type combination */
+						struct hashentry_si *t = NULL; /* search entry */
+
+						switch( rr_it->type )
+						{
+						case DNS_QTYPE_A:
+							HASH_FIND_STR ( ttl_changed_A->table, rr_it->name , t );
+							break;
+						case DNS_QTYPE_AAAA:
+							HASH_FIND_STR ( ttl_changed_AAAA->table, rr_it->name , t );
+							break;
+						case DNS_QTYPE_PTR:
+							HASH_FIND_STR ( ttl_changed_PTR->table, rr_it->name , t );
+							break;					
+						case DNS_QTYPE_NS:
+							HASH_FIND_STR ( ttl_changed_NS->table, rr_it->name , t );
+							break;					
+						case DNS_QTYPE_SOA:
+							HASH_FIND_STR ( ttl_changed_SOA->table, rr_it->name , t );
+							break;					
+						case DNS_QTYPE_CNAME:
+							HASH_FIND_STR ( ttl_changed_CNAME->table, rr_it->name , t );
+							break;					
+						case DNS_QTYPE_DNSKEY:
+							HASH_FIND_STR ( ttl_changed_DNSKEY->table, rr_it->name , t );
+							break;
+						case DNS_QTYPE_RRSIG:
+							HASH_FIND_STR ( ttl_changed_RRSIG->table, rr_it->name , t );
+							break;
+						case DNS_QTYPE_TXT:
+							HASH_FIND_STR ( ttl_changed_TXT->table, rr_it->name , t );
+							break;
+						case DNS_QTYPE_MX:
+							HASH_FIND_STR ( ttl_changed_MX->table, rr_it->name , t );
+							break;
+						default:
+							break;
+						}
+						
+						/* The CHANGED table does not contain an entry yet: add one */						
+						if ( t == NULL)
+						{
+							struct hashentry_si *d = NULL; /* new entry */
+							d = ( struct hashentry_si* ) malloc ( sizeof ( struct hashentry_si ) );
+							d->name = strdup(rr_it->name);
+							/* Add the largest value in the CHANGED table */
+							if ( rr_it->ttl < s->value )
+							{
+								s->value = rr_it->ttl;
+							}
+							d->value = 1;
+
+							switch( rr_it->type )
+							{
+							case DNS_QTYPE_A:
+								HASH_ADD_KEYPTR ( hh, ttl_changed_A->table, d->name, strlen ( d->name ), d );
+								break;
+							case DNS_QTYPE_AAAA:
+								HASH_ADD_KEYPTR ( hh, ttl_changed_AAAA->table, d->name, strlen ( d->name ), d );
+								break;
+							case DNS_QTYPE_PTR:
+								HASH_ADD_KEYPTR ( hh, ttl_changed_PTR->table, d->name, strlen ( d->name ), d );
+								break;
+							case DNS_QTYPE_NS:
+								HASH_ADD_KEYPTR ( hh, ttl_changed_NS->table, d->name, strlen ( d->name ), d );
+								break;
+							case DNS_QTYPE_SOA:
+								HASH_ADD_KEYPTR ( hh, ttl_changed_SOA->table, d->name, strlen ( d->name ), d );
+								break;
+							case DNS_QTYPE_CNAME:
+								HASH_ADD_KEYPTR ( hh, ttl_changed_CNAME->table, d->name, strlen ( d->name ), d );
+								break;
+							case DNS_QTYPE_DNSKEY:
+								HASH_ADD_KEYPTR ( hh, ttl_changed_DNSKEY->table, d->name, strlen ( d->name ), d );
+								break;
+							case DNS_QTYPE_RRSIG:
+								HASH_ADD_KEYPTR ( hh, ttl_changed_RRSIG->table, d->name, strlen ( d->name ), d );
+								break;
+							case DNS_QTYPE_TXT:
+								HASH_ADD_KEYPTR ( hh, ttl_changed_TXT->table, d->name, strlen ( d->name ), d );
+								break;
+							case DNS_QTYPE_MX:
+								HASH_ADD_KEYPTR ( hh, ttl_changed_MX->table, d->name, strlen ( d->name ), d );
+								break;
+							default:
+								/* We do not want to collect stats for response types for which no hashtable exist, so the entry is removed */
+								free(d->name);
+								free(d);
+								break;
+							}
+						}
+						/* For now, we dont care if the TTL value is changed twice within our time span, so no else statement */
+						else
+						{
+							/* INFO_MSG("Second time TTL is changed - ignored"); */								
+							t->value++;
 						}
 					}
 
