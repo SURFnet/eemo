@@ -47,6 +47,11 @@ define([EEMO_UDPREXMIT_CURRENT], [1])
 define([EEMO_UDPREXMIT_REVISION], [0])
 define([EEMO_UDPREXMIT_AGE], [0])
 
+# EDNS0 client subnet monitoring plugin
+define([EEMO_ECSMONITOR_CURRENT], [1])
+define([EEMO_ECSMONITOR_REVISION], [0])
+define([EEMO_ECSMONITOR_AGE], [0])
+
 ################################################################################
 # Configuration functions                                                      #
 ################################################################################
@@ -73,6 +78,8 @@ EEMO_DNSSENSORFW_VERSION_INFO="EEMO_DNSSENSORFW_CURRENT:EEMO_DNSSENSORFW_REVISIO
 AC_SUBST(EEMO_DNSSENSORFW_VERSION_INFO)
 EEMO_UDPREXMIT_VERSION_INFO="EEMO_UDPREXMIT_CURRENT:EEMO_UDPREXMIT_REVISION:EEMO_UDPREXMIT_AGE"
 AC_SUBST(EEMO_UDPREXMIT_VERSION_INFO)
+EEMO_ECSMONITOR_VERSION_INFO="EEMO_ECSMONITOR_CURRENT:EEMO_ECSMONITOR_REVISION:EEMO_ECSMONITOR_AGE"
+AC_SUBST(EEMO_ECSMONITOR_VERSION_INFO)
 
 # Checks for compilers and other programs
 AC_PROG_CC_C99
@@ -200,6 +207,7 @@ AC_CONFIG_FILES([
 	src/plugins/icmpfragmon/Makefile
 	src/plugins/dnsqrlog/Makefile
 	src/plugins/udprexmit/Makefile
+	src/plugins/ecsmonitor/Makefile
 	config/Makefile
 	scripts/Makefile
 ])
