@@ -41,9 +41,10 @@
 #include <ctype.h>
 #include "dns_parser.h"
 #include "eemo_log.h"
+#include "ip_metadata.h"
 
-/* #define DNS_PARSE_DEBUG */ /* define to enable extensive debug logging of DNS parsing */
-#undef DNS_PARSE_DEBUG
+#define DNS_PARSE_DEBUG /* define to enable extensive debug logging of DNS parsing */
+/* #undef DNS_PARSE_DEBUG */
 
 #ifdef DNS_PARSE_DEBUG
 	#define PARSE_MSG(...) eemo_log(EEMO_LOG_DEBUG  , __FILE__, __LINE__, __VA_ARGS__);
@@ -879,6 +880,18 @@ eemo_rv eemo_parse_dns_rrs(eemo_packet_buf* packet, eemo_dns_packet* dns_packet,
 									}
 									else
 									{
+										/* Finally, perform IP-to-AS and Geo IP lookup */
+										if (addr_family == AF_INET)
+										{
+											eemo_md_lookup_as_v4((struct in_addr*) &addr, &dns_packet->edns0_client_subnet_as_short, &dns_packet->edns0_client_subnet_as_full);
+											eemo_md_lookup_geoip_v4((struct in_addr*) &addr, &dns_packet->edns0_client_subnet_geo_ip);
+										}
+										else
+										{
+											eemo_md_lookup_as_v6((struct in6_addr*) &addr, &dns_packet->edns0_client_subnet_as_short, &dns_packet->edns0_client_subnet_as_full);
+											eemo_md_lookup_geoip_v6((struct in6_addr*) &addr, &dns_packet->edns0_client_subnet_geo_ip);
+										}
+
 										dns_packet->has_edns0_client_subnet = 1;
 									}
 								}
@@ -914,7 +927,7 @@ eemo_rv eemo_parse_dns_rrs(eemo_packet_buf* packet, eemo_dns_packet* dns_packet,
 
 			if (dns_packet->has_edns0_client_subnet)
 			{
-				PARSE_MSG("EDNS0 client subnet option scoped to %s/%u", dns_packet->edns0_client_subnet_ip, dns_packet->qr_flag ? dns_packet->edns0_client_subnet_res_scope : dns_packet->edns0_client_subnet_src_scope);
+				PARSE_MSG("EDNS0 client subnet option scoped to %s/%u (%s,%s,%s)", dns_packet->edns0_client_subnet_ip, dns_packet->qr_flag ? dns_packet->edns0_client_subnet_res_scope : dns_packet->edns0_client_subnet_src_scope, dns_packet->edns0_client_subnet_as_short, dns_packet->edns0_client_subnet_as_full, dns_packet->edns0_client_subnet_geo_ip);
 			}
 		}
 
@@ -953,6 +966,9 @@ eemo_rv eemo_parse_dns_packet(eemo_packet_buf* packet, eemo_dns_packet* dns_pack
 	dns_packet->edns0_client_subnet_res_scope	= 0;
 	memset(dns_packet->edns0_client_subnet_ip, 0, sizeof(dns_packet->edns0_client_subnet_ip));
 	dns_packet->has_edns0_exp_opt			= 0;
+	dns_packet->edns0_client_subnet_as_short	= NULL;
+	dns_packet->edns0_client_subnet_as_full		= NULL;
+	dns_packet->edns0_client_subnet_geo_ip		= NULL;
 
 	/* Check if we need to parse at all */
 	if (parser_flags == PARSE_NONE)
@@ -1108,5 +1124,9 @@ void eemo_free_dns_packet(eemo_dns_packet* dns_packet)
 	eemo_free_dns_rr_list(&dns_packet->additionals);
 
 	dns_packet->is_valid = 0;
+
+	free(dns_packet->edns0_client_subnet_as_short);
+	free(dns_packet->edns0_client_subnet_as_full);
+	free(dns_packet->edns0_client_subnet_geo_ip);
 }
 

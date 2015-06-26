@@ -1,7 +1,6 @@
-/* $Id$ */
-
 /*
- * Copyright (c) 2010-2012 SURFnet bv
+ * Copyright (c) 2010-2015 SURFnet bv
+ * Copyright (c) 2015 Roland van Rijswijk-Deij
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -113,6 +112,12 @@ typedef struct
 	}		dst_addr;		/* binary destination address */
 	u_char		ttl;			/* time-to-live (or hop limit for v6) */
 	struct timeval	ts;			/* capture timestamp */
+	char*		src_as_short;		/* Short AS for source IP */
+	char*		src_as_full;		/* Full AS for source IP */
+	char*		src_geo_ip;		/* Geo IP info for source IP */
+	char*		dst_as_short;		/* Short AS for destination IP */
+	char*		dst_as_full;		/* Full AS for destination IP */
+	char*		dst_geo_ip;		/* Geo IP info for destination IP */
 }
 eemo_ip_packet_info;
 

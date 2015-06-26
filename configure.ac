@@ -102,7 +102,7 @@ ACX_PTHREAD
 PKG_CHECK_MODULES([OPENSSL], [openssl >= 1.0.1],, AC_MSG_ERROR([OpenSSL 1.0.1 or newer not found]))
 AX_LIB_SQLITE3(3.7.0)
 
-AM_COND_IF([WITH_SQLITE3], ,AC_MSG_WARN([Not building modules that depend on SQLite!]))
+AM_COND_IF([WITH_SQLITE3], ,AC_MSG_WARN([Not building IP-to-AS or GeoIP support since these depend on SQLite!]))
 
 # Check for headers
 AC_CHECK_HEADERS([pcap.h])

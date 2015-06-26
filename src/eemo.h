@@ -76,6 +76,7 @@ typedef unsigned long eemo_rv;
 #define ERV_CONFIG_NO_ARRAY	0x8000000F	/* The requested configuration item is not an array */
 #define ERV_CONFIG_NO_STRING	0x80000010	/* The requested configuration item is not a string */
 #define ERV_MODULE_INIT_FAIL	0x80000011	/* The module failed to initialise (see log) */
+#define ERV_MDDB_ERROR		0x80000012	/* An error occurred while querying one of the metadata databases */
 
 /* Sensor/multiplexer messages */
 #define ERV_MUXCONN_ERROR	0x80003000	/* An error occurred while establishing a connection with the multiplexer */
