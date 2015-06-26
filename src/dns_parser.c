@@ -887,6 +887,10 @@ eemo_rv eemo_parse_dns_rrs(eemo_packet_buf* packet, eemo_dns_packet* dns_packet,
 						else if (opt_code > 65000)
 						{
 							dns_packet->has_edns0_exp_opt = 1;
+
+							/* Skip over the option data */
+							rdata_ofs += opt_len;
+							rdata_len_rem -= opt_len;
 						}
 						else
 						{
