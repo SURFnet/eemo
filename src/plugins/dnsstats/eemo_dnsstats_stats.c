@@ -1,7 +1,6 @@
-/* $Id$ */
-
 /*
- * Copyright (c) 2010-2011 SURFnet bv
+ * Copyright (c) 2010-2015 SURFnet bv
+ * Copyright (c) 2015 Roland van Rijswijk-Deij
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -198,6 +197,8 @@ struct
 	unsigned long long EDNS0_ABOVE_4500;
 	unsigned long long EDNS0_DO_SET;
 	unsigned long long EDNS0_DO_UNSET;
+	unsigned long long EDNS0_W_ECS;
+	unsigned long long EDNS0_WO_ECS;
 }
 edns0_ctr;
 
@@ -222,6 +223,7 @@ rsize_ctr;
 struct
 {
 	unsigned long long RCODE_NOERROR;
+	unsigned long long RCODE_NODATA;
 	unsigned long long RCODE_FORMERR;
 	unsigned long long RCODE_SERVFAIL;
 	unsigned long long RCODE_NXDOMAIN;
@@ -275,6 +277,8 @@ void write_stats(void)
 	unsigned long long EDNS0_PCT_GT_4500	= 0;
 	unsigned long long EDNS0_PCT_DO_SET	= 0;
 	unsigned long long EDNS0_PCT_DO_UNSET	= 0;
+	unsigned long long EDNS0_PCT_WO_ECS	= 0;
+	unsigned long long EDNS0_PCT_W_ECS	= 0;
 	unsigned long long QUERY_TOTAL		= 0;
 	unsigned long long R_FRAG_PCT		= 0;
 	unsigned long long R_UNFRAG_PCT		= 0;
@@ -334,6 +338,8 @@ void write_stats(void)
 			EDNS0_PCT_GT_4500	= (edns0_ctr.EDNS0_ABOVE_4500 * 100)	/ EDNS0_TOTAL;
 			EDNS0_PCT_DO_SET	= (edns0_ctr.EDNS0_DO_SET * 100)	/ EDNS0_TOTAL;
 			EDNS0_PCT_DO_UNSET	= (edns0_ctr.EDNS0_DO_UNSET * 100)	/ EDNS0_TOTAL;
+			EDNS0_PCT_W_ECS		= (edns0_ctr.EDNS0_W_ECS * 100)		/ EDNS0_TOTAL;
+			EDNS0_PCT_WO_ECS	= (edns0_ctr.EDNS0_WO_ECS * 100)	/ EDNS0_TOTAL;
 		}
 
 		/* Calculate fragmentation percentages */
@@ -431,6 +437,8 @@ void write_stats(void)
 		"edns0_ctr_EDNS0_ABOVE_4500:%llu "
 		"edns0_ctr_EDNS0_DO_SET:%llu "
 		"edns0_ctr_EDNS0_DO_UNSET:%llu "
+		"edns0_ctr_EDNS0_WO_ECS:%llu "
+		"edns0_ctr_EDNS0_W_ECS:%llu "
 		"EDNS0_TOTAL:%llu "
 		"EDNS0_PCT_ON:%llu "
 		"EDNS0_PCT_OFF:%llu "
@@ -446,6 +454,8 @@ void write_stats(void)
 		"EDNS0_PCT_GT_4500:%llu "
 		"EDNS0_PCT_DO_SET:%llu "
 		"EDNS0_PCT_DO_UNSET:%llu "
+		"EDNS0_PCT_WO_ECS:%llu "
+		"EDNS0_PCT_W_ECS:%llu "
 		"QUERY_TOTAL:%llu "
 		"rclass_ctr_UNSPECIFIED:%llu "
 		"rclass_ctr_IN:%llu "
@@ -506,6 +516,7 @@ void write_stats(void)
 		"RSIZE_TOTAL:%llu "
 		"RSIZE_COUNTED:%llu "
 		"RCODE_NOERROR:%llu "
+		"RCODE_NODATA:%llu "
 		"RCODE_FORMERR:%llu "
 		"RCODE_SERVFAIL:%llu "
 		"RCODE_NXDOMAIN:%llu "
@@ -593,6 +604,8 @@ void write_stats(void)
 		edns0_ctr.EDNS0_ABOVE_4500,
 		edns0_ctr.EDNS0_DO_SET,
 		edns0_ctr.EDNS0_DO_UNSET,
+		edns0_ctr.EDNS0_WO_ECS,
+		edns0_ctr.EDNS0_W_ECS,
 		EDNS0_TOTAL, 
 		EDNS0_PCT_ON, 
 		EDNS0_PCT_OFF, 
@@ -608,6 +621,8 @@ void write_stats(void)
 		EDNS0_PCT_GT_4500, 
 		EDNS0_PCT_DO_SET, 
 		EDNS0_PCT_DO_UNSET, 
+		EDNS0_PCT_WO_ECS,
+		EDNS0_PCT_W_ECS,
 		QUERY_TOTAL,
 		rclass_ctr.UNSPECIFIED,
 		rclass_ctr.IN,
@@ -668,6 +683,7 @@ void write_stats(void)
 		rsize_ctr.RSIZE_TOTAL,
 		rsize_ctr.RSIZE_COUNTED,
 		rcode_ctr.RCODE_NOERROR,
+		rcode_ctr.RCODE_NODATA,
 		rcode_ctr.RCODE_FORMERR,
 		rcode_ctr.RCODE_SERVFAIL,
 		rcode_ctr.RCODE_NXDOMAIN,
@@ -836,8 +852,6 @@ eemo_rv eemo_dnsstats_stats_handleqr(eemo_ip_packet_info ip_info, int is_tcp, co
 	int i = 0;
 	eemo_dns_query* query_it = NULL;
 	eemo_dns_rr* answer_it = NULL;
-	eemo_dns_rr* rr_it = NULL;
-	int edns0 = 0;
 
 	if (dns_packet->qr_flag)
 	{
@@ -1037,7 +1051,14 @@ eemo_rv eemo_dnsstats_stats_handleqr(eemo_ip_packet_info ip_info, int is_tcp, co
 		switch (dns_packet->rcode)
 		{
 		case DNS_RCODE_NOERROR:
-			rcode_ctr.RCODE_NOERROR++;
+			if (dns_packet->answers == NULL)
+			{
+				rcode_ctr.RCODE_NODATA++;
+			}
+			else
+			{
+				rcode_ctr.RCODE_NOERROR++;
+			}
 			break;
 		case DNS_RCODE_FORMERR:
 			rcode_ctr.RCODE_FORMERR++;
@@ -1292,74 +1313,73 @@ eemo_rv eemo_dnsstats_stats_handleqr(eemo_ip_packet_info ip_info, int is_tcp, co
 		}
 	
 		/* Log EDNS0 data */
-		LL_FOREACH(dns_packet->additionals, rr_it)
+		if (dns_packet->has_edns0)
 		{
-			if (rr_it->type == DNS_QTYPE_OPT)
+			if (dns_packet->edns0_do)
 			{
-				/* Found the OPT RR */
-				edns0 = 1;
-	
-				/* Log DO bit setting */
-				if (EDNS0_DO_SET(rr_it))
-				{
-					edns0_ctr.EDNS0_DO_SET++;
-				}
-				else
-				{
-					edns0_ctr.EDNS0_DO_UNSET++;
-				}
-	
-				/* Log EDNS0 buffer size */
-				if (EDNS0_BUFSIZE(rr_it) < 512)
-				{
-					edns0_ctr.EDNS0_BELOW_512++;
-				}
-				else if ((EDNS0_BUFSIZE(rr_it) >= 512) && (EDNS0_BUFSIZE(rr_it) < 1000))
-				{
-					edns0_ctr.EDNS0_512_TO_999++;
-				}
-				else if ((EDNS0_BUFSIZE(rr_it) >= 1000) && (EDNS0_BUFSIZE(rr_it) < 1500))
-				{
-					edns0_ctr.EDNS0_1000_TO_1499++;
-				}
-				else if ((EDNS0_BUFSIZE(rr_it) >= 1500) && (EDNS0_BUFSIZE(rr_it) < 2000))
-				{
-					edns0_ctr.EDNS0_1500_TO_1999++;
-				}
-				else if ((EDNS0_BUFSIZE(rr_it) >= 2000) && (EDNS0_BUFSIZE(rr_it) < 2500))
-				{
-					edns0_ctr.EDNS0_2000_TO_2499++;
-				}
-				else if ((EDNS0_BUFSIZE(rr_it) >= 2500) && (EDNS0_BUFSIZE(rr_it) < 3000))
-				{
-					edns0_ctr.EDNS0_2500_TO_2999++;
-				}
-				else if ((EDNS0_BUFSIZE(rr_it) >= 3000) && (EDNS0_BUFSIZE(rr_it) < 3500))
-				{
-					edns0_ctr.EDNS0_3000_TO_3499++;
-				}
-				else if ((EDNS0_BUFSIZE(rr_it) >= 3500) && (EDNS0_BUFSIZE(rr_it) < 4000))
-				{
-					edns0_ctr.EDNS0_3500_TO_3999++;
-				}
-				else if ((EDNS0_BUFSIZE(rr_it) >= 4000) && (EDNS0_BUFSIZE(rr_it) < 4500))
-				{
-					edns0_ctr.EDNS0_4000_TO_4499++;
-				}
-				else
-				{
-					edns0_ctr.EDNS0_ABOVE_4500++;
-				}
-	
-				break;
+				edns0_ctr.EDNS0_DO_SET++;
+			}
+			else
+			{
+				edns0_ctr.EDNS0_DO_UNSET++;
+			}
+
+			/* Log EDNS0 buffer size */
+			if (dns_packet->edns0_max_size < 512)
+			{
+				edns0_ctr.EDNS0_BELOW_512++;
+			}
+			else if ((dns_packet->edns0_max_size >= 512) && (dns_packet->edns0_max_size < 1000))
+			{
+				edns0_ctr.EDNS0_512_TO_999++;
+			}
+			else if ((dns_packet->edns0_max_size >= 1000) && (dns_packet->edns0_max_size < 1500))
+			{
+				edns0_ctr.EDNS0_1000_TO_1499++;
+			}
+			else if ((dns_packet->edns0_max_size >= 1500) && (dns_packet->edns0_max_size < 2000))
+			{
+				edns0_ctr.EDNS0_1500_TO_1999++;
+			}
+			else if ((dns_packet->edns0_max_size >= 2000) && (dns_packet->edns0_max_size < 2500))
+			{
+				edns0_ctr.EDNS0_2000_TO_2499++;
+			}
+			else if ((dns_packet->edns0_max_size >= 2500) && (dns_packet->edns0_max_size < 3000))
+			{
+				edns0_ctr.EDNS0_2500_TO_2999++;
+			}
+			else if ((dns_packet->edns0_max_size >= 3000) && (dns_packet->edns0_max_size < 3500))
+			{
+				edns0_ctr.EDNS0_3000_TO_3499++;
+			}
+			else if ((dns_packet->edns0_max_size >= 3500) && (dns_packet->edns0_max_size < 4000))
+			{
+				edns0_ctr.EDNS0_3500_TO_3999++;
+			}
+			else if ((dns_packet->edns0_max_size >= 4000) && (dns_packet->edns0_max_size < 4500))
+			{
+				edns0_ctr.EDNS0_4000_TO_4499++;
+			}
+			else
+			{
+				edns0_ctr.EDNS0_ABOVE_4500++;
+			}
+
+			if (dns_packet->has_edns0_client_subnet)
+			{
+				edns0_ctr.EDNS0_W_ECS++;
+			}
+			else
+			{
+				edns0_ctr.EDNS0_WO_ECS++;
 			}
 		}
-	
-		if (!edns0)
+		else
 		{
 			edns0_ctr.EDNS0_NO++;
 		}
-	
+
 		/* Log IP type */
 		switch(ip_info.ip_type)
 		{
