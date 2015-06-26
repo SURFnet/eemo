@@ -884,6 +884,10 @@ eemo_rv eemo_parse_dns_rrs(eemo_packet_buf* packet, eemo_dns_packet* dns_packet,
 								}
 							}
 						}
+						else if (opt_code > 65000)
+						{
+							dns_packet->has_edns0_exp_opt = 1;
+						}
 						else
 						{
 							WARNING_MSG("Unrecognised EDNS0 option %u", opt_code);
@@ -944,6 +948,7 @@ eemo_rv eemo_parse_dns_packet(eemo_packet_buf* packet, eemo_dns_packet* dns_pack
 	dns_packet->edns0_client_subnet_src_scope	= 0;
 	dns_packet->edns0_client_subnet_res_scope	= 0;
 	memset(dns_packet->edns0_client_subnet_ip, 0, sizeof(dns_packet->edns0_client_subnet_ip));
+	dns_packet->has_edns0_exp_opt			= 0;
 
 	/* Check if we need to parse at all */
 	if (parser_flags == PARSE_NONE)

@@ -118,6 +118,7 @@ typedef struct eemo_dns_packet
 	int			edns0_client_subnet_src_scope;
 	int			edns0_client_subnet_res_scope;
 	char			edns0_client_subnet_ip[INET6_ADDRSTRLEN];
+	int			has_edns0_exp_opt;
 }
 eemo_dns_packet;
 

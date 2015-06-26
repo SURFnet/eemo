@@ -199,6 +199,7 @@ struct
 	unsigned long long EDNS0_DO_UNSET;
 	unsigned long long EDNS0_W_ECS;
 	unsigned long long EDNS0_WO_ECS;
+	unsigned long long EDNS0_EXP_OPT;
 }
 edns0_ctr;
 
@@ -439,6 +440,7 @@ void write_stats(void)
 		"edns0_ctr_EDNS0_DO_UNSET:%llu "
 		"edns0_ctr_EDNS0_WO_ECS:%llu "
 		"edns0_ctr_EDNS0_W_ECS:%llu "
+		"edns0_ctr_EDNS0_EXP_OPT:%llu "
 		"EDNS0_TOTAL:%llu "
 		"EDNS0_PCT_ON:%llu "
 		"EDNS0_PCT_OFF:%llu "
@@ -606,6 +608,7 @@ void write_stats(void)
 		edns0_ctr.EDNS0_DO_UNSET,
 		edns0_ctr.EDNS0_WO_ECS,
 		edns0_ctr.EDNS0_W_ECS,
+		edns0_ctr.EDNS0_EXP_OPT,
 		EDNS0_TOTAL, 
 		EDNS0_PCT_ON, 
 		EDNS0_PCT_OFF, 
@@ -1373,6 +1376,11 @@ eemo_rv eemo_dnsstats_stats_handleqr(eemo_ip_packet_info ip_info, int is_tcp, co
 			else
 			{
 				edns0_ctr.EDNS0_WO_ECS++;
+			}
+
+			if (dns_packet->has_edns0_exp_opt)
+			{
+				edns0_ctr.EDNS0_EXP_OPT++;
 			}
 		}
 		else
