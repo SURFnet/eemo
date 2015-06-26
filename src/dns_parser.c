@@ -1,7 +1,6 @@
-/* $Id$ */
-
 /*
- * Copyright (c) 2010-2012 SURFnet bv
+ * Copyright (c) 2010-2015 SURFnet bv
+ * Copyright (c) 2015 Roland van Rijswijk-Deij
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -43,7 +42,7 @@
 #include "dns_parser.h"
 #include "eemo_log.h"
 
-/*#define DNS_PARSE_DEBUG*/ /* define to enable extensive debug logging of DNS parsing */
+/* #define DNS_PARSE_DEBUG */ /* define to enable extensive debug logging of DNS parsing */
 #undef DNS_PARSE_DEBUG
 
 #ifdef DNS_PARSE_DEBUG
@@ -648,6 +647,10 @@ eemo_rv eemo_parse_dns_rdata(eemo_packet_buf* packet, eemo_dns_rr* rr, unsigned 
 	case DNS_QTYPE_TXT:
 		rv = eemo_parse_dns_rr_txt(packet, rr, offset, rdata_len, parser_flags);
 		break;
+	case DNS_QTYPE_OPT:
+		/* Will be parsed lower down */
+		rv = eemo_copy_dns_rdata(packet, rr, offset, rdata_len);
+		break;
 	default:
 		PARSE_MSG("Unsupported or unparsed RR type %d", rr->type);
 		rv = eemo_copy_dns_rdata(packet, rr, offset, rdata_len);
@@ -665,7 +668,7 @@ eemo_rv eemo_parse_dns_rdata(eemo_packet_buf* packet, eemo_dns_rr* rr, unsigned 
 }
 
 /* Parse the resource records in a DNS packet */
-eemo_rv eemo_parse_dns_rrs(eemo_packet_buf* packet, eemo_dns_rr** rr_list, unsigned short count, unsigned long* offset, unsigned int parser_flags)
+eemo_rv eemo_parse_dns_rrs(eemo_packet_buf* packet, eemo_dns_packet* dns_packet, eemo_dns_rr** rr_list, unsigned short count, unsigned long* offset, unsigned int parser_flags)
 {
 	int i = 0;
 	eemo_rv rv = ERV_OK;
@@ -732,7 +735,179 @@ eemo_rv eemo_parse_dns_rrs(eemo_packet_buf* packet, eemo_dns_rr** rr_list, unsig
 			free(new_rr->name);
 			free(new_rr);
 
+			PARSE_MSG("Parsing of RDATA failed, aborting parsing");
+
 			return rv;
+		}
+		else
+		{
+			/* Check if it was an EDNS0 OPT RR */
+			if (new_rr->type == DNS_QTYPE_OPT)
+			{
+				if (dns_packet->has_edns0)
+				{
+					/* Hmm... this is fishy! */
+					WARNING_MSG("Multiple EDNS0 OPT RRs found in packet, retaining options from the last one");
+				}
+
+				/* The packet has an EDNS0 OPT RR */
+				dns_packet->has_edns0		= 1;
+
+				dns_packet->edns0_version	= EDNS0_VERSION(new_rr);
+				dns_packet->edns0_max_size 	= EDNS0_BUFSIZE(new_rr);
+				dns_packet->edns0_do		= EDNS0_DO_SET(new_rr);
+
+				/* Check if there are EDNS0 options present */
+				if (new_rr->rdata_len > 0)
+				{
+					unsigned short	rdata_ofs	= 0;
+					unsigned short	rdata_len_rem	= new_rr->rdata_len;
+					unsigned char*	rdata		= (unsigned char*) new_rr->rdata;
+
+					/* There are options, parse them */
+					while (rdata_len_rem >= 4)
+					{
+						unsigned short	opt_code	= 0;
+						unsigned short	opt_len		= 0;
+						
+						opt_code = ntohs(*((unsigned short*) &rdata[rdata_ofs]));
+						rdata_ofs += 2;
+
+						opt_len = ntohs(*((unsigned short*) &rdata[rdata_ofs]));
+						rdata_ofs += 2;
+
+						rdata_len_rem -= 4;
+						
+						/* Check if there is enough RDATA remaining */
+						if (rdata_len_rem < opt_len)
+						{
+							WARNING_MSG("Malformed EDNS0 OPT RDATA field; less RDATA remaining then the length specified in the option field");
+
+							break;
+						}
+
+						/* Check if we know the option type, and if so, parse it */
+						if (opt_code == EDNS0_OPT_CLIENT_SUBNET)
+						{
+							/* Check the length of the available data */
+							if (opt_len >= 4)
+							{
+								unsigned short	addr_family	= 0;
+								unsigned char	source_scope	= 0;
+								unsigned char	resp_scope	= 0;
+								unsigned char	addrlen		= 0;
+								unsigned short	addrbytes	= 0;
+
+								addr_family = ntohs(*((unsigned short*) &rdata[rdata_ofs]));
+								rdata_ofs += 2;
+
+								source_scope = rdata[rdata_ofs];
+								rdata_ofs++;
+
+								resp_scope = rdata[rdata_ofs];
+								rdata_ofs++;
+
+								rdata_len_rem -= 4;
+								opt_len -= 4;
+
+								dns_packet->edns0_client_subnet_src_scope = source_scope;
+								dns_packet->edns0_client_subnet_res_scope = resp_scope;
+
+								if (dns_packet->qr_flag)
+								{
+									addrlen = resp_scope;
+								}
+								else
+								{
+									addrlen = source_scope;
+
+									if (resp_scope != 0)
+									{
+										WARNING_MSG("EDNS0 client subnet response scope is not set to 0 in query (set to %u)", resp_scope);
+									}
+								}
+
+								switch(addr_family)
+								{
+								case 1:	/* AF_INET */
+									if (addrlen > 32)
+									{
+										WARNING_MSG("EDNS0 client subnet scope exceeds limit for IPv4 (%u)", addrlen);
+										addrlen = 32;
+									}
+									addr_family = AF_INET;
+									break;
+								case 2: /* AF_INET6 */
+									if (addrlen > 128)
+									{
+										WARNING_MSG("EDNS0 client subnet scope exceeds limit for IPv6 (%u)", addrlen);
+										addrlen = 128;
+									}
+									addr_family = AF_INET6;
+									break;
+								default:
+									WARNING_MSG("Unknown EDNS0 client subnet address family %u", addr_family);
+									break;
+								}
+
+								/* Nasty but effective... */
+								addrbytes = (addrlen + 7) / 8;
+
+								if (opt_len != addrbytes)
+								{
+									WARNING_MSG("Malformed EDNS0 client subnet partial IP, expected %u bytes, got %u bytes", addrbytes, opt_len);
+
+									rdata_ofs += opt_len;
+									rdata_len_rem -= opt_len;
+								}
+								else
+								{
+									unsigned char	addr[16]	= { 0 };
+									int		i		= 0;
+
+									for (i = 0; i < addrbytes; i++)
+									{
+										addr[i] = rdata[rdata_ofs];
+										rdata_ofs++;
+										rdata_len_rem--;
+									}
+
+									/* Convert to string */
+									if (inet_ntop(addr_family, addr, dns_packet->edns0_client_subnet_ip, INET6_ADDRSTRLEN) == NULL)
+									{
+										WARNING_MSG("Failed to convert EDNS0 client subnet partial IP to string");
+									}
+									else
+									{
+										dns_packet->has_edns0_client_subnet = 1;
+									}
+								}
+							}
+						}
+						else
+						{
+							WARNING_MSG("Unrecognised EDNS0 option %u", opt_code);
+
+							/* Skip over the option data */
+							rdata_ofs += opt_len;
+							rdata_len_rem -= opt_len;
+						}
+					}
+
+					if (rdata_len_rem != 0)
+					{
+						/* EDNS0 OPT RDATA was malformed! */
+						WARNING_MSG("Malformed EDNS0 OPT RDATA field");
+					}
+				}
+			}
+
+			PARSE_MSG("EDNS0 data present, version %d, maximum response size %u, DO=%u", dns_packet->edns0_version, dns_packet->edns0_max_size, dns_packet->edns0_do);
+
+			if (dns_packet->has_edns0_client_subnet)
+			{
+				PARSE_MSG("EDNS0 client subnet option scoped to %s/%u", dns_packet->edns0_client_subnet_ip, dns_packet->qr_flag ? dns_packet->edns0_client_subnet_res_scope : dns_packet->edns0_client_subnet_src_scope);
+			}
 		}
 
 		/* Skip over RDATA */
@@ -753,14 +928,22 @@ eemo_rv eemo_parse_dns_packet(eemo_packet_buf* packet, eemo_dns_packet* dns_pack
 	eemo_rv rv = ERV_OK;
 
 	/* Initialise parsed packet data */
-	dns_packet->is_valid 		= 0;
-	dns_packet->is_partial		= 1;
-	dns_packet->questions 		= NULL;
-	dns_packet->answers 		= NULL;
-	dns_packet->authorities		= NULL;
-	dns_packet->additionals		= NULL;
-	dns_packet->udp_len		= udp_len;
-	dns_packet->is_fragmented	= is_fragmented;
+	dns_packet->is_valid 				= 0;
+	dns_packet->is_partial				= 1;
+	dns_packet->questions 				= NULL;
+	dns_packet->answers 				= NULL;
+	dns_packet->authorities				= NULL;
+	dns_packet->additionals				= NULL;
+	dns_packet->udp_len				= udp_len;
+	dns_packet->is_fragmented			= is_fragmented;
+	dns_packet->has_edns0				= 0;
+	dns_packet->edns0_version			= 0;
+	dns_packet->edns0_max_size			= 0;
+	dns_packet->edns0_do				= 0;
+	dns_packet->has_edns0_client_subnet		= 0;
+	dns_packet->edns0_client_subnet_src_scope	= 0;
+	dns_packet->edns0_client_subnet_res_scope	= 0;
+	memset(dns_packet->edns0_client_subnet_ip, 0, sizeof(dns_packet->edns0_client_subnet_ip));
 
 	/* Check if we need to parse at all */
 	if (parser_flags == PARSE_NONE)
@@ -844,7 +1027,7 @@ eemo_rv eemo_parse_dns_packet(eemo_packet_buf* packet, eemo_dns_packet* dns_pack
 	/* Retrieve the answers from the packet */
 	PARSE_MSG("Answers:");
 
-	if ((rv = eemo_parse_dns_rrs(packet, &dns_packet->answers, hdr->dns_ancount, &ofs, parser_flags)) != ERV_OK)
+	if ((rv = eemo_parse_dns_rrs(packet, dns_packet, &dns_packet->answers, hdr->dns_ancount, &ofs, parser_flags)) != ERV_OK)
 	{
 		if (rv == ERV_PARTIAL)
 		{
@@ -859,7 +1042,7 @@ eemo_rv eemo_parse_dns_packet(eemo_packet_buf* packet, eemo_dns_packet* dns_pack
 	/* Retrieve the authorities from the packet */
 	PARSE_MSG("Authorities:");
 
-	if ((rv = eemo_parse_dns_rrs(packet, &dns_packet->authorities, hdr->dns_nscount, &ofs, parser_flags)) != ERV_OK)
+	if ((rv = eemo_parse_dns_rrs(packet, dns_packet, &dns_packet->authorities, hdr->dns_nscount, &ofs, parser_flags)) != ERV_OK)
 	{
 		if (rv == ERV_PARTIAL)
 		{
@@ -874,7 +1057,7 @@ eemo_rv eemo_parse_dns_packet(eemo_packet_buf* packet, eemo_dns_packet* dns_pack
 	/* Retrieve the additionals from the packet */
 	PARSE_MSG("Additional RRs:");
 
-	if ((rv = eemo_parse_dns_rrs(packet, &dns_packet->additionals, hdr->dns_arcount, &ofs, parser_flags)) != ERV_OK)
+	if ((rv = eemo_parse_dns_rrs(packet, dns_packet, &dns_packet->additionals, hdr->dns_arcount, &ofs, parser_flags)) != ERV_OK)
 	{
 		if (rv == ERV_PARTIAL)
 		{
