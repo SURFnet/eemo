@@ -100,6 +100,9 @@ ACX_PCAP
 PKG_CHECK_MODULES([LIBCONFIG], [libconfig >= 1.3.2],, AC_MSG_ERROR([libconfig 1.3.2 or newer not found]))
 ACX_PTHREAD
 PKG_CHECK_MODULES([OPENSSL], [openssl >= 1.0.1],, AC_MSG_ERROR([OpenSSL 1.0.1 or newer not found]))
+AX_LIB_SQLITE3(3.7.0)
+
+AM_COND_IF([WITH_SQLITE3], ,AC_MSG_WARN([Not building modules that depend on SQLite!]))
 
 # Check for headers
 AC_CHECK_HEADERS([pcap.h])
