@@ -52,6 +52,11 @@ define([EEMO_ECSMONITOR_CURRENT], [1])
 define([EEMO_ECSMONITOR_REVISION], [0])
 define([EEMO_ECSMONITOR_AGE], [0])
 
+# DNS statistics module for Zabbix
+define([EEMO_DNSZABBIX_CURRENT], [1])
+define([EEMO_DNSZABBIX_REVISION], [0])
+define([EEMO_DNSZABBIX_AGE], [0])
+
 ################################################################################
 # Configuration functions                                                      #
 ################################################################################
@@ -80,6 +85,8 @@ EEMO_UDPREXMIT_VERSION_INFO="EEMO_UDPREXMIT_CURRENT:EEMO_UDPREXMIT_REVISION:EEMO
 AC_SUBST(EEMO_UDPREXMIT_VERSION_INFO)
 EEMO_ECSMONITOR_VERSION_INFO="EEMO_ECSMONITOR_CURRENT:EEMO_ECSMONITOR_REVISION:EEMO_ECSMONITOR_AGE"
 AC_SUBST(EEMO_ECSMONITOR_VERSION_INFO)
+EEMO_DNSZABBIX_VERSION_INFO="EEMO_DNSZABBIX_CURRENT:EEMO_DNSZABBIX_REVISION:EEMO_DNSZABBIX_AGE"
+AC_SUBST(EEMO_DNSZABBIX_VERSION_INFO)
 
 # Checks for compilers and other programs
 AC_PROG_CC_C99
@@ -208,6 +215,7 @@ AC_CONFIG_FILES([
 	src/plugins/dnsqrlog/Makefile
 	src/plugins/udprexmit/Makefile
 	src/plugins/ecsmonitor/Makefile
+	src/plugins/dnszabbix/Makefile
 	config/Makefile
 	scripts/Makefile
 ])
