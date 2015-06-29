@@ -34,8 +34,8 @@
  * DNS statistics plug-in query counter code
  */
 
-#ifndef _EEMO_DNSSTATS_STATS_H
-#define _EEMO_DNSSTATS_STATS_H
+#ifndef _EEMO_DNSZABBIX_STATS_H
+#define _EEMO_DNSZABBIX_STATS_H
 
 #include "config.h"
 #include "eemo.h"
@@ -46,16 +46,16 @@
 #include "dns_types.h"
 
 /* Initialise the DNS query counter module */
-void eemo_dnsstats_stats_init(char** ips, int ip_count, int emit_interval, char* stats_file, int append_file, int reset);
+void eemo_dnszabbix_stats_init(char** ips, int ip_count, char* stats_file, char* zabbix_host);
 
 /* Uninitialise the DNS query counter module */
-void eemo_dnsstats_stats_uninit(eemo_conf_free_string_array_fn free_strings);
+void eemo_dnszabbix_stats_uninit(eemo_conf_free_string_array_fn free_strings);
 
 /* Handle DNS query packets and log the statistics */
-eemo_rv eemo_dnsstats_stats_handleqr(eemo_ip_packet_info ip_info, int is_tcp, const eemo_dns_packet* dns_packet);
+eemo_rv eemo_dnszabbix_stats_handleqr(eemo_ip_packet_info ip_info, int is_tcp, const eemo_dns_packet* dns_packet);
 
 /* Reset statistics */
-void eemo_dnsstats_stats_reset(void);
+void eemo_dnszabbix_stats_reset(void);
 
-#endif /* !_EEMO_DNSSTATS_STATS_H */
+#endif /* !_EEMO_DNSZABBIX_STATS_H */
 

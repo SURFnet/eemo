@@ -1,7 +1,6 @@
-/* $Id$ */
-
 /*
- * Copyright (c) 2010-2014 SURFnet bv
+ * Copyright (c) 2010-2015 SURFnet bv
+ * Copyright (c) 2015 Roland van Rijswijk-Deij
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -52,6 +51,7 @@
 #include "eemo_config.h"
 #include "eemo_modules.h"
 #include "eemo_log.h"
+#include "ip_metadata.h"
 
 void version(void)
 {
@@ -355,6 +355,14 @@ int main(int argc, char* argv[])
 	signal(SIGXCPU, signal_handler);
 	signal(SIGXFSZ, signal_handler);
 
+	/* Initialise metadata module */
+	if (eemo_md_init() != ERV_OK)
+	{
+		ERROR_MSG("Failed to initialise metadata module");
+
+		return ERV_GENERAL_ERROR;
+	}
+
 	/* Initialise packet handlers */
 	if (eemo_init_ether_handler() != ERV_OK)
 	{
@@ -425,6 +433,9 @@ int main(int argc, char* argv[])
 	eemo_icmp_handler_cleanup();
 	eemo_ip_handler_cleanup();
 	eemo_ether_handler_cleanup();
+
+	/* Uninitialise metadata handling */
+	eemo_md_finalize();
 
 	/* Unload the configuration */
 	if (eemo_uninit_config_handling() != ERV_OK)

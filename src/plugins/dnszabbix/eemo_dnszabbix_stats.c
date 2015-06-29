@@ -37,7 +37,7 @@
 #include "config.h"
 #include "eemo.h"
 #include "eemo_log.h"
-#include "eemo_dnsstats_stats.h"
+#include "eemo_dnszabbix_stats.h"
 #include <string.h>
 #include <stdlib.h>
 #include <signal.h>
@@ -252,10 +252,8 @@ rflags_ctr;
 /* Configuration */
 char** 	stat_ips 		= NULL;
 int 	stat_ipcount 		= 0;
-int	stat_emit_interval	= 0;
 char*	stat_file		= NULL;
-int	stat_append		= 0;
-int	stat_reset		= 1;
+char*	zabbix_host_id		= NULL;
 
 /* Statistics file */
 FILE*	stat_fp			= NULL;
@@ -263,468 +261,292 @@ FILE*	stat_fp			= NULL;
 /* Write statistics to file */
 void write_stats(void)
 {
-	unsigned long long EDNS0_TOTAL 		= 0;
-	unsigned long long EDNS0_PCT_ON 	= 0;
-	unsigned long long EDNS0_PCT_OFF	= 0;
-	unsigned long long EDNS0_PCT_LT_512	= 0;
-	unsigned long long EDNS0_PCT_512_999	= 0;
-	unsigned long long EDNS0_PCT_1000_1499	= 0;
-	unsigned long long EDNS0_PCT_1500_1999	= 0;
-	unsigned long long EDNS0_PCT_2000_2499	= 0;
-	unsigned long long EDNS0_PCT_2500_2999	= 0;
-	unsigned long long EDNS0_PCT_3000_3499	= 0;
-	unsigned long long EDNS0_PCT_3500_3999	= 0;
-	unsigned long long EDNS0_PCT_4000_4499	= 0;
-	unsigned long long EDNS0_PCT_GT_4500	= 0;
-	unsigned long long EDNS0_PCT_DO_SET	= 0;
-	unsigned long long EDNS0_PCT_DO_UNSET	= 0;
-	unsigned long long EDNS0_PCT_WO_ECS	= 0;
-	unsigned long long EDNS0_PCT_W_ECS	= 0;
-	unsigned long long QUERY_TOTAL		= 0;
-	unsigned long long R_FRAG_PCT		= 0;
-	unsigned long long R_UNFRAG_PCT		= 0;
-	unsigned long long R_FRAG_UNFRAG_TOTAL	= 0;
-	unsigned long long RSIZE_PCT_LT_512	= 0;
-	unsigned long long RSIZE_PCT_512_1023	= 0;
-	unsigned long long RSIZE_PCT_1024_1535	= 0;
-	unsigned long long RSIZE_PCT_1536_2047	= 0;
-	unsigned long long RSIZE_PCT_2048_2559	= 0;
-	unsigned long long RSIZE_PCT_2560_3071	= 0;
-	unsigned long long RSIZE_PCT_3072_3583	= 0;
-	unsigned long long RSIZE_PCT_3584_4095	= 0;
-	unsigned long long RSIZE_PCT_GT_4096	= 0;
-	unsigned long long RSIZE_AVERAGE	= 0;
+	unsigned long long	EDNS0_TOTAL 		= 0;
+	float 			EDNS0_PCT_ON	 	= 0.0f;
+	float 			EDNS0_PCT_OFF		= 0.0f;
+	float			EDNS0_PCT_LT_512	= 0.0f;
+	float			EDNS0_PCT_512_999	= 0.0f;
+	float			EDNS0_PCT_1000_1499	= 0.0f;
+	float			EDNS0_PCT_1500_1999	= 0.0f;
+	float			EDNS0_PCT_2000_2499	= 0.0f;
+	float			EDNS0_PCT_2500_2999	= 0.0f;
+	float			EDNS0_PCT_3000_3499	= 0.0f;
+	float			EDNS0_PCT_3500_3999	= 0.0f;
+	float			EDNS0_PCT_4000_4499	= 0.0f;
+	float			EDNS0_PCT_GT_4500	= 0.0f;
+	float			EDNS0_PCT_DO_SET	= 0.0f;
+	float			EDNS0_PCT_DO_UNSET	= 0.0f;
+	float			EDNS0_PCT_WO_ECS	= 0.0f;
+	float			EDNS0_PCT_W_ECS		= 0.0f;
+	unsigned long long	QUERY_TOTAL		= 0;
+	float			R_FRAG_PCT		= 0.0f;
+	float			R_UNFRAG_PCT		= 0.0f;
+	unsigned long long	R_FRAG_UNFRAG_TOTAL	= 0;
+	float			RSIZE_PCT_LT_512	= 0.0f;
+	float			RSIZE_PCT_512_1023	= 0.0f;
+	float			RSIZE_PCT_1024_1535	= 0.0f;
+	float			RSIZE_PCT_1536_2047	= 0.0f;
+	float			RSIZE_PCT_2048_2559	= 0.0f;
+	float			RSIZE_PCT_2560_3071	= 0.0f;
+	float			RSIZE_PCT_3072_3583	= 0.0f;
+	float			RSIZE_PCT_3584_4095	= 0.0f;
+	float			RSIZE_PCT_GT_4096	= 0.0f;
+	float			RSIZE_AVERAGE		= 0.0f;
 	
-	/* Open the file for writing if necessary */
-	if (!stat_append)
-	{
-		stat_fp = fopen(stat_file, "w");
-	}
+	/* Open the file for writing */
+	stat_fp = fopen(stat_file, "w");
 
 	if (stat_fp != NULL)
 	{
 		/* Calculate the EDNS0 percentages */
-		EDNS0_TOTAL =	edns0_ctr.EDNS0_BELOW_512 +
-				edns0_ctr.EDNS0_512_TO_999 +
-				edns0_ctr.EDNS0_1000_TO_1499 +
-				edns0_ctr.EDNS0_1500_TO_1999 +
-				edns0_ctr.EDNS0_2000_TO_2499 +
-				edns0_ctr.EDNS0_2500_TO_2999 +
-				edns0_ctr.EDNS0_3000_TO_3499 +
-				edns0_ctr.EDNS0_3500_TO_3999 +
-				edns0_ctr.EDNS0_4000_TO_4499 +
-				edns0_ctr.EDNS0_ABOVE_4500;
+		EDNS0_TOTAL =	(edns0_ctr.EDNS0_BELOW_512 +
+				 edns0_ctr.EDNS0_512_TO_999 +
+				 edns0_ctr.EDNS0_1000_TO_1499 +
+				 edns0_ctr.EDNS0_1500_TO_1999 +
+				 edns0_ctr.EDNS0_2000_TO_2499 +
+				 edns0_ctr.EDNS0_2500_TO_2999 +
+				 edns0_ctr.EDNS0_3000_TO_3499 +
+				 edns0_ctr.EDNS0_3500_TO_3999 +
+				 edns0_ctr.EDNS0_4000_TO_4499 +
+				 edns0_ctr.EDNS0_ABOVE_4500);
 		
-		QUERY_TOTAL =	iptype_ctr.V4 + iptype_ctr.V6;
+		QUERY_TOTAL =	(iptype_ctr.V4 + iptype_ctr.V6);
 
 		/* Prevent division by zero! */
 		if (QUERY_TOTAL > 0)
 		{
-			EDNS0_PCT_ON		= (EDNS0_TOTAL * 100) 			/ QUERY_TOTAL;
-			EDNS0_PCT_OFF		= ((QUERY_TOTAL - EDNS0_TOTAL) * 100) 	/ QUERY_TOTAL;
+			EDNS0_PCT_ON		= (EDNS0_TOTAL * 100.0f)				/ (float) QUERY_TOTAL;
+			EDNS0_PCT_OFF		= (((float) QUERY_TOTAL - EDNS0_TOTAL) * 100.0f) 	/ (float) QUERY_TOTAL;
 		}
 
 		/*  Prevent division by zero! */
 		if (EDNS0_TOTAL > 0)
 		{
-			EDNS0_PCT_LT_512	= (edns0_ctr.EDNS0_BELOW_512 * 100)	/ EDNS0_TOTAL;
-			EDNS0_PCT_512_999	= (edns0_ctr.EDNS0_512_TO_999 * 100)	/ EDNS0_TOTAL;
-			EDNS0_PCT_1000_1499	= (edns0_ctr.EDNS0_1000_TO_1499 * 100)	/ EDNS0_TOTAL;
-			EDNS0_PCT_1500_1999	= (edns0_ctr.EDNS0_1500_TO_1999 * 100)	/ EDNS0_TOTAL;
-			EDNS0_PCT_2000_2499	= (edns0_ctr.EDNS0_2000_TO_2499 * 100)	/ EDNS0_TOTAL;
-			EDNS0_PCT_2500_2999	= (edns0_ctr.EDNS0_2500_TO_2999 * 100)	/ EDNS0_TOTAL;
-			EDNS0_PCT_3000_3499	= (edns0_ctr.EDNS0_3000_TO_3499 * 100)	/ EDNS0_TOTAL;
-			EDNS0_PCT_3500_3999	= (edns0_ctr.EDNS0_3500_TO_3999 * 100)	/ EDNS0_TOTAL;
-			EDNS0_PCT_4000_4499	= (edns0_ctr.EDNS0_4000_TO_4499 * 100)	/ EDNS0_TOTAL;
-			EDNS0_PCT_GT_4500	= (edns0_ctr.EDNS0_ABOVE_4500 * 100)	/ EDNS0_TOTAL;
-			EDNS0_PCT_DO_SET	= (edns0_ctr.EDNS0_DO_SET * 100)	/ EDNS0_TOTAL;
-			EDNS0_PCT_DO_UNSET	= (edns0_ctr.EDNS0_DO_UNSET * 100)	/ EDNS0_TOTAL;
-			EDNS0_PCT_W_ECS		= (edns0_ctr.EDNS0_W_ECS * 100)		/ EDNS0_TOTAL;
-			EDNS0_PCT_WO_ECS	= (edns0_ctr.EDNS0_WO_ECS * 100)	/ EDNS0_TOTAL;
+			EDNS0_PCT_LT_512	= (edns0_ctr.EDNS0_BELOW_512 * 100.0f)			/ (float) EDNS0_TOTAL;
+			EDNS0_PCT_512_999	= (edns0_ctr.EDNS0_512_TO_999 * 100.0f)			/ (float) EDNS0_TOTAL;
+			EDNS0_PCT_1000_1499	= (edns0_ctr.EDNS0_1000_TO_1499 * 100.0f)		/ (float) EDNS0_TOTAL;
+			EDNS0_PCT_1500_1999	= (edns0_ctr.EDNS0_1500_TO_1999 * 100.0f)		/ (float) EDNS0_TOTAL;
+			EDNS0_PCT_2000_2499	= (edns0_ctr.EDNS0_2000_TO_2499 * 100.0f)		/ (float) EDNS0_TOTAL;
+			EDNS0_PCT_2500_2999	= (edns0_ctr.EDNS0_2500_TO_2999 * 100.0f)		/ (float) EDNS0_TOTAL;
+			EDNS0_PCT_3000_3499	= (edns0_ctr.EDNS0_3000_TO_3499 * 100.0f)		/ (float) EDNS0_TOTAL;
+			EDNS0_PCT_3500_3999	= (edns0_ctr.EDNS0_3500_TO_3999 * 100.0f)		/ (float) EDNS0_TOTAL;
+			EDNS0_PCT_4000_4499	= (edns0_ctr.EDNS0_4000_TO_4499 * 100.0f)		/ (float) EDNS0_TOTAL;
+			EDNS0_PCT_GT_4500	= (edns0_ctr.EDNS0_ABOVE_4500 * 100.0f)			/ (float) EDNS0_TOTAL;
+			EDNS0_PCT_DO_SET	= (edns0_ctr.EDNS0_DO_SET * 100.0f)			/ (float) EDNS0_TOTAL;
+			EDNS0_PCT_DO_UNSET	= (edns0_ctr.EDNS0_DO_UNSET * 100.0f)			/ (float) EDNS0_TOTAL;
+			EDNS0_PCT_W_ECS		= (edns0_ctr.EDNS0_W_ECS * 100.0f)			/ (float) EDNS0_TOTAL;
+			EDNS0_PCT_WO_ECS	= (edns0_ctr.EDNS0_WO_ECS * 100.0f)			/ (float) EDNS0_TOTAL;
 		}
 
 		/* Calculate fragmentation percentages */
-		R_FRAG_UNFRAG_TOTAL = rfrag_ctr.R_FRAG + rfrag_ctr.R_UNFRAG;
+		R_FRAG_UNFRAG_TOTAL = (rfrag_ctr.R_FRAG + rfrag_ctr.R_UNFRAG);
 
 		if (R_FRAG_UNFRAG_TOTAL > 0)
 		{
-			R_FRAG_PCT		= (rfrag_ctr.R_FRAG * 100)		/ R_FRAG_UNFRAG_TOTAL;
-			R_UNFRAG_PCT		= (rfrag_ctr.R_UNFRAG * 100)		/ R_FRAG_UNFRAG_TOTAL;
+			R_FRAG_PCT		= (rfrag_ctr.R_FRAG * 100.0f)			/ (float) R_FRAG_UNFRAG_TOTAL;
+			R_UNFRAG_PCT		= (rfrag_ctr.R_UNFRAG * 100.0f)			/ (float) R_FRAG_UNFRAG_TOTAL;
 		}
 
 		/* Calculate bucketed response size percentages */
 		if (rsize_ctr.RSIZE_COUNTED > 0)
 		{
-			RSIZE_PCT_LT_512	= (rsize_ctr.RSIZE_BELOW_512 * 100)	/ rsize_ctr.RSIZE_COUNTED;
-			RSIZE_PCT_512_1023	= (rsize_ctr.RSIZE_512_TO_1023 * 100)	/ rsize_ctr.RSIZE_COUNTED;
-			RSIZE_PCT_1024_1535	= (rsize_ctr.RSIZE_1024_TO_1535 * 100)	/ rsize_ctr.RSIZE_COUNTED;
-			RSIZE_PCT_1536_2047	= (rsize_ctr.RSIZE_1536_TO_2047 * 100)	/ rsize_ctr.RSIZE_COUNTED;
-			RSIZE_PCT_2048_2559	= (rsize_ctr.RSIZE_2048_TO_2559 * 100)	/ rsize_ctr.RSIZE_COUNTED;
-			RSIZE_PCT_2560_3071	= (rsize_ctr.RSIZE_2560_TO_3071 * 100)	/ rsize_ctr.RSIZE_COUNTED;
-			RSIZE_PCT_3072_3583	= (rsize_ctr.RSIZE_3072_TO_3583 * 100)	/ rsize_ctr.RSIZE_COUNTED;
-			RSIZE_PCT_3584_4095	= (rsize_ctr.RSIZE_3584_TO_4095 * 100)	/ rsize_ctr.RSIZE_COUNTED;
-			RSIZE_PCT_GT_4096	= (rsize_ctr.RSIZE_ABOVE_4096 * 100)	/ rsize_ctr.RSIZE_COUNTED;
+			RSIZE_PCT_LT_512	= (rsize_ctr.RSIZE_BELOW_512 * 100.0f)		/ (float) rsize_ctr.RSIZE_COUNTED;
+			RSIZE_PCT_512_1023	= (rsize_ctr.RSIZE_512_TO_1023 * 100.0f)	/ (float) rsize_ctr.RSIZE_COUNTED;
+			RSIZE_PCT_1024_1535	= (rsize_ctr.RSIZE_1024_TO_1535 * 100.0f)	/ (float) rsize_ctr.RSIZE_COUNTED;
+			RSIZE_PCT_1536_2047	= (rsize_ctr.RSIZE_1536_TO_2047 * 100.0f)	/ (float) rsize_ctr.RSIZE_COUNTED;
+			RSIZE_PCT_2048_2559	= (rsize_ctr.RSIZE_2048_TO_2559 * 100.0f)	/ (float) rsize_ctr.RSIZE_COUNTED;
+			RSIZE_PCT_2560_3071	= (rsize_ctr.RSIZE_2560_TO_3071 * 100.0f)	/ (float) rsize_ctr.RSIZE_COUNTED;
+			RSIZE_PCT_3072_3583	= (rsize_ctr.RSIZE_3072_TO_3583 * 100.0f)	/ (float) rsize_ctr.RSIZE_COUNTED;
+			RSIZE_PCT_3584_4095	= (rsize_ctr.RSIZE_3584_TO_4095 * 100.0f)	/ (float) rsize_ctr.RSIZE_COUNTED;
+			RSIZE_PCT_GT_4096	= (rsize_ctr.RSIZE_ABOVE_4096 * 100.0f)		/ (float) rsize_ctr.RSIZE_COUNTED;
 		}
 
 		/* Calculate average response size over measurement period */
 		if (rsize_ctr.RSIZE_COUNTED > 0)
 		{
-			RSIZE_AVERAGE = (rsize_ctr.RSIZE_TOTAL / rsize_ctr.RSIZE_COUNTED);
+			RSIZE_AVERAGE = (float) ((float) rsize_ctr.RSIZE_TOTAL / (float) rsize_ctr.RSIZE_COUNTED);
 		}
 
-		/* Write the statistics to the file */
-		fprintf(stat_fp, ""
-		"qclass_ctr_UNSPECIFIED:%llu "
-		"qclass_ctr_IN:%llu "
-		"qclass_ctr_CS:%llu "
-		"qclass_ctr_CH:%llu "
-		"qclass_ctr_HS:%llu "
-		"qclass_ctr_ANY:%llu "
-		"qclass_ctr_UNKNOWN:%llu "
-		"qtype_ctr_UNSPECIFIED:%llu "
-		"qtype_ctr_A:%llu "
-		"qtype_ctr_AAAA:%llu "
-		"qtype_ctr_AFSDB:%llu "
-		"qtype_ctr_APL:%llu "
-		"qtype_ctr_CERT:%llu "
-		"qtype_ctr_CNAME:%llu "
-		"qtype_ctr_DHCID:%llu "
-		"qtype_ctr_DLV:%llu "
-		"qtype_ctr_DNAME:%llu "
-		"qtype_ctr_DNSKEY:%llu "
-		"qtype_ctr_DS:%llu "
-		"qtype_ctr_HIP:%llu "
-		"qtype_ctr_IPSECKEY:%llu "
-		"qtype_ctr_KEY:%llu "
-		"qtype_ctr_KX:%llu "
-		"qtype_ctr_LOC:%llu "
-		"qtype_ctr_MX:%llu "
-		"qtype_ctr_NAPTR:%llu "
-		"qtype_ctr_NS:%llu "
-		"qtype_ctr_NSEC:%llu "
-		"qtype_ctr_NSEC3:%llu "
-		"qtype_ctr_NSEC3PARAM:%llu "
-		"qtype_ctr_PTR:%llu "
-		"qtype_ctr_RRSIG:%llu "
-		"qtype_ctr_RP:%llu "
-		"qtype_ctr_SIG:%llu "
-		"qtype_ctr_SOA:%llu "
-		"qtype_ctr_SPF:%llu "
-		"qtype_ctr_SRV:%llu "
-		"qtype_ctr_SSHFP:%llu "
-		"qtype_ctr_TA:%llu "
-		"qtype_ctr_TKEY:%llu "
-		"qtype_ctr_TSIG:%llu "
-		"qtype_ctr_TXT:%llu "
-		"qtype_ctr_ANY:%llu "
-		"qtype_ctr_AXFR:%llu "
-		"qtype_ctr_IXFR:%llu "
-		"qtype_ctr_OPT:%llu "
-		"qtype_ctr_UNKNOWN:%llu "
-		"iptype_ctr_V4:%llu "
-		"iptype_ctr_V6:%llu "
-		"proto_ctr_TCP:%llu "
-		"proto_ctr_UDP:%llu "
-		"edns0_ctr_EDNS0_NO:%llu "
-		"edns0_ctr_EDNS0_BELOW_512:%llu "
-		"edns0_ctr_EDNS0_512_TO_999:%llu "
-		"edns0_ctr_EDNS0_1000_TO_1499:%llu "
-		"edns0_ctr_EDNS0_1500_TO_1999:%llu "
-		"edns0_ctr_EDNS0_2000_TO_2499:%llu "
-		"edns0_ctr_EDNS0_2500_TO_2999:%llu "
-		"edns0_ctr_EDNS0_3000_TO_3499:%llu "
-		"edns0_ctr_EDNS0_3500_TO_3999:%llu "
-		"edns0_ctr_EDNS0_4000_TO_4499:%llu "
-		"edns0_ctr_EDNS0_ABOVE_4500:%llu "
-		"edns0_ctr_EDNS0_DO_SET:%llu "
-		"edns0_ctr_EDNS0_DO_UNSET:%llu "
-		"edns0_ctr_EDNS0_WO_ECS:%llu "
-		"edns0_ctr_EDNS0_W_ECS:%llu "
-		"edns0_ctr_EDNS0_EXP_OPT:%llu "
-		"EDNS0_TOTAL:%llu "
-		"EDNS0_PCT_ON:%llu "
-		"EDNS0_PCT_OFF:%llu "
-		"EDNS0_PCT_LT_512:%llu "
-		"EDNS0_PCT_512_999:%llu "
-		"EDNS0_PCT_1000_1499:%llu "
-		"EDNS0_PCT_1500_1999:%llu "
-		"EDNS0_PCT_2000_2499:%llu "
-		"EDNS0_PCT_2500_2999:%llu "
-		"EDNS0_PCT_3000_3499:%llu "
-		"EDNS0_PCT_3500_3999:%llu "
-		"EDNS0_PCT_4000_4499:%llu "
-		"EDNS0_PCT_GT_4500:%llu "
-		"EDNS0_PCT_DO_SET:%llu "
-		"EDNS0_PCT_DO_UNSET:%llu "
-		"EDNS0_PCT_WO_ECS:%llu "
-		"EDNS0_PCT_W_ECS:%llu "
-		"QUERY_TOTAL:%llu "
-		"rclass_ctr_UNSPECIFIED:%llu "
-		"rclass_ctr_IN:%llu "
-		"rclass_ctr_CS:%llu "
-		"rclass_ctr_CH:%llu "
-		"rclass_ctr_HS:%llu "
-		"rclass_ctr_ANY:%llu "
-		"rclass_ctr_UNKNOWN:%llu "
-		"rtype_ctr_UNSPECIFIED:%llu "
-		"rtype_ctr_A:%llu "
-		"rtype_ctr_AAAA:%llu "
-		"rtype_ctr_AFSDB:%llu "
-		"rtype_ctr_APL:%llu "
-		"rtype_ctr_CERT:%llu "
-		"rtype_ctr_CNAME:%llu "
-		"rtype_ctr_DHCID:%llu "
-		"rtype_ctr_DLV:%llu "
-		"rtype_ctr_DNAME:%llu "
-		"rtype_ctr_DNSKEY:%llu "
-		"rtype_ctr_DS:%llu "
-		"rtype_ctr_HIP:%llu "
-		"rtype_ctr_IPSECKEY:%llu "
-		"rtype_ctr_KEY:%llu "
-		"rtype_ctr_KX:%llu "
-		"rtype_ctr_LOC:%llu "
-		"rtype_ctr_MX:%llu "
-		"rtype_ctr_NAPTR:%llu "
-		"rtype_ctr_NS:%llu "
-		"rtype_ctr_NSEC:%llu "
-		"rtype_ctr_NSEC3:%llu "
-		"rtype_ctr_NSEC3PARAM:%llu "
-		"rtype_ctr_PTR:%llu "
-		"rtype_ctr_RRSIG:%llu "
-		"rtype_ctr_RP:%llu "
-		"rtype_ctr_SIG:%llu "
-		"rtype_ctr_SOA:%llu "
-		"rtype_ctr_SPF:%llu "
-		"rtype_ctr_SRV:%llu "
-		"rtype_ctr_SSHFP:%llu "
-		"rtype_ctr_TA:%llu "
-		"rtype_ctr_TKEY:%llu "
-		"rtype_ctr_TSIG:%llu "
-		"rtype_ctr_TXT:%llu "
-		"rtype_ctr_ANY:%llu "
-		"rtype_ctr_AXFR:%llu "
-		"rtype_ctr_IXFR:%llu "
-		"rtype_ctr_OPT:%llu "
-		"rtype_ctr_UNKNOWN:%llu "
-		"RSIZE_BELOW_512:%llu "
-		"RSIZE_512_TO_1023:%llu "
-		"RSIZE_1024_TO_1535:%llu "
-		"RSIZE_1536_TO_2047:%llu "
-		"RSIZE_2048_TO_2559:%llu "
-		"RSIZE_2560_TO_3071:%llu "
-		"RSIZE_3072_TO_3583:%llu "
-		"RSIZE_3584_TO_4095:%llu "
-		"RSIZE_ABOVE_4096:%llu "
-		"RSIZE_TOTAL:%llu "
-		"RSIZE_COUNTED:%llu "
-		"RCODE_NOERROR:%llu "
-		"RCODE_NODATA:%llu "
-		"RCODE_FORMERR:%llu "
-		"RCODE_SERVFAIL:%llu "
-		"RCODE_NXDOMAIN:%llu "
-		"RCODE_NOTIMPL:%llu "
-		"RCODE_REFUSED:%llu "
-		"RCODE_UNKNOWN:%llu "
-		"R_FRAG:%llu "
-		"R_UNFRAG:%llu "
-		"R_FRAG_PCT:%llu "
-		"R_UNFRAG_PCT:%llu "
-		"R_FRAG_UNFRAG_TOTAL:%llu "
-		"RSIZE_PCT_LT_512:%llu "
-		"RSIZE_PCT_512_1023:%llu "
-		"RSIZE_PCT_1024_1535:%llu "
-		"RSIZE_PCT_1536_2047:%llu "
-		"RSIZE_PCT_2048_2559:%llu "
-		"RSIZE_PCT_2560_3071:%llu "
-		"RSIZE_PCT_3072_3583:%llu "
-		"RSIZE_PCT_3584_4095:%llu "
-		"RSIZE_PCT_GT_4096:%llu "
-		"RSIZE_AVERAGE:%llu "
-		"RFLAGS_TC:%llu "
-		"\n",
-		qclass_ctr.UNSPECIFIED,
-		qclass_ctr.IN,
-		qclass_ctr.CS,
-		qclass_ctr.CH,
-		qclass_ctr.HS,
-		qclass_ctr.ANY,
-		qclass_ctr.UNKNOWN,
-		qtype_ctr.UNSPECIFIED,
-		qtype_ctr.A,
-		qtype_ctr.AAAA,
-		qtype_ctr.AFSDB,
-		qtype_ctr.APL,
-		qtype_ctr.CERT,
-		qtype_ctr.CNAME,
-		qtype_ctr.DHCID,
-		qtype_ctr.DLV,
-		qtype_ctr.DNAME,
-		qtype_ctr.DNSKEY,
-		qtype_ctr.DS,
-		qtype_ctr.HIP,
-		qtype_ctr.IPSECKEY,
-		qtype_ctr.KEY,
-		qtype_ctr.KX,
-		qtype_ctr.LOC,
-		qtype_ctr.MX,
-		qtype_ctr.NAPTR,
-		qtype_ctr.NS,
-		qtype_ctr.NSEC,
-		qtype_ctr.NSEC3,
-		qtype_ctr.NSEC3PARAM,
-		qtype_ctr.PTR,
-		qtype_ctr.RRSIG,
-		qtype_ctr.RP,
-		qtype_ctr.SIG,
-		qtype_ctr.SOA,
-		qtype_ctr.SPF,
-		qtype_ctr.SRV,
-		qtype_ctr.SSHFP,
-		qtype_ctr.TA,
-		qtype_ctr.TKEY,
-		qtype_ctr.TSIG,
-		qtype_ctr.TXT,
-		qtype_ctr.ANY,
-		qtype_ctr.AXFR,
-		qtype_ctr.IXFR,
-		qtype_ctr.OPT,
-		qtype_ctr.UNKNOWN,
-		iptype_ctr.V4,
-		iptype_ctr.V6,
-		proto_ctr.TCP,
-		proto_ctr.UDP,
-		edns0_ctr.EDNS0_NO,
-		edns0_ctr.EDNS0_BELOW_512,
-		edns0_ctr.EDNS0_512_TO_999,
-		edns0_ctr.EDNS0_1000_TO_1499,
-		edns0_ctr.EDNS0_1500_TO_1999,
-		edns0_ctr.EDNS0_2000_TO_2499,
-		edns0_ctr.EDNS0_2500_TO_2999,
-		edns0_ctr.EDNS0_3000_TO_3499,
-		edns0_ctr.EDNS0_3500_TO_3999,
-		edns0_ctr.EDNS0_4000_TO_4499,
-		edns0_ctr.EDNS0_ABOVE_4500,
-		edns0_ctr.EDNS0_DO_SET,
-		edns0_ctr.EDNS0_DO_UNSET,
-		edns0_ctr.EDNS0_WO_ECS,
-		edns0_ctr.EDNS0_W_ECS,
-		edns0_ctr.EDNS0_EXP_OPT,
-		EDNS0_TOTAL, 
-		EDNS0_PCT_ON, 
-		EDNS0_PCT_OFF, 
-		EDNS0_PCT_LT_512, 
-		EDNS0_PCT_512_999, 
-		EDNS0_PCT_1000_1499, 
-		EDNS0_PCT_1500_1999, 
-		EDNS0_PCT_2000_2499, 
-		EDNS0_PCT_2500_2999, 
-		EDNS0_PCT_3000_3499, 
-		EDNS0_PCT_3500_3999, 
-		EDNS0_PCT_4000_4499, 
-		EDNS0_PCT_GT_4500, 
-		EDNS0_PCT_DO_SET, 
-		EDNS0_PCT_DO_UNSET, 
-		EDNS0_PCT_WO_ECS,
-		EDNS0_PCT_W_ECS,
-		QUERY_TOTAL,
-		rclass_ctr.UNSPECIFIED,
-		rclass_ctr.IN,
-		rclass_ctr.CS,
-		rclass_ctr.CH,
-		rclass_ctr.HS,
-		rclass_ctr.ANY,
-		rclass_ctr.UNKNOWN,
-		rtype_ctr.UNSPECIFIED,
-		rtype_ctr.A,
-		rtype_ctr.AAAA,
-		rtype_ctr.AFSDB,
-		rtype_ctr.APL,
-		rtype_ctr.CERT,
-		rtype_ctr.CNAME,
-		rtype_ctr.DHCID,
-		rtype_ctr.DLV,
-		rtype_ctr.DNAME,
-		rtype_ctr.DNSKEY,
-		rtype_ctr.DS,
-		rtype_ctr.HIP,
-		rtype_ctr.IPSECKEY,
-		rtype_ctr.KEY,
-		rtype_ctr.KX,
-		rtype_ctr.LOC,
-		rtype_ctr.MX,
-		rtype_ctr.NAPTR,
-		rtype_ctr.NS,
-		rtype_ctr.NSEC,
-		rtype_ctr.NSEC3,
-		rtype_ctr.NSEC3PARAM,
-		rtype_ctr.PTR,
-		rtype_ctr.RRSIG,
-		rtype_ctr.RP,
-		rtype_ctr.SIG,
-		rtype_ctr.SOA,
-		rtype_ctr.SPF,
-		rtype_ctr.SRV,
-		rtype_ctr.SSHFP,
-		rtype_ctr.TA,
-		rtype_ctr.TKEY,
-		rtype_ctr.TSIG,
-		rtype_ctr.TXT,
-		rtype_ctr.ANY,
-		rtype_ctr.AXFR,
-		rtype_ctr.IXFR,
-		rtype_ctr.OPT,
-		rtype_ctr.UNKNOWN,
-		rsize_ctr.RSIZE_BELOW_512,
-		rsize_ctr.RSIZE_512_TO_1023,
-		rsize_ctr.RSIZE_1024_TO_1535,
-		rsize_ctr.RSIZE_1536_TO_2047,
-		rsize_ctr.RSIZE_2048_TO_2559,
-		rsize_ctr.RSIZE_2560_TO_3071,
-		rsize_ctr.RSIZE_3072_TO_3583,
-		rsize_ctr.RSIZE_3584_TO_4095,
-		rsize_ctr.RSIZE_ABOVE_4096,
-		rsize_ctr.RSIZE_TOTAL,
-		rsize_ctr.RSIZE_COUNTED,
-		rcode_ctr.RCODE_NOERROR,
-		rcode_ctr.RCODE_NODATA,
-		rcode_ctr.RCODE_FORMERR,
-		rcode_ctr.RCODE_SERVFAIL,
-		rcode_ctr.RCODE_NXDOMAIN,
-		rcode_ctr.RCODE_NOTIMPL,
-		rcode_ctr.RCODE_REFUSED,
-		rcode_ctr.RCODE_UNKNOWN,
-		rfrag_ctr.R_FRAG,
-		rfrag_ctr.R_UNFRAG,
-		R_FRAG_PCT,
-		R_UNFRAG_PCT,
-		R_FRAG_UNFRAG_TOTAL,
-		RSIZE_PCT_LT_512,
-		RSIZE_PCT_512_1023,
-		RSIZE_PCT_1024_1535,
-		RSIZE_PCT_1536_2047,
-		RSIZE_PCT_2048_2559,
-		RSIZE_PCT_2560_3071,
-		RSIZE_PCT_3072_3583,
-		RSIZE_PCT_3584_4095,
-		RSIZE_PCT_GT_4096,
-		RSIZE_AVERAGE,
-		rflags_ctr.RFLAG_TC
-		);
+#define EMIT_INT(key,val) fprintf(stat_fp, "%s %s %llu\n", zabbix_host_id, key, val)
+#define EMIT_PCT(key,val) fprintf(stat_fp, "%s %s %0.2f\n", zabbix_host_id, key, val)
+
+		EMIT_INT("qclass.ctr.UNSPECIFIED", 	qclass_ctr.UNSPECIFIED);
+		EMIT_INT("qclass.ctr.IN",		qclass_ctr.IN);
+		EMIT_INT("qclass.ctr.CS",		qclass_ctr.CS);
+		EMIT_INT("qclass.ctr.CH",		qclass_ctr.CH);
+		EMIT_INT("qclass.ctr.HS",		qclass_ctr.HS);
+		EMIT_INT("qclass.ctr.ANY",		qclass_ctr.ANY);
+		EMIT_INT("qclass.ctr.UNKNOWN",		qclass_ctr.UNKNOWN);
+		EMIT_INT("qtype.ctr.UNSPECIFIED", 	qtype_ctr.UNSPECIFIED);
+		EMIT_INT("qtype.ctr.A", 		qtype_ctr.A);
+		EMIT_INT("qtype.ctr.AAAA", 		qtype_ctr.AAAA);
+		EMIT_INT("qtype.ctr.AFSDB", 		qtype_ctr.AFSDB);
+		EMIT_INT("qtype.ctr.APL", 		qtype_ctr.APL);
+		EMIT_INT("qtype.ctr.CERT",		qtype_ctr.CERT);
+		EMIT_INT("qtype.ctr.CNAME", 		qtype_ctr.CNAME);
+		EMIT_INT("qtype.ctr.DHCID",		qtype_ctr.DHCID);
+		EMIT_INT("qtype.ctr.DLV", 		qtype_ctr.DLV);
+		EMIT_INT("qtype.ctr.DNAME", 		qtype_ctr.DNAME);
+		EMIT_INT("qtype.ctr.DNSKEY", 		qtype_ctr.DNSKEY);
+		EMIT_INT("qtype.ctr.DS", 		qtype_ctr.DS);
+		EMIT_INT("qtype.ctr.HIP", 		qtype_ctr.HIP);
+		EMIT_INT("qtype.ctr.IPSECKEY", 		qtype_ctr.IPSECKEY);
+		EMIT_INT("qtype.ctr.KEY", 		qtype_ctr.KEY);
+		EMIT_INT("qtype.ctr.KX", 		qtype_ctr.KX);
+		EMIT_INT("qtype.ctr.LOC", 		qtype_ctr.LOC);
+		EMIT_INT("qtype.ctr.MX", 		qtype_ctr.MX);
+		EMIT_INT("qtype.ctr.NAPTR", 		qtype_ctr.NAPTR);
+		EMIT_INT("qtype.ctr.NS", 		qtype_ctr.NS);
+		EMIT_INT("qtype.ctr.NSEC", 		qtype_ctr.NSEC);
+		EMIT_INT("qtype.ctr.NSEC3", 		qtype_ctr.NSEC3);
+		EMIT_INT("qtype.ctr.NSEC3PARAM", 	qtype_ctr.NSEC3PARAM);
+		EMIT_INT("qtype.ctr.PTR", 		qtype_ctr.PTR);
+		EMIT_INT("qtype.ctr.RRSIG", 		qtype_ctr.RRSIG);
+		EMIT_INT("qtype.ctr.RP", 		qtype_ctr.RP);
+		EMIT_INT("qtype.ctr.SIG", 		qtype_ctr.SIG);
+		EMIT_INT("qtype.ctr.SOA", 		qtype_ctr.SOA);
+		EMIT_INT("qtype.ctr.SPF", 		qtype_ctr.SPF);
+		EMIT_INT("qtype.ctr.SRV", 		qtype_ctr.SRV);
+		EMIT_INT("qtype.ctr.SSHFP", 		qtype_ctr.SSHFP);
+		EMIT_INT("qtype.ctr.TA", 		qtype_ctr.TA);
+		EMIT_INT("qtype.ctr.TKEY", 		qtype_ctr.TKEY);
+		EMIT_INT("qtype.ctr.TSIG", 		qtype_ctr.TSIG);
+		EMIT_INT("qtype.ctr.TXT", 		qtype_ctr.TXT);
+		EMIT_INT("qtype.ctr.ANY", 		qtype_ctr.ANY);
+		EMIT_INT("qtype.ctr.AXFR", 		qtype_ctr.AXFR);
+		EMIT_INT("qtype.ctr.IXFR", 		qtype_ctr.IXFR);
+		EMIT_INT("qtype.ctr.OPT", 		qtype_ctr.OPT);
+		EMIT_INT("qtype.ctr.UNKNOWN", 		qtype_ctr.UNKNOWN);
+		EMIT_INT("iptype.ctr.V4",		iptype_ctr.V4);
+		EMIT_INT("iptype.ctr.V6",		iptype_ctr.V6);
+		EMIT_INT("proto.ctr.TCP",		proto_ctr.TCP);
+		EMIT_INT("proto.ctr.UDP",		proto_ctr.UDP);
+		EMIT_INT("edns0.ctr.NO",		edns0_ctr.EDNS0_NO);
+		EMIT_INT("edns0.ctr.below512",		edns0_ctr.EDNS0_BELOW_512);
+		EMIT_INT("edns0.ctr.512to999",		edns0_ctr.EDNS0_512_TO_999);
+		EMIT_INT("edns0.ctr.1000to1499",	edns0_ctr.EDNS0_1000_TO_1499);
+		EMIT_INT("edns0.ctr.1500to1999",	edns0_ctr.EDNS0_1500_TO_1999);
+		EMIT_INT("edns0.ctr.2000to2499",	edns0_ctr.EDNS0_2000_TO_2499);
+		EMIT_INT("edns0.ctr.2500to2999",	edns0_ctr.EDNS0_2500_TO_2999);
+		EMIT_INT("edns0.ctr.3000to3499",	edns0_ctr.EDNS0_3000_TO_3499);
+		EMIT_INT("edns0.ctr.3500to3999",	edns0_ctr.EDNS0_3500_TO_3999);
+		EMIT_INT("edns0.ctr.4000to4499",	edns0_ctr.EDNS0_4000_TO_4499);
+		EMIT_INT("edns0.ctr.above4500",		edns0_ctr.EDNS0_ABOVE_4500);
+		EMIT_INT("edns0.ctr.do_set",		edns0_ctr.EDNS0_DO_SET);
+		EMIT_INT("edns0.ctr.do_unset",		edns0_ctr.EDNS0_DO_UNSET);
+		EMIT_INT("edns0.ctr.wo_ecs",		edns0_ctr.EDNS0_WO_ECS);
+		EMIT_INT("edns0.ctr.w_ecs",		edns0_ctr.EDNS0_W_ECS);
+		EMIT_INT("edns0.ctr.exp_opt",		edns0_ctr.EDNS0_EXP_OPT);
+		EMIT_INT("edns0.ctr.total",		EDNS0_TOTAL);
+		EMIT_PCT("edns0.pct.on", 		EDNS0_PCT_ON);
+		EMIT_PCT("edns0.pct.off", 		EDNS0_PCT_OFF);
+		EMIT_PCT("edns0.pct.below512", 		EDNS0_PCT_LT_512);
+		EMIT_PCT("edns0.pct.512to999", 		EDNS0_PCT_512_999);
+		EMIT_PCT("edns0.pct.1000to1499", 	EDNS0_PCT_1000_1499);
+		EMIT_PCT("edns0.pct.1500to1999", 	EDNS0_PCT_1500_1999);
+		EMIT_PCT("edns0.pct.2000to2499", 	EDNS0_PCT_2000_2499);
+		EMIT_PCT("edns0.pct.2500to2999", 	EDNS0_PCT_2500_2999);
+		EMIT_PCT("edns0.pct.3000to3499", 	EDNS0_PCT_3000_3499);
+		EMIT_PCT("edns0.pct.3500to3999", 	EDNS0_PCT_3500_3999);
+		EMIT_PCT("edns0.pct.4000to4499", 	EDNS0_PCT_4000_4499);
+		EMIT_PCT("edns0.pct.above4500", 	EDNS0_PCT_GT_4500);
+		EMIT_PCT("edns0.pct.do_set", 		EDNS0_PCT_DO_SET);
+		EMIT_PCT("edns0.pct.do_unset", 		EDNS0_PCT_DO_UNSET);
+		EMIT_PCT("edns0.pct.wo_ecs", 		EDNS0_PCT_WO_ECS);
+		EMIT_PCT("edns0.pct.w_ecs", 		EDNS0_PCT_W_ECS);
+		EMIT_INT("query.ctr.total",		QUERY_TOTAL);
+		EMIT_INT("rclass.ctr.UNSPECIFIED", 	rclass_ctr.UNSPECIFIED);
+		EMIT_INT("rclass.ctr.IN", 		rclass_ctr.IN);
+		EMIT_INT("rclass.ctr.CS", 		rclass_ctr.CS);
+		EMIT_INT("rclass.ctr.CH",		rclass_ctr.CH);
+		EMIT_INT("rclass.ctr.HS", 		rclass_ctr.HS);
+		EMIT_INT("rclass.ctr.ANY", 		rclass_ctr.ANY);
+		EMIT_INT("rclass.ctr.UNKNOWN", 		rclass_ctr.UNKNOWN);
+		EMIT_INT("rtype.ctr.UNSPECIFIED", 	rtype_ctr.UNSPECIFIED);
+		EMIT_INT("rtype.ctr.A", 		rtype_ctr.A);
+		EMIT_INT("rtype.ctr.AAAA", 		rtype_ctr.AAAA);
+		EMIT_INT("rtype.ctr.AFSDB", 		rtype_ctr.AFSDB);
+		EMIT_INT("rtype.ctr.APL", 		rtype_ctr.APL);
+		EMIT_INT("rtype.ctr.CERT",		rtype_ctr.CERT);
+		EMIT_INT("rtype.ctr.CNAME",		rtype_ctr.CNAME);
+		EMIT_INT("rtype.ctr.DHCID",		rtype_ctr.DHCID);
+		EMIT_INT("rtype.ctr.DLV",		rtype_ctr.DLV);
+		EMIT_INT("rtype.ctr.DNAME",		rtype_ctr.DNAME);
+		EMIT_INT("rtype.ctr.DNSKEY",		rtype_ctr.DNSKEY);
+		EMIT_INT("rtype.ctr.DS",		rtype_ctr.DS);
+		EMIT_INT("rtype.ctr.HIP",		rtype_ctr.HIP);
+		EMIT_INT("rtype.ctr.IPSECKEY",		rtype_ctr.IPSECKEY);
+		EMIT_INT("rtype.ctr.KEY",		rtype_ctr.KEY);
+		EMIT_INT("rtype.ctr.KX",		rtype_ctr.KX);
+		EMIT_INT("rtype.ctr.LOC",		rtype_ctr.LOC);
+		EMIT_INT("rtype.ctr.MX",		rtype_ctr.MX);
+		EMIT_INT("rtype.ctr.NAPTR",		rtype_ctr.NAPTR);
+		EMIT_INT("rtype.ctr.NS",		rtype_ctr.NS);
+		EMIT_INT("rtype.ctr.NSEC",		rtype_ctr.NSEC);
+		EMIT_INT("rtype.ctr.NSEC3",		rtype_ctr.NSEC3);
+		EMIT_INT("rtype.ctr.NSEC3PARAM",	rtype_ctr.NSEC3PARAM);
+		EMIT_INT("rtype.ctr.PTR",		rtype_ctr.PTR);
+		EMIT_INT("rtype.ctr.RRSIG",		rtype_ctr.RRSIG);
+		EMIT_INT("rtype.ctr.RP",		rtype_ctr.RP);
+		EMIT_INT("rtype.ctr.SIG",		rtype_ctr.SIG);
+		EMIT_INT("rtype.ctr.SOA",		rtype_ctr.SOA);
+		EMIT_INT("rtype.ctr.SPF",		rtype_ctr.SPF);
+		EMIT_INT("rtype.ctr.SRV",		rtype_ctr.SRV);
+		EMIT_INT("rtype.ctr.SSHFP",		rtype_ctr.SSHFP);
+		EMIT_INT("rtype.ctr.TA",		rtype_ctr.TA);
+		EMIT_INT("rtype.ctr.TKEY",		rtype_ctr.TKEY);
+		EMIT_INT("rtype.ctr.TSIG",		rtype_ctr.TSIG);
+		EMIT_INT("rtype.ctr.TXT",		rtype_ctr.TXT);
+		EMIT_INT("rtype.ctr.ANY",		rtype_ctr.ANY);
+		EMIT_INT("rtype.ctr.AXFR",		rtype_ctr.AXFR);
+		EMIT_INT("rtype.ctr.IXFR",		rtype_ctr.IXFR);
+		EMIT_INT("rtype.ctr.OPT",		rtype_ctr.OPT);
+		EMIT_INT("rtype.ctr.UNKNOWN",		rtype_ctr.UNKNOWN);
+		EMIT_INT("rsize.ctr.below512",		rsize_ctr.RSIZE_BELOW_512);
+		EMIT_INT("rsize.ctr.512to1024",		rsize_ctr.RSIZE_512_TO_1023);
+		EMIT_INT("rsize.ctr.1024to1535",	rsize_ctr.RSIZE_1024_TO_1535);
+		EMIT_INT("rsize.ctr.1536to2047",	rsize_ctr.RSIZE_1536_TO_2047);
+		EMIT_INT("rsize.ctr.2048to2559",	rsize_ctr.RSIZE_2048_TO_2559);
+		EMIT_INT("rsize.ctr.2560to3071",	rsize_ctr.RSIZE_2560_TO_3071);
+		EMIT_INT("rsize.ctr.3072to3583",	rsize_ctr.RSIZE_3072_TO_3583);
+		EMIT_INT("rsize.ctr.3584to4095",	rsize_ctr.RSIZE_3584_TO_4095);
+		EMIT_INT("rsize.ctr.above4096",		rsize_ctr.RSIZE_ABOVE_4096);
+		EMIT_INT("rsize.ctr.total",		rsize_ctr.RSIZE_TOTAL);
+		EMIT_INT("rsize.ctr.counted",		rsize_ctr.RSIZE_COUNTED);
+		EMIT_INT("rcode.ctr.NOERROR",		rcode_ctr.RCODE_NOERROR);
+		EMIT_INT("rcode.ctr.NODATA",		rcode_ctr.RCODE_NODATA);
+		EMIT_INT("rcode.ctr.FORMERR",		rcode_ctr.RCODE_FORMERR);
+		EMIT_INT("rcode.ctr.SERVFAIL",		rcode_ctr.RCODE_SERVFAIL);
+		EMIT_INT("rcode.ctr.NXDOMAIN",		rcode_ctr.RCODE_NXDOMAIN);
+		EMIT_INT("rcode.ctr.NOTIMPL",		rcode_ctr.RCODE_NOTIMPL);
+		EMIT_INT("rcode.ctr.REFUSED",		rcode_ctr.RCODE_REFUSED);
+		EMIT_INT("rcode.ctr.UNKNOWN",		rcode_ctr.RCODE_UNKNOWN);
+		EMIT_INT("rfrag.ctr.frag",		rfrag_ctr.R_FRAG);
+		EMIT_INT("rfrag.ctr.unfrag",		rfrag_ctr.R_UNFRAG);
+		EMIT_PCT("rfrag.pct.frag",		R_FRAG_PCT);
+		EMIT_PCT("rfrag.pct.unfrag",		R_UNFRAG_PCT);
+		EMIT_INT("rfrag.ctr.total",		R_FRAG_UNFRAG_TOTAL);
+		EMIT_PCT("rsize.pct.below512",		RSIZE_PCT_LT_512);
+		EMIT_PCT("rsize.pct.512to1023",		RSIZE_PCT_512_1023);
+		EMIT_PCT("rsize.pct.1024to1535",	RSIZE_PCT_1024_1535);
+		EMIT_PCT("rsize.pct.1536to2047",	RSIZE_PCT_1536_2047);
+		EMIT_PCT("rsize.pct.2048to2559",	RSIZE_PCT_2048_2559);
+		EMIT_PCT("rsize.pct.2560to3071",	RSIZE_PCT_2560_3071);
+		EMIT_PCT("rsize.pct.3072to3583",	RSIZE_PCT_3072_3583);
+		EMIT_PCT("rsize.pct.3584to4095",	RSIZE_PCT_3584_4095);
+		EMIT_PCT("rsize.pct.above4096",		RSIZE_PCT_GT_4096);
+		EMIT_PCT("rsize.avg", 			RSIZE_AVERAGE);
+		EMIT_INT("rflags.ctr.tc",		rflags_ctr.RFLAG_TC);
 
 		fflush(stat_fp);
 
-		/* Reset the statistics if necessary */
-		if (stat_reset)
-		{
-			eemo_dnsstats_stats_reset();
-		}
-	}
+		/* Reset the statistics */
+		eemo_dnszabbix_stats_reset();
 
-	/* Close the file if necessary */
-	if (!stat_append && (stat_fp != NULL))
-	{
 		fclose(stat_fp);
 	}
+
+	stat_fp = NULL;
 }
 
 /* Signal handler for alarms & user signals */
@@ -734,23 +556,13 @@ void signal_handler(int signum)
 	{
 		DEBUG_MSG("Received user signal to dump statistics");
 	}
-	else if (signum == SIGALRM)
-	{
-		DEBUG_MSG("Received automated alarm to dump statistics");
-	}
 	
 	/* Write statistics to file */
 	write_stats();
-
-	/* Set the new alarm if necessary */
-	if (signum == SIGALRM)
-	{
-		alarm(stat_emit_interval);
-	}
 }
 
 /* Reset statistics */
-void eemo_dnsstats_stats_reset(void)
+void eemo_dnszabbix_stats_reset(void)
 {
 	memset(&qclass_ctr, 0, sizeof(qclass_ctr));
 	memset(&rclass_ctr, 0, sizeof(qclass_ctr));
@@ -768,7 +580,7 @@ void eemo_dnsstats_stats_reset(void)
 }
 
 /* Initialise the DNS query counter module */
-void eemo_dnsstats_stats_init(char** ips, int ip_count, int emit_interval, char* stats_file, int append_file, int reset)
+void eemo_dnszabbix_stats_init(char** ips, int ip_count, char* stats_file, char* zabbix_host)
 {
 	int i = 0;
 
@@ -782,75 +594,36 @@ void eemo_dnsstats_stats_init(char** ips, int ip_count, int emit_interval, char*
 		INFO_MSG("Listening for queries to IP %s", ips[i]);
 	}
 
-	stat_emit_interval = emit_interval;
-
-	INFO_MSG("Emitting statistics every %d seconds", emit_interval);
-
 	stat_file = stats_file;
 
 	INFO_MSG("Writing statistics to the file called %s", stat_file);
 
-	stat_append = append_file;
+	zabbix_host_id = zabbix_host;
 
-	INFO_MSG("Will %soverwrite the file when new statistics are available", stat_append ? "not " : "");
+	INFO_MSG("Writing statistics for Zabbix host '%s'", zabbix_host_id);
 
-	stat_reset = reset;
-
-	INFO_MSG("Will %sreset statistics once they have been written to file", stat_reset ? "" : "not ");
-
-	if (stat_append)
-	{
-		stat_fp = fopen(stat_file, "w");
-
-		if (stat_fp != NULL)
-		{
-			INFO_MSG("Opened %s to write statistics to", stat_file);
-		}
-		else
-		{
-			ERROR_MSG("Failed to open %s for writing", stat_file);
-		}
-	}
-
-	eemo_dnsstats_stats_reset();
+	eemo_dnszabbix_stats_reset();
 	
 	/* Register signal handler */
 	signal(SIGUSR1, signal_handler);
-	signal(SIGALRM, signal_handler);
-
-	/* Set the alarm */
-	alarm(stat_emit_interval);
 }
 
 /* Uninitialise the DNS query counter module */
-void eemo_dnsstats_stats_uninit(eemo_conf_free_string_array_fn free_strings)
+void eemo_dnszabbix_stats_uninit(eemo_conf_free_string_array_fn free_strings)
 {
 	/* Unregister signal handlers */
-	alarm(0);
 	signal(SIGUSR1, SIG_DFL);
-	signal(SIGALRM, SIG_DFL);
 	
 	/* Write statistics one more time before exiting */
 	write_stats();
 
-	/* Close the file */
-	if (stat_append && (stat_fp != NULL))
-	{
-		fclose(stat_fp);
-
-		DEBUG_MSG("Closed %s", stat_file);
-	}
-	else
-	{
-		INFO_MSG("Statistics file %s was not open", stat_file);
-	}
-
 	(free_strings)(stat_ips, stat_ipcount);
 	free(stat_file);
+	free(zabbix_host_id);
 }
 
 /* Handle DNS query packets and log the statistics */
-eemo_rv eemo_dnsstats_stats_handleqr(eemo_ip_packet_info ip_info, int is_tcp, const eemo_dns_packet* dns_packet)
+eemo_rv eemo_dnszabbix_stats_handleqr(eemo_ip_packet_info ip_info, int is_tcp, const eemo_dns_packet* dns_packet)
 {
 	int i = 0;
 	eemo_dns_query* query_it = NULL;

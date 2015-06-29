@@ -42,6 +42,21 @@ define([EEMO_DNSSENSORFW_CURRENT], [1])
 define([EEMO_DNSSENSORFW_REVISION], [0])
 define([EEMO_DNSSENSORFW_AGE], [0])
 
+# UDP retransmission plugin
+define([EEMO_UDPREXMIT_CURRENT], [1])
+define([EEMO_UDPREXMIT_REVISION], [0])
+define([EEMO_UDPREXMIT_AGE], [0])
+
+# EDNS0 client subnet monitoring plugin
+define([EEMO_ECSMONITOR_CURRENT], [1])
+define([EEMO_ECSMONITOR_REVISION], [0])
+define([EEMO_ECSMONITOR_AGE], [0])
+
+# DNS statistics module for Zabbix
+define([EEMO_DNSZABBIX_CURRENT], [1])
+define([EEMO_DNSZABBIX_REVISION], [0])
+define([EEMO_DNSZABBIX_AGE], [0])
+
 ################################################################################
 # Configuration functions                                                      #
 ################################################################################
@@ -66,6 +81,12 @@ EEMO_ICMPFRAGMON_VERSION_INFO="EEMO_ICMPFRAGMON_CURRENT:EEMO_ICMPFRAGMON_REVISIO
 AC_SUBST(EEMO_ICMPFRAGMON_VERSION_INFO)
 EEMO_DNSSENSORFW_VERSION_INFO="EEMO_DNSSENSORFW_CURRENT:EEMO_DNSSENSORFW_REVISION:EEMO_DNSSENSORFW_AGE"
 AC_SUBST(EEMO_DNSSENSORFW_VERSION_INFO)
+EEMO_UDPREXMIT_VERSION_INFO="EEMO_UDPREXMIT_CURRENT:EEMO_UDPREXMIT_REVISION:EEMO_UDPREXMIT_AGE"
+AC_SUBST(EEMO_UDPREXMIT_VERSION_INFO)
+EEMO_ECSMONITOR_VERSION_INFO="EEMO_ECSMONITOR_CURRENT:EEMO_ECSMONITOR_REVISION:EEMO_ECSMONITOR_AGE"
+AC_SUBST(EEMO_ECSMONITOR_VERSION_INFO)
+EEMO_DNSZABBIX_VERSION_INFO="EEMO_DNSZABBIX_CURRENT:EEMO_DNSZABBIX_REVISION:EEMO_DNSZABBIX_AGE"
+AC_SUBST(EEMO_DNSZABBIX_VERSION_INFO)
 
 # Checks for compilers and other programs
 AC_PROG_CC_C99
@@ -93,6 +114,9 @@ ACX_PCAP
 PKG_CHECK_MODULES([LIBCONFIG], [libconfig >= 1.3.2],, AC_MSG_ERROR([libconfig 1.3.2 or newer not found]))
 ACX_PTHREAD
 PKG_CHECK_MODULES([OPENSSL], [openssl >= 1.0.1],, AC_MSG_ERROR([OpenSSL 1.0.1 or newer not found]))
+AX_LIB_SQLITE3(3.7.0)
+
+AM_COND_IF([WITH_SQLITE3], ,AC_MSG_WARN([Not building IP-to-AS or GeoIP support since these depend on SQLite!]))
 
 # Check for headers
 AC_CHECK_HEADERS([pcap.h])
@@ -190,6 +214,9 @@ AC_CONFIG_FILES([
 	src/plugins/dnssensorfw/testsink/Makefile
 	src/plugins/icmpfragmon/Makefile
 	src/plugins/dnsqrlog/Makefile
+	src/plugins/udprexmit/Makefile
+	src/plugins/ecsmonitor/Makefile
+	src/plugins/dnszabbix/Makefile
 	config/Makefile
 	scripts/Makefile
 ])

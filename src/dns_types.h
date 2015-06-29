@@ -1,7 +1,6 @@
-/* $Id$ */
-
 /*
- * Copyright (c) 2010-2011 SURFnet bv
+ * Copyright (c) 2010-2015 SURFnet bv
+ * Copyright (c) 2015 Roland van Rijswijk-Deij
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -112,6 +111,9 @@
 #define DNS_RCODE_NXDOMAIN	3		/* Non-existent domain */
 #define DNS_RCODE_NOTIMPL	4		/* Requested feature not implemented */
 #define DNS_RCODE_REFUSED	5		/* Query refused */
+
+/* EDNS0 option codes */
+#define EDNS0_OPT_CLIENT_SUBNET	8		/* EDNS0 client subnet extension */
 
 #endif /* !_EEMO_DNS_TYPES_H */
 

@@ -31,31 +31,33 @@
 
 /*
  * The Extensible Ethernet Monitor (EEMO)
- * DNS statistics plug-in query counter code
+ * IP metadata functions
  */
 
-#ifndef _EEMO_DNSSTATS_STATS_H
-#define _EEMO_DNSSTATS_STATS_H
+#ifndef _IP_METADATA_H
+#define _IP_METADATA_H
 
 #include "config.h"
 #include "eemo.h"
-#include "eemo_log.h"
-#include "eemo_api.h"
-#include "dns_handler.h"
-#include "dns_parser.h"
-#include "dns_types.h"
+#include <arpa/inet.h>
 
-/* Initialise the DNS query counter module */
-void eemo_dnsstats_stats_init(char** ips, int ip_count, int emit_interval, char* stats_file, int append_file, int reset);
+/* Initialise metadata module */
+eemo_rv eemo_md_init(void);
 
-/* Uninitialise the DNS query counter module */
-void eemo_dnsstats_stats_uninit(eemo_conf_free_string_array_fn free_strings);
+/* Uninitialise metadata module */
+eemo_rv eemo_md_finalize(void);
 
-/* Handle DNS query packets and log the statistics */
-eemo_rv eemo_dnsstats_stats_handleqr(eemo_ip_packet_info ip_info, int is_tcp, const eemo_dns_packet* dns_packet);
+/* Look up the AS for an IPv4 address */
+eemo_rv eemo_md_lookup_as_v4(struct in_addr* addr, char** AS_short, char** AS_full);
 
-/* Reset statistics */
-void eemo_dnsstats_stats_reset(void);
+/* Look up the AS for an IPv6 address */
+eemo_rv eemo_md_lookup_as_v6(struct in6_addr* addr, char** AS_short, char** AS_full);
 
-#endif /* !_EEMO_DNSSTATS_STATS_H */
+/* Look up Geo IP for an IPv4 address */
+eemo_rv eemo_md_lookup_geoip_v4(struct in_addr* addr, char** country);
+
+/* Look up Geo IP for an IPv6 address */
+eemo_rv eemo_md_lookup_geoip_v6(struct in6_addr* addr, char** country);
+
+#endif /* !_IP_METADATA_H */
 

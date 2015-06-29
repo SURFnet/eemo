@@ -1,7 +1,6 @@
-/* $Id$ */
-
 /*
- * Copyright (c) 2010-2012 SURFnet bv
+ * Copyright (c) 2010-2015 SURFnet bv
+ * Copyright (c) 2015 Roland van Rijswijk-Deij
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -46,6 +45,7 @@
 #include "eemo_log.h"
 #include "ip_handler.h"
 #include "ether_handler.h"
+#include "ip_metadata.h"
 
 /* The handles for the IPv4 and IPv6 Ethernet handlers */
 static unsigned long ip4handler_handle = 0;
@@ -88,8 +88,7 @@ eemo_rv eemo_handle_ipv4_packet(eemo_packet_buf* packet, eemo_ether_packet_info 
 	u_short ip_proto = 0;
 
 	/* Clear ip_info structure */
-	memset(ip_info.ip_src, 0, NI_MAXHOST);
-	memset(ip_info.ip_dst, 0, NI_MAXHOST);
+	memset(&ip_info, 0, sizeof(ip_info));
 
 	/* Copy timestamp */
 	memcpy(&ip_info.ts, &ether_info.ts, sizeof(struct timeval));
@@ -137,6 +136,12 @@ eemo_rv eemo_handle_ipv4_packet(eemo_packet_buf* packet, eemo_ether_packet_info 
 
 		/* Determine the IP protocol */
 		ip_proto = hdr->ip4_proto;
+
+		/* Perform IP-to-AS and Geo IP lookup */
+		eemo_md_lookup_as_v4((struct in_addr*) &ip_info.src_addr.v4, &ip_info.src_as_short, &ip_info.src_as_full);
+		eemo_md_lookup_geoip_v4((struct in_addr*) &ip_info.src_addr.v4, &ip_info.src_geo_ip);
+		eemo_md_lookup_as_v4((struct in_addr*) &ip_info.dst_addr.v4, &ip_info.dst_as_short, &ip_info.dst_as_full);
+		eemo_md_lookup_geoip_v4((struct in_addr*) &ip_info.dst_addr.v4, &ip_info.dst_geo_ip);
 	}
 	else
 	{
@@ -170,6 +175,14 @@ eemo_rv eemo_handle_ipv4_packet(eemo_packet_buf* packet, eemo_ether_packet_info 
 		}
 	}
 
+	/* Clean up */
+	free(ip_info.src_as_short);
+	free(ip_info.src_as_full);
+	free(ip_info.src_geo_ip);
+	free(ip_info.dst_as_short);
+	free(ip_info.dst_as_full);
+	free(ip_info.dst_geo_ip);
+
 	return rv;
 }
 
@@ -184,8 +197,7 @@ eemo_rv eemo_handle_ipv6_packet(eemo_packet_buf* packet, eemo_ether_packet_info 
 	u_short ip_proto = 0;
 
 	/* Clear ip_info structure */
-	memset(ip_info.ip_src, 0, NI_MAXHOST);
-	memset(ip_info.ip_dst, 0, NI_MAXHOST);
+	memset(&ip_info, 0, sizeof(ip_info));	
 
 	/* Copy timestamp */
 	memcpy(&ip_info.ts, &ether_info.ts, sizeof(struct timeval));
@@ -239,6 +251,12 @@ eemo_rv eemo_handle_ipv6_packet(eemo_packet_buf* packet, eemo_ether_packet_info 
 
 		/* Determine the IP protocol */
 		ip_proto = hdr->ip6_next_hdr;
+
+		/* Perform IP-to-AS and Geo IP lookup */
+		eemo_md_lookup_as_v6((struct in6_addr*) &ip_info.src_addr.v6, &ip_info.src_as_short, &ip_info.src_as_full);
+		eemo_md_lookup_geoip_v6((struct in6_addr*) &ip_info.src_addr.v6, &ip_info.src_geo_ip);
+		eemo_md_lookup_as_v6((struct in6_addr*) &ip_info.dst_addr.v6, &ip_info.dst_as_short, &ip_info.dst_as_full);
+		eemo_md_lookup_geoip_v6((struct in6_addr*) &ip_info.dst_addr.v6, &ip_info.dst_geo_ip);
 	}
 	else
 	{
@@ -271,6 +289,14 @@ eemo_rv eemo_handle_ipv6_packet(eemo_packet_buf* packet, eemo_ether_packet_info 
 			rv = handler_rv;
 		}
 	}
+
+	/* Clean up */
+	free(ip_info.src_as_short);
+	free(ip_info.src_as_full);
+	free(ip_info.src_geo_ip);
+	free(ip_info.dst_as_short);
+	free(ip_info.dst_as_full);
+	free(ip_info.dst_geo_ip);
 
 	return rv;
 }

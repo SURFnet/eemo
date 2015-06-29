@@ -6,6 +6,10 @@ sbin_PROGRAMS = 		eemo \
 
 eemo_CFLAGS =			@LIBCONFIG_CFLAGS@ @PTHREAD_CFLAGS@ @OPENSSL_CFLAGS@
 
+if WITH_SQLITE3
+eemo_CFLAGS +=			@SQLITE3_CFLAGS@
+endif
+
 eemo_SOURCES =			dns_handler.c \
 				dns_handler.h \
 				dns_parser.c \
@@ -49,6 +53,8 @@ eemo_SOURCES =			dns_handler.c \
 				ifaddr_lookup.h \
 				ip_handler.c \
 				ip_handler.h \
+				ip_metadata.c \
+				ip_metadata.h \
 				tcp_handler.c \
 				tcp_handler.h \
 				udp_handler.c \
@@ -58,6 +64,10 @@ eemo_SOURCES =			dns_handler.c \
 				endian_compat.h
 
 eemo_LDADD =			-lpcap @LIBCONFIG_LIBS@ @PTHREAD_LIBS@ @OPENSSL_LIBS@
+
+if WITH_SQLITE3
+eemo_LDADD +=			@SQLITE3_LDFLAGS@
+endif
 
 eemo_mux_CFLAGS =	 	@LIBCONFIG_CFLAGS@ @OPENSSL_CFLAGS@ @PTHREAD_CFLAGS@
 

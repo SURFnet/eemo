@@ -1,7 +1,6 @@
-/* $Id$ */
-
 /*
- * Copyright (c) 2010-2012 SURFnet bv
+ * Copyright (c) 2010-2015 SURFnet bv
+ * Copyright (c) 2015 Roland van Rijswijk-Deij
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -43,6 +42,7 @@
 #include "eemo.h"
 #include "eemo_packet.h"
 #include "dns_types.h"
+#include <arpa/inet.h>
 
 /* EDNS0 field macros */
 #define EDNS0_VERSION(rr) 	((rr->ttl & 0xff000000) >> 24)
@@ -110,6 +110,18 @@ typedef struct eemo_dns_packet
 	unsigned short		ans_count;
 	unsigned short		aut_count;
 	unsigned short		add_count;
+	int			has_edns0;
+	int			edns0_version;
+	unsigned short		edns0_max_size;
+	unsigned char		edns0_do;
+	int			has_edns0_client_subnet;
+	int			edns0_client_subnet_src_scope;
+	int			edns0_client_subnet_res_scope;
+	char			edns0_client_subnet_ip[INET6_ADDRSTRLEN];
+	int			has_edns0_exp_opt;
+	char*			edns0_client_subnet_as_short;
+	char*			edns0_client_subnet_as_full;
+	char*			edns0_client_subnet_geo_ip;
 }
 eemo_dns_packet;
 
