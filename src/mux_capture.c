@@ -205,6 +205,9 @@ eemo_rv eemo_mux_capture_init(eemo_mux_capture_handle_pkt_fn handler_fn)
 		return ERV_TLS_ERROR;
 	}
 		
+	/* Set renegotiation behaviour */
+	SSL_CTX_set_mode(tls_ctx, SSL_MODE_AUTO_RETRY);
+
 	/* Load the certificate and private key */
 	if ((SSL_CTX_use_certificate_file(tls_ctx, client_cert, SSL_FILETYPE_PEM) != 1) &&
 	    (SSL_CTX_use_certificate_file(tls_ctx, client_cert, SSL_FILETYPE_ASN1) != 1))

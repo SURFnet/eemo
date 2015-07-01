@@ -1,7 +1,6 @@
-/* $Id$ */
-
 /*
- * Copyright (c) 2010-2014 SURFnet bv
+ * Copyright (c) 2010-2015 SURFnet bv
+ * Copyright (c) 2015 Roland van Rijswijk-Deij
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -46,7 +45,7 @@
 int tls_sock_read_bytes(SSL* tls, unsigned char* data, const size_t len)
 {
 	size_t	total_read	= 0;
-	int		num_read	= 0;
+	int	num_read	= 0;
 	
 	while (total_read < len)
 	{
