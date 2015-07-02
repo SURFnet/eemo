@@ -206,7 +206,7 @@ static int eemo_ecsmonitor_int_open_day_file(time_t ts)
 	/* Open the new output CSV file */
 	snprintf(day_file_name, 1024, "%s.%04d%02d%02d", edns0_mon_file_base, ecsmon_today.year, ecsmon_today.month, ecsmon_today.day);
 
-	edns0_mon_file = fopen(day_file_name, "w");
+	edns0_mon_file = fopen(day_file_name, "a");
 
 	if (edns0_mon_file == NULL)
 	{
@@ -216,7 +216,10 @@ static int eemo_ecsmonitor_int_open_day_file(time_t ts)
 	}
 
 	/* Write CSV header */
-	fprintf(edns0_mon_file, "timestamp;qtype;q_src;ecs_ip;ecs_scope;q_as;q_geoip;ecs_ip_as;ecs_ip_geoip\n");
+	if (ftell(edns0_mon_file) == 0)
+	{
+		fprintf(edns0_mon_file, "timestamp;qtype;q_src;ecs_ip;ecs_scope;q_as;q_geoip;ecs_ip_as;ecs_ip_geoip\n");
+	}
 
 	INFO_MSG("Started new file on %04d-%02d-%02d (%s)", ecsmon_today.year, ecsmon_today.month, ecsmon_today.day, day_file_name);
 

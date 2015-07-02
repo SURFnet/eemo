@@ -483,7 +483,7 @@ eemo_rv eemo_md_lookup_geoip_v6(struct in6_addr* addr, char** country)
 
 	if (sel_rv.sel_count != 1)
 	{
-		ERROR_MSG("Found an unexpected number of matches in the database (%d)\n", sel_rv.sel_count);
+		DEBUG_MSG("Found an unexpected number of matches in the database (%d)\n", sel_rv.sel_count);
 
 		return ERV_MDDB_ERROR;
 	}
