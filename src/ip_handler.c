@@ -412,8 +412,8 @@ eemo_rv eemo_init_ip_handler(void)
 		ERROR_MSG("Failed to retrieve metadata configuration setting (source lookup)");
 	}
 
-	INFO_MSG("Will %slook up metadata for source IPs", md_lookup_src ? "" : "not");
-	INFO_MSG("Will %slook up metadata for destination IPs", md_lookup_dst ? "" : "not");
+	INFO_MSG("Will %slook up metadata for source IPs", md_lookup_src ? "" : "not ");
+	INFO_MSG("Will %slook up metadata for destination IPs", md_lookup_dst ? "" : "not ");
 
 	INFO_MSG("Initialised IP handling");
 
