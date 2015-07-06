@@ -115,5 +115,9 @@
 /* EDNS0 option codes */
 #define EDNS0_OPT_CLIENT_SUBNET	8		/* EDNS0 client subnet extension */
 
+/* DNS opcodes */
+#define DNS_OPCODE_QR		0		/* Normal query/response */
+#define DNS_OPCODE_NOTIFY	4		/* DNS NOTIFY (RFC 1996) */
+
 #endif /* !_EEMO_DNS_TYPES_H */
 
