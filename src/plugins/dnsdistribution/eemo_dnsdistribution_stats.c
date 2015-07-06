@@ -754,7 +754,7 @@ eemo_rv eemo_dnsdistribution_stats_handleqr(eemo_ip_packet_info ip_info, int is_
 							t->value++;
 						}
 					}
-					s = NULL:
+					s = NULL;
 					/* Also add to the hashtabel that stores ALL responses */
 					HASH_FIND_STR ( ttl_table_ALL->table, rr_it->name , s );
 					if (s == NULL)
