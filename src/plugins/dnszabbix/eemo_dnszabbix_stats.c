@@ -833,10 +833,13 @@ eemo_rv eemo_dnszabbix_stats_handleqr(eemo_ip_packet_info ip_info, int is_tcp, c
 			{
 				int		has_soa_in_auth	= 0;
 				int		has_ns_in_auth	= 0;
+				int		auth_count	= 0;
 				eemo_dns_rr*	aut_it		= NULL;
 
 				LL_FOREACH(dns_packet->authorities, aut_it)
 				{
+					auth_count++;
+
 					if (aut_it->type == DNS_QTYPE_SOA)
 					{
 						has_soa_in_auth = 1;
@@ -861,7 +864,7 @@ eemo_rv eemo_dnszabbix_stats_handleqr(eemo_ip_packet_info ip_info, int is_tcp, c
 				}
 				else
 				{
-					WARNING_MSG("Response for %s with empty answer section that is not a referral or NODATA answer", (dns_packet->questions == NULL) ? "<unknown>" : dns_packet->questions->qname);
+					WARNING_MSG("Response for %s (qtype %d) with empty answer section that is not a referral or NODATA answer (answer has %d authority records)", (dns_packet->questions == NULL) ? "<unknown>" : dns_packet->questions->qname, (dns_packet->questions == NULL) ? -1 : dns_packet->questions->qtype, auth_count);
 
 					rcode_ctr.RCODE_UNKNOWN++;
 				}
