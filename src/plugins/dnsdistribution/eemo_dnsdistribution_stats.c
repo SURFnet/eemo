@@ -210,7 +210,6 @@ void init_var(void)
 	nr_trun_with_sigs	= 0;
 	nr_resp			= 0;
 	nr_resp_with_sigs	= 0;
-
 }
 
 /* Free memory of all variables used in a stat reset (i.e. the filepath values are not freed) */
@@ -295,7 +294,7 @@ void write_stats(void)
 	if (stat_fp_general != NULL)
 	{
 		INFO_MSG("Writing general stats..");
-		/* passed time, queries, fragmented, truncated, truncated with sigs, responses, signatures, responses with signatures, chr*/
+		/* time, queries, responses, queries to ns, frag, trun, trun_sigs, sigs, resp_sigs, chr*/
 		fprintf(stat_fp_general, "%.3f\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%0.2f\n", passed_time_total, nr_quer, nr_resp, nr_quer_out, nr_frag, nr_trun, nr_trun_with_sigs, nr_sigs, nr_resp_with_sigs, 100 - (((double) chr.RESPONSES/ (double) chr.QUERIES)*100));
 		fflush(stat_fp_general);
 		fclose(stat_fp_general);	
@@ -465,9 +464,9 @@ void eemo_dnsdistribution_stats_init(char* stats_file_general, char* stats_file_
 	init_var();
 
 	/* Create empty output files */
-	/* fclose(fopen(stat_file_general, "w"));
+	fclose(fopen(stat_file_general, "w"));
 	fclose(fopen(stat_file_qname_popularity, "w"));
-	fclose(fopen(stat_file_sigs_per_resp, "w"));*/
+	fclose(fopen(stat_file_sigs_per_resp, "w"));
 	LL_FOREACH(ttl_tables, ttl_table)
 	{
 		char filepath[1024] = {0};
@@ -654,8 +653,8 @@ eemo_rv eemo_dnsdistribution_stats_handleqr(eemo_ip_packet_info ip_info, int is_
 							break;
 						}
 					}
-					/* Name was received before, an entry should be placed in the corresponding CHANGED table if the TTL is changed */
-					else if (s->value != rr_it->ttl)
+					/* Name was received before, an entry should be placed in the corresponding CHANGED table if the TTL is smaller */
+					else if (rr_it->ttl < s->value)
 					{
 						/* Check if the CHANGED table already contains an entry for the name/query type combination */
 						struct hashentry_si *t = NULL; /* search entry */
@@ -755,7 +754,7 @@ eemo_rv eemo_dnsdistribution_stats_handleqr(eemo_ip_packet_info ip_info, int is_
 							t->value++;
 						}
 					}
-
+					s = NULL:
 					/* Also add to the hashtabel that stores ALL responses */
 					HASH_FIND_STR ( ttl_table_ALL->table, rr_it->name , s );
 					if (s == NULL)
@@ -771,6 +770,7 @@ eemo_rv eemo_dnsdistribution_stats_handleqr(eemo_ip_packet_info ip_info, int is_
 				}
 				
 				if (sigs_in_resp  > 0) nr_resp_with_sigs++;                                                     
+
 				/* Store the number of signatures in the hashtable */
 				HASH_FIND_INT(sigs_per_resp_table, &sigs_in_resp, search_entry);
 				if (search_entry != NULL )
