@@ -46,13 +46,18 @@
 #include "ip_handler.h"
 #include "ether_handler.h"
 #include "ip_metadata.h"
+#include "eemo_config.h"
 
 /* The handles for the IPv4 and IPv6 Ethernet handlers */
-static unsigned long ip4handler_handle = 0;
-static unsigned long ip6handler_handle = 0;
+static unsigned long	ip4handler_handle	= 0;
+static unsigned long	ip6handler_handle	= 0;
 
 /* The linked list of IP packet handlers */
-static eemo_ip_handler* ip_handlers = NULL;
+static eemo_ip_handler*	ip_handlers 		= NULL;
+
+/* Metadata handling configuration */
+static int		md_lookup_src		= 1;	/* Perform metadata lookup for source IP? */
+static int		md_lookup_dst		= 1;	/* Perform metadata lookup for destination IP? */
 
 /* Convert IPv4 packet header to host byte order */
 void eemo_ipv4_ntoh(eemo_hdr_ipv4* hdr)
@@ -138,10 +143,17 @@ eemo_rv eemo_handle_ipv4_packet(eemo_packet_buf* packet, eemo_ether_packet_info 
 		ip_proto = hdr->ip4_proto;
 
 		/* Perform IP-to-AS and Geo IP lookup */
-		eemo_md_lookup_as_v4((struct in_addr*) &ip_info.src_addr.v4, &ip_info.src_as_short, &ip_info.src_as_full);
-		eemo_md_lookup_geoip_v4((struct in_addr*) &ip_info.src_addr.v4, &ip_info.src_geo_ip);
-		eemo_md_lookup_as_v4((struct in_addr*) &ip_info.dst_addr.v4, &ip_info.dst_as_short, &ip_info.dst_as_full);
-		eemo_md_lookup_geoip_v4((struct in_addr*) &ip_info.dst_addr.v4, &ip_info.dst_geo_ip);
+		if (md_lookup_src)
+		{
+			eemo_md_lookup_as_v4((struct in_addr*) &ip_info.src_addr.v4, &ip_info.src_as_short, &ip_info.src_as_full);
+			eemo_md_lookup_geoip_v4((struct in_addr*) &ip_info.src_addr.v4, &ip_info.src_geo_ip);
+		}
+
+		if (md_lookup_dst)
+		{
+			eemo_md_lookup_as_v4((struct in_addr*) &ip_info.dst_addr.v4, &ip_info.dst_as_short, &ip_info.dst_as_full);
+			eemo_md_lookup_geoip_v4((struct in_addr*) &ip_info.dst_addr.v4, &ip_info.dst_geo_ip);
+		}
 	}
 	else
 	{
@@ -253,10 +265,17 @@ eemo_rv eemo_handle_ipv6_packet(eemo_packet_buf* packet, eemo_ether_packet_info 
 		ip_proto = hdr->ip6_next_hdr;
 
 		/* Perform IP-to-AS and Geo IP lookup */
-		eemo_md_lookup_as_v6((struct in6_addr*) &ip_info.src_addr.v6, &ip_info.src_as_short, &ip_info.src_as_full);
-		eemo_md_lookup_geoip_v6((struct in6_addr*) &ip_info.src_addr.v6, &ip_info.src_geo_ip);
-		eemo_md_lookup_as_v6((struct in6_addr*) &ip_info.dst_addr.v6, &ip_info.dst_as_short, &ip_info.dst_as_full);
-		eemo_md_lookup_geoip_v6((struct in6_addr*) &ip_info.dst_addr.v6, &ip_info.dst_geo_ip);
+		if (md_lookup_src)
+		{
+			eemo_md_lookup_as_v6((struct in6_addr*) &ip_info.src_addr.v6, &ip_info.src_as_short, &ip_info.src_as_full);
+			eemo_md_lookup_geoip_v6((struct in6_addr*) &ip_info.src_addr.v6, &ip_info.src_geo_ip);
+		}
+
+		if (md_lookup_dst)
+		{
+			eemo_md_lookup_as_v6((struct in6_addr*) &ip_info.dst_addr.v6, &ip_info.dst_as_short, &ip_info.dst_as_full);
+			eemo_md_lookup_geoip_v6((struct in6_addr*) &ip_info.dst_addr.v6, &ip_info.dst_geo_ip);
+		}
 	}
 	else
 	{
@@ -381,6 +400,20 @@ eemo_rv eemo_init_ip_handler(void)
 	{
 		eemo_unreg_ether_handler(ip4handler_handle);
 	}
+
+	/* Retrieve metadata handling configuration */
+	if (eemo_conf_get_bool("metadata", "lookup_src_ip", &md_lookup_src, 1) != ERV_OK)
+	{
+		ERROR_MSG("Failed to retrieve metadata configuration setting (source lookup)");
+	}
+
+	if (eemo_conf_get_bool("metadata", "lookup_dst_ip", &md_lookup_dst, 1) != ERV_OK)
+	{
+		ERROR_MSG("Failed to retrieve metadata configuration setting (source lookup)");
+	}
+
+	INFO_MSG("Will %slook up metadata for source IPs", md_lookup_src ? "" : "not ");
+	INFO_MSG("Will %slook up metadata for destination IPs", md_lookup_dst ? "" : "not ");
 
 	INFO_MSG("Initialised IP handling");
 

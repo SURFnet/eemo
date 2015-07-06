@@ -292,6 +292,9 @@ int eemo_sensor_connect_mux(void)
 			
 			return -1;
 		}
+
+		/* Set renegotiation behaviour */
+		SSL_CTX_set_mode(tls_ctx, SSL_MODE_AUTO_RETRY);
 		
 		/* Load the certificate and private key */
 		if ((eemo_conf_get_string("sensor", "sensor_cert", &cert_file, NULL) != ERV_OK) || (cert_file == NULL))

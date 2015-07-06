@@ -962,6 +962,9 @@ static int eemo_mux_setup_sensor_socket(void)
 		return -1;
 	}
 
+	/* Set renegotiation behaviour */
+	SSL_CTX_set_mode(sensor_tls_ctx, SSL_MODE_AUTO_RETRY);
+
 	/* Set DH behaviour */
 	dh_key = EC_KEY_new_by_curve_name(NID_X9_62_prime256v1);
 	
@@ -1175,6 +1178,9 @@ static int eemo_mux_setup_client_socket(void)
 		return -1;
 	}
 	
+	/* Set renegotiation behaviour */
+	SSL_CTX_set_mode(client_tls_ctx, SSL_MODE_AUTO_RETRY);
+
 	/* Set DH behaviour */
 	dh_key = EC_KEY_new_by_curve_name(NID_X9_62_prime256v1);
 	

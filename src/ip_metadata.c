@@ -50,10 +50,56 @@
 /* Global database handles */
 static sqlite3*	asdb_handle	= NULL;
 static sqlite3*	geoipdb_handle	= NULL;
-#endif
+#endif /* HAVE_SQLITE3 */
 
 #define ULL_HI(x)	(x>>32)
 #define ULL_LO(x)	(x&0xffffffff)
+
+#ifdef HAVE_SQLITE3
+static void eemo_md_db_to_mem(sqlite3** db_handle, const char* desc)
+{
+	assert(db_handle != NULL);
+	assert(*db_handle != NULL);
+
+	sqlite3*	new_db_h	= NULL;
+	sqlite3_backup*	new_db_bu	= NULL;
+
+	if (sqlite3_open_v2(":memory:", &new_db_h, SQLITE_OPEN_CREATE | SQLITE_OPEN_READWRITE | SQLITE_OPEN_NOMUTEX, NULL) != 0)
+	{
+		WARNING_MSG("Failed to open in-memory database (%s)", sqlite3_errmsg(new_db_h));
+		
+		return;
+	}
+	
+	/* Now copy the tables from the metadata database into memory */
+	if ((new_db_bu = sqlite3_backup_init(new_db_h, "main", *db_handle, "main")) == NULL)
+	{
+		ERROR_MSG("Failed to initiate in-memory restore of the %s database (%s)", desc, sqlite3_errmsg(new_db_h));
+
+		sqlite3_close(new_db_h);
+
+		return;
+	}
+
+	if (sqlite3_backup_step(new_db_bu, -1) != SQLITE_DONE)
+	{
+		ERROR_MSG("Failed to load the %s database into memory during backup (%s)", desc, sqlite3_errmsg(new_db_h));
+
+		sqlite3_close(new_db_h);
+
+		return;
+	}
+
+	sqlite3_backup_finish(new_db_bu);
+
+	/* Close the on-disk database handle */
+	sqlite3_close(*db_handle);
+
+	*db_handle = new_db_h;
+
+	INFO_MSG("Loaded a copy of the %s database into memory", desc);
+}
+#endif /* HAVE_SQLITE3 */
 
 /* Initialise metadata module */
 eemo_rv eemo_md_init(void)
@@ -87,6 +133,9 @@ eemo_rv eemo_md_init(void)
 		else
 		{
 			INFO_MSG("Loaded IP-to-AS database %s", as_db_name);
+
+			/* Attempt to load it into memory */
+			eemo_md_db_to_mem(&asdb_handle, "IP-to-AS");
 		}
 	}
 
@@ -101,6 +150,9 @@ eemo_rv eemo_md_init(void)
 		else
 		{
 			INFO_MSG("Loaded Geo IP database %s", geoip_db_name);
+
+			/* Attempt to load it into memory */
+			eemo_md_db_to_mem(&asdb_handle, "Geo IP");
 		}
 	}
 #else /* !HAVE_SQLITE3 */
@@ -483,7 +535,7 @@ eemo_rv eemo_md_lookup_geoip_v6(struct in6_addr* addr, char** country)
 
 	if (sel_rv.sel_count != 1)
 	{
-		ERROR_MSG("Found an unexpected number of matches in the database (%d)\n", sel_rv.sel_count);
+		DEBUG_MSG("Found an unexpected number of matches in the database (%d)\n", sel_rv.sel_count);
 
 		return ERV_MDDB_ERROR;
 	}

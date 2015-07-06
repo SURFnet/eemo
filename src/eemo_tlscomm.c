@@ -1,7 +1,6 @@
-/* $Id$ */
-
 /*
- * Copyright (c) 2010-2014 SURFnet bv
+ * Copyright (c) 2010-2015 SURFnet bv
+ * Copyright (c) 2015 Roland van Rijswijk-Deij
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -41,12 +40,13 @@
 #include "eemo_log.h"
 #include <openssl/ssl.h>
 #include <openssl/err.h>
+#include <unistd.h>
 
 /* Receive a specified number of bytes from a socket via TLS */
 int tls_sock_read_bytes(SSL* tls, unsigned char* data, const size_t len)
 {
 	size_t	total_read	= 0;
-	int		num_read	= 0;
+	int	num_read	= 0;
 	
 	while (total_read < len)
 	{
@@ -57,6 +57,14 @@ int tls_sock_read_bytes(SSL* tls, unsigned char* data, const size_t len)
 			if (SSL_get_error(tls, num_read) == SSL_ERROR_ZERO_RETURN)
 			{
 				return 1;
+			}
+
+			/* Re-negotiation? */
+			if ((SSL_get_error(tls, num_read) == SSL_ERROR_WANT_READ) ||
+			    (SSL_get_error(tls, num_read) == SSL_ERROR_WANT_WRITE))
+			{
+				usleep(1000);
+				continue;
 			}
 			
 			return -1;
@@ -105,16 +113,29 @@ int tls_sock_read_uint(SSL* tls, uint32_t* value)
 /* Send the specified number of bytes to a socket using TLS */
 int tls_sock_write_bytes(SSL* tls, const uint8_t* data, const size_t len)
 {
-	int num_written = SSL_write(tls, data, len);
+	int num_written	= 0;
 	
-	if (num_written <= 0)
+	while (num_written <= 0)
 	{
-		if (SSL_get_error(tls, num_written) == SSL_ERROR_ZERO_RETURN)
+		num_written = SSL_write(tls, data, len);
+
+		if (num_written <= 0)
 		{
-			return 1;
-		}
+			if (SSL_get_error(tls, num_written) == SSL_ERROR_ZERO_RETURN)
+			{
+				return 1;
+			}
 		
-		return -1;
+			/* Re-negotiation? */
+			if ((SSL_get_error(tls, num_written) == SSL_ERROR_WANT_READ) ||
+			    (SSL_get_error(tls, num_written) == SSL_ERROR_WANT_WRITE))
+			{
+				usleep(1000);
+				continue;
+			}
+			
+			return -1;
+		}
 	}
 	
 	if (num_written != len)
