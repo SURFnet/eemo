@@ -1,7 +1,6 @@
-/* $Id$ */
-
 /*
- * Copyright (c) 2010-2011 SURFnet bv
+ * Copyright (c) 2010-2015 SURFnet bv
+ * Copyright (c) 2015 Roland van Rijswijk-Deij
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -38,6 +37,7 @@
 #include "config.h"
 #include <stdlib.h>
 #include <string.h>
+#include <assert.h>
 #include "eemo_packet.h"
 
 /* Create a new packet structure */
@@ -65,6 +65,24 @@ eemo_packet_buf* eemo_pbuf_new(u_char* data, u_short len)
 	memcpy(rv->data, data, len);
 
 	return rv;
+}
+
+/* Fill packet buf from existing with offset */
+void eemo_pbuf_shrink(eemo_packet_buf* dst, const eemo_packet_buf* src, const size_t ofs)
+{
+	assert(dst != NULL);
+	assert(src != NULL);
+
+	if (ofs >= dst->len)
+	{
+		dst->data = NULL;
+		dst->len = 0;
+	}
+	else
+	{
+		dst->data = &src->data[ofs];
+		dst->len = src->len - ofs;
+	}
 }
 
 /* Free up a packet structure */
