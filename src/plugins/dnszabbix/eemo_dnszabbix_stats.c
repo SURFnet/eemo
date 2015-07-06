@@ -225,6 +225,7 @@ struct
 {
 	unsigned long long RCODE_NOERROR;
 	unsigned long long RCODE_NODATA;
+	unsigned long long RCODE_REFERRAL;
 	unsigned long long RCODE_FORMERR;
 	unsigned long long RCODE_SERVFAIL;
 	unsigned long long RCODE_NXDOMAIN;
@@ -515,6 +516,7 @@ void write_stats(void)
 		EMIT_INT("rsize.ctr.counted",		rsize_ctr.RSIZE_COUNTED);
 		EMIT_INT("rcode.ctr.NOERROR",		rcode_ctr.RCODE_NOERROR);
 		EMIT_INT("rcode.ctr.NODATA",		rcode_ctr.RCODE_NODATA);
+		EMIT_INT("rcode.ctr.REFERRAL",		rcode_ctr.RCODE_REFERRAL);
 		EMIT_INT("rcode.ctr.FORMERR",		rcode_ctr.RCODE_FORMERR);
 		EMIT_INT("rcode.ctr.SERVFAIL",		rcode_ctr.RCODE_SERVFAIL);
 		EMIT_INT("rcode.ctr.NXDOMAIN",		rcode_ctr.RCODE_NXDOMAIN);
@@ -829,7 +831,40 @@ eemo_rv eemo_dnszabbix_stats_handleqr(eemo_ip_packet_info ip_info, int is_tcp, c
 		case DNS_RCODE_NOERROR:
 			if (dns_packet->answers == NULL)
 			{
-				rcode_ctr.RCODE_NODATA++;
+				int		has_soa_in_auth	= 0;
+				int		has_ns_in_auth	= 0;
+				eemo_dns_rr*	aut_it		= NULL;
+
+				LL_FOREACH(dns_packet->authorities, aut_it)
+				{
+					if (aut_it->type == DNS_QTYPE_SOA)
+					{
+						has_soa_in_auth = 1;
+						break;
+					}
+					else if (aut_it->type == DNS_QTYPE_NS)
+					{
+						has_ns_in_auth = 1;
+						break;
+					}
+				}
+
+				if (has_soa_in_auth)
+				{
+					/* This is a NODATA answer */
+					rcode_ctr.RCODE_NODATA++;
+				}
+				else if (has_ns_in_auth)
+				{
+					/* This is a referral */
+					rcode_ctr.RCODE_REFERRAL++;
+				}
+				else
+				{
+					WARNING_MSG("Response for %s with empty answer section that is not a referral or NODATA answer", (dns_packet->questions == NULL) ? "<unknown>" : dns_packet->questions->qname);
+
+					rcode_ctr.RCODE_UNKNOWN++;
+				}
 			}
 			else
 			{
