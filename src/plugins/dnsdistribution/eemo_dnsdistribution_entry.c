@@ -54,6 +54,7 @@ eemo_rv eemo_dnsdistribution_init(eemo_export_fn_table_ptr eemo_fn, const char* 
 	char*	file_qname_popularity		= NULL;
 	char*	file_ttl			= NULL;
 	char*	file_sigs_per_resp		= NULL;
+	char*	file_rcodes			= NULL;
 	char** 	resolver_ips			= NULL;
 	int 	ip_count			= 0;
 	int	emit_interval			= 0;
@@ -87,6 +88,12 @@ eemo_rv eemo_dnsdistribution_init(eemo_export_fn_table_ptr eemo_fn, const char* 
                 return ERV_CONFIG_ERROR;
         }
 
+	if (((eemo_fn->conf_get_string)(conf_base_path, "stats_file_rcodes", &file_rcodes, NULL) != ERV_OK) ||
+            (file_rcodes == NULL))
+        {
+                return ERV_CONFIG_ERROR;
+        }
+
 	if (((eemo_fn->conf_get_string_array)(conf_base_path, "resolver_ips", &resolver_ips, &ip_count) != ERV_OK))
         {
                 return ERV_CONFIG_ERROR;
@@ -98,7 +105,7 @@ eemo_rv eemo_dnsdistribution_init(eemo_export_fn_table_ptr eemo_fn, const char* 
 	}
 
 	/* Initialise the DNS statistics counter */
-	eemo_dnsdistribution_stats_init(file_general, file_qname_popularity, file_ttl, file_sigs_per_resp, resolver_ips, ip_count, emit_interval);
+	eemo_dnsdistribution_stats_init(file_general, file_qname_popularity, file_ttl, file_sigs_per_resp, file_rcodes, resolver_ips, ip_count, emit_interval);
 
 	/* Register DNS query handler */
 	rv = (eemo_fn->reg_dns_handler)(&eemo_dnsdistribution_stats_handleqr, PARSE_QUERY | PARSE_RESPONSE | PARSE_CANONICALIZE_NAME, &stats_dns_handler_handle);
