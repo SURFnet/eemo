@@ -40,6 +40,7 @@
 #include "config.h"
 #include <pcap.h>
 #include <netdb.h>
+#include <arpa/inet.h>
 #include "eemo.h"
 #include "eemo_packet.h"
 
@@ -94,35 +95,36 @@ eemo_hdr_ipv6;
 
 typedef struct
 {
-	char 		ip_src[NI_MAXHOST]; 	/* source address */
-	char 		ip_dst[NI_MAXHOST];	/* destination address */
-	unsigned char 	ip_type;		/* protocol v4 or v6 */
-	unsigned char 	is_fragment;		/* is this a fragment? */
-	unsigned char	more_frags;		/* are there more fragments to follow? */
-	u_short 	fragment_ofs;		/* fragment offset */
+	char 		ip_src[INET6_ADDRSTRLEN];	/* source address */
+	char 		ip_dst[INET6_ADDRSTRLEN];	/* destination address */
+	unsigned char 	ip_type;			/* protocol v4 or v6 */
+	unsigned char 	is_fragment;			/* is this a fragment? */
+	unsigned char	more_frags;			/* are there more fragments to follow? */
+	u_short 	fragment_ofs;			/* fragment offset */
+	u_short		ip_id;				/* IP packet identifier */
 	union
 	{
-		u_int	v4;			/* caution: network byte order! */
-		u_short	v6[8];			/* caution: network byte order! */
-	}		src_addr;		/* binary source address */
+		u_int	v4;				/* caution: network byte order! */
+		u_short	v6[8];				/* caution: network byte order! */
+	}		src_addr;			/* binary source address */
 	union
 	{
-		u_int	v4;			/* caution: network byte order! */
-		u_short	v6[8];			/* caution: network byte order! */
-	}		dst_addr;		/* binary destination address */
-	u_char		ttl;			/* time-to-live (or hop limit for v6) */
-	struct timeval	ts;			/* capture timestamp */
-	char*		src_as_short;		/* Short AS for source IP */
-	char*		src_as_full;		/* Full AS for source IP */
-	char*		src_geo_ip;		/* Geo IP info for source IP */
-	char*		dst_as_short;		/* Short AS for destination IP */
-	char*		dst_as_full;		/* Full AS for destination IP */
-	char*		dst_geo_ip;		/* Geo IP info for destination IP */
+		u_int	v4;				/* caution: network byte order! */
+		u_short	v6[8];				/* caution: network byte order! */
+	}		dst_addr;			/* binary destination address */
+	u_char		ttl;				/* time-to-live (or hop limit for v6) */
+	struct timeval	ts;				/* capture timestamp */
+	char*		src_as_short;			/* Short AS for source IP */
+	char*		src_as_full;			/* Full AS for source IP */
+	char*		src_geo_ip;			/* Geo IP info for source IP */
+	char*		dst_as_short;			/* Short AS for destination IP */
+	char*		dst_as_full;			/* Full AS for destination IP */
+	char*		dst_geo_ip;			/* Geo IP info for destination IP */
 }
 eemo_ip_packet_info;
 
 /* Defines a handler for IP packets */
-typedef eemo_rv (*eemo_ip_handler_fn) (eemo_packet_buf*, eemo_ip_packet_info);
+typedef eemo_rv (*eemo_ip_handler_fn) (const eemo_packet_buf*, eemo_ip_packet_info);
 
 /* Defines an IP handler record */
 typedef struct eemo_ip_handler

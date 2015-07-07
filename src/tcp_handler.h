@@ -1,7 +1,6 @@
-/* $Id$ */
-
 /*
- * Copyright (c) 2010-2012 SURFnet bv
+ * Copyright (c) 2010-2015 SURFnet bv
+ * Copyright (c) 2015 Roland van Rijswijk-Deij
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -88,7 +87,7 @@ typedef struct
 eemo_tcp_packet_info;
 
 /* Defines a handler for TCP packets */
-typedef eemo_rv (*eemo_tcp_handler_fn) (eemo_packet_buf*, eemo_ip_packet_info, eemo_tcp_packet_info);
+typedef eemo_rv (*eemo_tcp_handler_fn) (const eemo_packet_buf*, eemo_ip_packet_info, eemo_tcp_packet_info);
 
 /* Defines an TCP handler record */
 #define TCP_ANY_PORT		0

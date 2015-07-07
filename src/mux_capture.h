@@ -44,7 +44,7 @@
 #include <sys/time.h>
 
 /* Handling function prototype */
-typedef eemo_rv (*eemo_mux_capture_handle_pkt_fn)(eemo_packet_buf* packet, struct timeval ts);
+typedef eemo_rv (*eemo_mux_capture_handle_pkt_fn)(const eemo_packet_buf* packet, struct timeval ts);
 
 /* Initialise direct capturing */
 eemo_rv eemo_mux_capture_init(eemo_mux_capture_handle_pkt_fn handler_fn);

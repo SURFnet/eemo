@@ -39,9 +39,10 @@
 #include <string.h>
 #include <assert.h>
 #include "eemo_packet.h"
+#include "eemo_log.h"
 
 /* Create a new packet structure */
-eemo_packet_buf* eemo_pbuf_new(u_char* data, u_short len)
+eemo_packet_buf* eemo_pbuf_new(const u_char* data, u_short len)
 {
 	eemo_packet_buf* rv = (eemo_packet_buf*) malloc(sizeof(eemo_packet_buf));
 
@@ -62,7 +63,7 @@ eemo_packet_buf* eemo_pbuf_new(u_char* data, u_short len)
 		return NULL;
 	}
 
-	memcpy(rv->data, data, len);
+	memcpy((u_char*) rv->data, data, len);
 
 	return rv;
 }
@@ -73,7 +74,7 @@ void eemo_pbuf_shrink(eemo_packet_buf* dst, const eemo_packet_buf* src, const si
 	assert(dst != NULL);
 	assert(src != NULL);
 
-	if (ofs >= dst->len)
+	if (ofs >= src->len)
 	{
 		dst->data = NULL;
 		dst->len = 0;
@@ -92,7 +93,7 @@ void eemo_pbuf_free(eemo_packet_buf* pbuf)
 	{
 		if (pbuf->data != NULL)
 		{
-			free(pbuf->data);
+			free((u_char*) pbuf->data);
 			pbuf->data = NULL;
 		}
 

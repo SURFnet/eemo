@@ -1,7 +1,6 @@
-/* $Id$ */
-
 /*
- * Copyright (c) 2010-2011 SURFnet bv
+ * Copyright (c) 2010-2015 SURFnet bv
+ * Copyright (c) 2015 Roland van Rijswijk-Deij
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -54,18 +53,13 @@ static unsigned long icmp_ip6_handler_handle = 0;
 /* The linked list of IP packet handlers */
 static eemo_icmp_handler* icmp_handlers = NULL;
 
-/* Convert ICMP packet header to host byte order */
-void eemo_icmp_ntoh(eemo_hdr_icmp* hdr)
-{
-	hdr->icmp_chksum = ntohs(hdr->icmp_chksum);
-}
-
 /* Handle an ICMP packet */
-eemo_rv eemo_handle_icmp_packet(eemo_packet_buf* packet, eemo_ip_packet_info ip_info)
+eemo_rv eemo_handle_icmp_packet(const eemo_packet_buf* packet, eemo_ip_packet_info ip_info)
 {
-	eemo_hdr_icmp* hdr = NULL;
-	eemo_icmp_handler* handler_it = NULL;
-	eemo_rv rv = ERV_SKIPPED;
+	eemo_hdr_icmp*		hdr		= NULL;
+	eemo_icmp_handler*	handler_it	= NULL;
+	eemo_rv			rv		= ERV_SKIPPED;
+	eemo_packet_buf		icmp_data	= { NULL, 0 };
 
 	/* Check minimum length */
 	if (packet->len < sizeof(eemo_hdr_icmp))
@@ -77,8 +71,10 @@ eemo_rv eemo_handle_icmp_packet(eemo_packet_buf* packet, eemo_ip_packet_info ip_
 	/* Take the header from the packet */
 	hdr = (eemo_hdr_icmp*) packet->data;
 
-	/* Convert the header to host byte order */
-	eemo_icmp_ntoh(hdr);
+	/* FIXME: if we ever use the checksum from the header: convert it to host byte order */
+
+	/* Take data */
+	eemo_pbuf_shrink(&icmp_data, packet, sizeof(eemo_hdr_icmp));
 
 	/* See if there is a handler given the type, code and IP type of this packet */
 	LL_FOREACH(icmp_handlers, handler_it)
@@ -90,17 +86,7 @@ eemo_rv eemo_handle_icmp_packet(eemo_packet_buf* packet, eemo_ip_packet_info ip_
 		    (handler_it->icmp_code == hdr->icmp_code) &&
 		    (handler_it->iptype == ip_info.ip_type))
 		{
-			eemo_packet_buf* icmp_data = 
-				eemo_pbuf_new(&packet->data[sizeof(eemo_hdr_icmp)], packet->len - sizeof(eemo_hdr_icmp));
-	
-			if (icmp_data == NULL)
-			{
-				return ERV_MEMORY;
-			}
-	
-			handler_rv = (handler_it->handler_fn)(icmp_data, ip_info, hdr->icmp_type, hdr->icmp_code);
-	
-			eemo_pbuf_free(icmp_data);
+			handler_rv = (handler_it->handler_fn)(&icmp_data, ip_info, hdr->icmp_type, hdr->icmp_code);
 		}
 
 		if (rv != ERV_HANDLED)

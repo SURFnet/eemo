@@ -1,7 +1,6 @@
-/* $Id$ */
-
 /*
- * Copyright (c) 2010-2012 SURFnet bv
+ * Copyright (c) 2010-2015 SURFnet bv
+ * Copyright (c) 2015 Roland van Rijswijk-Deij
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -46,26 +45,21 @@
 #include "udp_handler.h"
 
 /* The handle for the UDP IP packet handler */
-static unsigned long udp_ip_handler_handle = 0;
+static unsigned long		udp_ip_handler_handle	= 0;
 
 /* The linked list of UDP packet handlers */
-static eemo_udp_handler* udp_handlers = NULL;
-
-/* Convert UDP packet header to host byte order */
-void eemo_udp_ntoh(eemo_hdr_udp* hdr)
-{
-	hdr->udp_srcport = ntohs(hdr->udp_srcport);
-	hdr->udp_dstport = ntohs(hdr->udp_dstport);
-	hdr->udp_len	 = ntohs(hdr->udp_len);
-	hdr->udp_chksum	 = ntohs(hdr->udp_chksum);
-}
+static eemo_udp_handler*	udp_handlers		= NULL;
 
 /* Handle an UDP packet */
-eemo_rv eemo_handle_udp_packet(eemo_packet_buf* packet, eemo_ip_packet_info ip_info)
+eemo_rv eemo_handle_udp_packet(const eemo_packet_buf* packet, eemo_ip_packet_info ip_info)
 {
-	eemo_hdr_udp* hdr = NULL;
-	eemo_udp_handler* handler_it = NULL;
-	eemo_rv rv = ERV_SKIPPED;
+	eemo_hdr_udp*		hdr		= NULL;
+	eemo_udp_handler* 	handler_it	= NULL;
+	eemo_rv			rv		= ERV_SKIPPED;
+	u_short			srcport		= 0;
+	u_short			dstport		= 0;
+	u_short			udp_len		= 0;
+	eemo_packet_buf		udp_data	= { NULL, 0 };
 
 	/* Check minimum length */
 	if (packet->len < sizeof(eemo_hdr_udp))
@@ -78,7 +72,17 @@ eemo_rv eemo_handle_udp_packet(eemo_packet_buf* packet, eemo_ip_packet_info ip_i
 	hdr = (eemo_hdr_udp*) packet->data;
 
 	/* Convert the header to host byte order */
-	eemo_udp_ntoh(hdr);
+	srcport	= ntohs(hdr->udp_srcport);
+	dstport	= ntohs(hdr->udp_dstport);
+	udp_len	= ntohs(hdr->udp_len);
+
+	/* 
+	 * FIXME: if we are ever going to do anything with the UDP checksum
+	 *        it will need to be converted to host byte order
+	 */
+
+	/* Take the UDP data */
+	eemo_pbuf_shrink(&udp_data, packet, sizeof(eemo_hdr_udp));
 
 	/* See if there is a handler given the source and destination port for this packet */
 	LL_FOREACH(udp_handlers, handler_it)
@@ -86,21 +90,11 @@ eemo_rv eemo_handle_udp_packet(eemo_packet_buf* packet, eemo_ip_packet_info ip_i
 		eemo_rv handler_rv = ERV_SKIPPED;
 
 		if ((handler_it->handler_fn != NULL) &&
-		    ((handler_it->srcport == UDP_ANY_PORT) || (handler_it->srcport == hdr->udp_srcport)) &&
-		    ((handler_it->dstport == UDP_ANY_PORT) || (handler_it->dstport == hdr->udp_dstport)))
+		    ((handler_it->srcport == UDP_ANY_PORT) || (handler_it->srcport == srcport)) &&
+		    ((handler_it->dstport == UDP_ANY_PORT) || (handler_it->dstport == dstport)))
 		     
 		{
-			eemo_packet_buf* udp_data = 
-				eemo_pbuf_new(&packet->data[sizeof(eemo_hdr_udp)], packet->len - sizeof(eemo_hdr_udp));
-
-			if (udp_data == NULL)
-			{
-				return ERV_MEMORY;
-			}
-
-			handler_rv = (handler_it->handler_fn)(udp_data, ip_info, hdr->udp_srcport, hdr->udp_dstport, hdr->udp_len);
-
-			eemo_pbuf_free(udp_data);
+			handler_rv = (handler_it->handler_fn)(&udp_data, ip_info, srcport, dstport, udp_len);
 		}
 
 		if (rv != ERV_HANDLED)

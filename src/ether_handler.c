@@ -1,7 +1,6 @@
-/* $Id$ */
-
 /*
- * Copyright (c) 2010-2011 SURFnet bv
+ * Copyright (c) 2010-2015 SURFnet bv
+ * Copyright (c) 2010-2015 Roland van Rijswijk-Deij
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -108,19 +107,15 @@ eemo_rv eemo_unreg_ether_handler(unsigned long handle)
 	}
 }
 
-/* Convert the packet from network to host byte order */
-void eemo_ether_ntoh(eemo_hdr_raw_ether* hdr)
-{
-	hdr->eth_type = ntohs(hdr->eth_type);
-}
-
 /* Handle an Ethernet packet */
-eemo_rv eemo_handle_ether_packet(eemo_packet_buf* packet, struct timeval ts)
+eemo_rv eemo_handle_ether_packet(const eemo_packet_buf* packet, struct timeval ts)
 {
-	eemo_hdr_raw_ether* hdr = NULL;
-	eemo_ether_packet_info packet_info;
-	eemo_ether_handler* handler_it = NULL;
-	eemo_rv rv = ERV_SKIPPED;
+	eemo_hdr_raw_ether* 	hdr		= NULL;
+	eemo_ether_packet_info 	packet_info;
+	eemo_ether_handler* 	handler_it	= NULL;
+	eemo_rv			rv		= ERV_SKIPPED;
+	u_short			ether_type	= 0;
+	eemo_packet_buf		ether_data	= { NULL, 0 };
 
 	/* Check the packet size */
 	if (packet->len < sizeof(eemo_hdr_raw_ether))
@@ -132,8 +127,8 @@ eemo_rv eemo_handle_ether_packet(eemo_packet_buf* packet, struct timeval ts)
 	/* Take the header from the packet */
 	hdr = (eemo_hdr_raw_ether*) packet->data;
 
-	/* Convert to host byte order */
-	eemo_ether_ntoh(hdr);
+	/* Convert header fields to host byte order */
+	ether_type = ntohs(hdr->eth_type);
 
 	/* Retrieve source and destination from the packet */
 	memset(packet_info.eth_source, 0, 18);
@@ -157,26 +152,17 @@ eemo_rv eemo_handle_ether_packet(eemo_packet_buf* packet, struct timeval ts)
 	/* Copy the timestamp */
 	memcpy(&packet_info.ts, &ts, sizeof(struct timeval));
 
+	/* Create buffer for handlers */
+	eemo_pbuf_shrink(&ether_data, packet, sizeof(eemo_hdr_raw_ether));
+
 	/* Handle the packet */
 	LL_FOREACH(ether_handlers, handler_it)
 	{
 		eemo_rv handler_rv = ERV_SKIPPED;
 
-		if ((handler_it->handler_fn != NULL) && (handler_it->which_eth_type == hdr->eth_type))
+		if ((handler_it->handler_fn != NULL) && (handler_it->which_eth_type == ether_type))
 		{
-			eemo_packet_buf* ether_data =
-				eemo_pbuf_new(&packet->data[sizeof(eemo_hdr_raw_ether)], packet->len - sizeof(eemo_hdr_raw_ether));
-
-			if (ether_data != NULL)
-			{
-				handler_rv = (handler_it->handler_fn)(ether_data, packet_info);
-
-				eemo_pbuf_free(ether_data);
-			}
-			else
-			{
-				handler_rv = ERV_MEMORY;
-			}
+			handler_rv = (handler_it->handler_fn)(&ether_data, packet_info);
 		}
 
 		if (rv != ERV_HANDLED)

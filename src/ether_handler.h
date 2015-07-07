@@ -1,7 +1,6 @@
-/* $Id$ */
-
 /*
- * Copyright (c) 2010-2011 SURFnet bv
+ * Copyright (c) 2010-2015 SURFnet bv
+ * Copyright (c) 2015 Roland van Rijswijk-Deij
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -64,7 +63,7 @@ typedef struct
 eemo_ether_packet_info;
 
 /* Defines a handler for raw Ethernet packets */
-typedef eemo_rv (*eemo_ether_handler_fn) (eemo_packet_buf*, eemo_ether_packet_info);
+typedef eemo_rv (*eemo_ether_handler_fn) (const eemo_packet_buf*, eemo_ether_packet_info);
 
 /* Defines an Ethernet handler record */
 typedef struct eemo_ether_handler
@@ -89,7 +88,7 @@ typedef eemo_rv (*eemo_unreg_ether_handler_fn) (unsigned long);
 eemo_rv eemo_unreg_ether_handler(unsigned long handle);
 
 /* Handle an Ethernet packet */
-eemo_rv eemo_handle_ether_packet(eemo_packet_buf* packet, struct timeval ts);
+eemo_rv eemo_handle_ether_packet(const eemo_packet_buf* packet, struct timeval ts);
 
 /* Initialise Ethernet handling */
 eemo_rv eemo_init_ether_handler(void);

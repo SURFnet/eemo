@@ -1,7 +1,6 @@
-/* $Id$ */
-
 /*
- * Copyright (c) 2010-2011 SURFnet bv
+ * Copyright (c) 2010-2015 SURFnet bv
+ * Copyright (c) 2015 Roland van Rijswijk-Deij
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -64,7 +63,7 @@ void eemo_icmpfragmon_aggr_init(char* server, int port, int max_packet_size, int
 void eemo_icmpfragmon_aggr_uninit(eemo_conf_free_string_array_fn free_strings);
 
 /* Handle ICMP messages */
-eemo_rv eemo_icmpfragmon_handle_icmp(eemo_packet_buf* icmp_data, eemo_ip_packet_info ip_info, u_char icmp_type, u_char icmp_code);
+eemo_rv eemo_icmpfragmon_handle_icmp(const eemo_packet_buf* icmp_data, eemo_ip_packet_info ip_info, u_char icmp_type, u_char icmp_code);
 
 #endif /* !_EEMO_ICMPFRAGMON_AGGR_H */
 

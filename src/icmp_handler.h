@@ -1,7 +1,6 @@
-/* $Id$ */
-
 /*
- * Copyright (c) 2010-2011 SURFnet bv
+ * Copyright (c) 2010-2015 SURFnet bv
+ * Copyright (c) 2015 Roland van Rijswijk-Deij
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -60,7 +59,7 @@ eemo_hdr_icmp;
 #pragma pack(pop)
 
 /* Defines an ICMP packet handler */
-typedef eemo_rv (*eemo_icmp_handler_fn) (eemo_packet_buf*, eemo_ip_packet_info, u_char /*type*/, u_char /*code*/); 
+typedef eemo_rv (*eemo_icmp_handler_fn) (const eemo_packet_buf*, eemo_ip_packet_info, u_char /*type*/, u_char /*code*/); 
 
 /* Defines an ICMP handler record */
 typedef struct eemo_icmp_handler
