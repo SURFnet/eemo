@@ -59,19 +59,6 @@ static eemo_ip_handler*	ip_handlers 		= NULL;
 static int		md_lookup_src		= 1;	/* Perform metadata lookup for source IP? */
 static int		md_lookup_dst		= 1;	/* Perform metadata lookup for destination IP? */
 
-/* Convert IPv6 packet header to host byte order */
-void eemo_ipv6_ntoh(eemo_hdr_ipv6* hdr)
-{
-	int i = 0;
-
-
-	for (i = 0; i < 8; i++)
-	{
-		hdr->ip6_src[i] = ntohs(hdr->ip6_src[i]);
-		hdr->ip6_dst[i] = ntohs(hdr->ip6_dst[i]);
-	}
-}
-
 /* Handle an IPv4 packet */
 eemo_rv eemo_handle_ipv4_packet(const eemo_packet_buf* packet, eemo_ether_packet_info ether_info)
 {
