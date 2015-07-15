@@ -217,6 +217,8 @@ struct
 	unsigned long long RSIZE_ABOVE_4096;
 	unsigned long long RSIZE_TOTAL;
 	unsigned long long RSIZE_COUNTED;
+	unsigned long long RSIZE_COUNTED_V4;
+	unsigned long long RSIZE_COUNTED_V6;
 }
 rsize_ctr;
 
@@ -240,6 +242,8 @@ struct
 {
 	unsigned long long R_FRAG;
 	unsigned long long R_UNFRAG;
+	unsigned long long R_FRAG_V4;
+	unsigned long long R_FRAG_V6;
 }
 rfrag_ctr;
 
@@ -290,6 +294,8 @@ void write_stats(void)
 	unsigned long long	QUERY_TOTAL		= 0;
 	float			R_FRAG_PCT		= 0.0f;
 	float			R_UNFRAG_PCT		= 0.0f;
+	float			R_FRAG_V4_PCT		= 0.0f;
+	float			R_FRAG_V6_PCT		= 0.0f;
 	unsigned long long	R_FRAG_UNFRAG_TOTAL	= 0;
 	float			RSIZE_PCT_LT_512	= 0.0f;
 	float			RSIZE_PCT_512_1023	= 0.0f;
@@ -354,6 +360,16 @@ void write_stats(void)
 		{
 			R_FRAG_PCT		= (rfrag_ctr.R_FRAG * 100.0f)			/ (float) R_FRAG_UNFRAG_TOTAL;
 			R_UNFRAG_PCT		= (rfrag_ctr.R_UNFRAG * 100.0f)			/ (float) R_FRAG_UNFRAG_TOTAL;
+		}
+
+		if (rsize_ctr.RSIZE_COUNTED_V4 > 0)
+		{
+			R_FRAG_V4_PCT		= (rfrag_ctr.R_FRAG_V4 * 100.0f)		/ (float) rsize_ctr.RSIZE_COUNTED_V4;
+		}
+
+		if (rsize_ctr.RSIZE_COUNTED_V6 > 0)
+		{
+			R_FRAG_V6_PCT		= (rfrag_ctr.R_FRAG_V6 * 100.0f)		/ (float) rsize_ctr.RSIZE_COUNTED_V6;
 		}
 
 		/* Calculate bucketed response size percentages */
@@ -533,8 +549,12 @@ void write_stats(void)
 		EMIT_INT("rcode.ctr.UNKNOWN",		rcode_ctr.RCODE_UNKNOWN);
 		EMIT_INT("rfrag.ctr.frag",		rfrag_ctr.R_FRAG);
 		EMIT_INT("rfrag.ctr.unfrag",		rfrag_ctr.R_UNFRAG);
+		EMIT_INT("rfrag.ctr.v4.frag",		rfrag_ctr.R_FRAG_V4);
+		EMIT_INT("rfrag.ctr.v6.frag",		rfrag_ctr.R_FRAG_V6);
 		EMIT_PCT("rfrag.pct.frag",		R_FRAG_PCT);
 		EMIT_PCT("rfrag.pct.unfrag",		R_UNFRAG_PCT);
+		EMIT_PCT("rfrag.pct.v4.frag",		R_FRAG_V4_PCT);
+		EMIT_PCT("rfrag.pct.v6.frag",		R_FRAG_V6_PCT);
 		EMIT_INT("rfrag.ctr.total",		R_FRAG_UNFRAG_TOTAL);
 		EMIT_PCT("rsize.pct.below512",		RSIZE_PCT_LT_512);
 		EMIT_PCT("rsize.pct.512to1023",		RSIZE_PCT_512_1023);
@@ -677,6 +697,16 @@ eemo_rv eemo_dnszabbix_stats_handleqr(eemo_ip_packet_info ip_info, int is_tcp, c
 		if (dns_packet->is_fragmented)
 		{
 			rfrag_ctr.R_FRAG++;
+
+			switch(ip_info.ip_type)
+			{
+			case IP_TYPE_V4:
+				rfrag_ctr.R_FRAG_V4++;
+				break;
+			case IP_TYPE_V6:
+				rfrag_ctr.R_FRAG_V6++;
+				break;
+			}
 		}
 		else
 		{
@@ -960,6 +990,16 @@ eemo_rv eemo_dnszabbix_stats_handleqr(eemo_ip_packet_info ip_info, int is_tcp, c
 
 			rsize_ctr.RSIZE_TOTAL += dns_packet->udp_len;
 			rsize_ctr.RSIZE_COUNTED++;
+
+			switch(ip_info.ip_type)
+			{
+			case IP_TYPE_V4:
+				rsize_ctr.RSIZE_COUNTED_V4++;
+				break;
+			case IP_TYPE_V6:
+				rsize_ctr.RSIZE_COUNTED_V6++;
+				break;
+			}
 		}
 
 		/* Count flags */
