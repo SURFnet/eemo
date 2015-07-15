@@ -381,9 +381,10 @@ eemo_rv eemo_handle_ipv6_packet(const eemo_packet_buf* packet, eemo_ether_packet
 				return ERV_SKIPPED;
 			}
 
-			ip_ofs		= IPV6_FRAG_OFS(ntohs(frag_hdr->ip6_ofs));
-			is_last		= IPV6_FRAG_IS_LAST(ntohs(frag_hdr->ip6_ofs));
-			ip_info.ip6_id	= ntohl(frag_hdr->ip6_id);
+			ip_ofs			= IPV6_FRAG_OFS(ntohs(frag_hdr->ip6_ofs));
+			is_last			= IPV6_FRAG_IS_LAST(ntohs(frag_hdr->ip6_ofs));
+			ip_info.ip6_id		= ntohl(frag_hdr->ip6_id);
+			ip_info.is_fragment	= 1;
 
 			/* Remove fragment extension header */
 			eemo_pbuf_shrink(&ip_data, &ip_data, sizeof(eemo_hdr_ipv6_frag_ext));
