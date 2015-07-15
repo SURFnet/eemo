@@ -43,7 +43,7 @@
 #include "eemo_log.h"
 #include "ip_metadata.h"
 
-/* #define DNS_PARSE_DEBUG */ /* define to enable extensive debug logging of DNS parsing */
+/*#define DNS_PARSE_DEBUG*/  /* define to enable extensive debug logging of DNS parsing */
 #undef DNS_PARSE_DEBUG
 
 #ifdef DNS_PARSE_DEBUG
@@ -922,9 +922,9 @@ eemo_rv eemo_parse_dns_rrs(const eemo_packet_buf* packet, eemo_dns_packet* dns_p
 						WARNING_MSG("Malformed EDNS0 OPT RDATA field");
 					}
 				}
-			}
 
-			PARSE_MSG("EDNS0 data present, version %d, maximum response size %u, DO=%u", dns_packet->edns0_version, dns_packet->edns0_max_size, dns_packet->edns0_do);
+				PARSE_MSG("EDNS0 data present, version %d, maximum response size %u, DO=%u", dns_packet->edns0_version, dns_packet->edns0_max_size, dns_packet->edns0_do);
+			}
 
 			if (dns_packet->has_edns0_client_subnet)
 			{
