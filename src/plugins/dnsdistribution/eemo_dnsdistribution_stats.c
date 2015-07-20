@@ -362,9 +362,9 @@ void write_stats(void)
 	passed_time_ns = time_after.tv_nsec - time_before.tv_nsec;
 	passed_time_total = (float) passed_time_s + (float) passed_time_ns/1000000000;
 
-	INFO_MSG("- General..");
 	if (stat_fp_general != NULL)
 	{
+		INFO_MSG("- General..");
 		/* time, queries, responses, queries to ns, frag, trun, trun_sigs, sigs, resp_sigs, chr*/
 		fprintf(stat_fp_general, "%.3f\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%0.2f\n", passed_time_total, nr_quer, nr_resp, chr.RESPONSES, nr_quer_out, nr_frag, nr_trun, nr_trun_with_sigs, nr_sigs, nr_resp_with_sigs, 100 - (((double) chr.RESPONSES/ (double) chr.QUERIES)*100));
 		fflush(stat_fp_general);
@@ -372,9 +372,9 @@ void write_stats(void)
 	}
 
 	/* Printing QNAME popularity statistics */
-	INFO_MSG("- QNAME popularity..");
 	if (stat_fp_qname_popularity != NULL && curr_stat_qname_interval_ctr >= stat_qname_interval_ctr)
 	{		
+		INFO_MSG("- QNAME popularity..");
 		struct hashentry_si *s		= NULL;
 		struct hashentry_si *tmp 	= NULL;
 
@@ -448,9 +448,9 @@ void write_stats(void)
 	}
 
 	/* Printing number of signatures per query statistics */
-	INFO_MSG("- Signatures per query..");
 	if (stat_fp_sigs_per_resp != NULL)
 	{
+		INFO_MSG("- Signatures per query..");
                 HASH_SORT( sigs_per_resp_table, sort_on_key_ascending);
 
 		struct hashentry_ii *s_ii	= NULL;
@@ -466,9 +466,9 @@ void write_stats(void)
 	}	
 	
 	/* Printing rcode statistics */
-	INFO_MSG("- RCODE..");
 	if (stat_fp_rcodes != NULL)
 	{
+		INFO_MSG("- RCODE..");
 		fprintf(stat_fp_rcodes, "%d\t%d\t%d\t%d\t%d\t%d\n", rcodes.NOERROR, rcodes.FORMERR, rcodes.SERVFAIL, rcodes.NXDOMAIN, rcodes.NOTIMPL, rcodes.REFUSED);	
 		fflush(stat_fp_rcodes);
 		fclose(stat_fp_rcodes);
@@ -481,32 +481,6 @@ void reset_stats(void)
 	INFO_MSG("Resetting stats..");
 	free_var();	
 	init_var();
-
-	/* Initialize the timer */
-	clock_gettime(CLOCK_REALTIME, &time_before);
-}
-
-
-/* Signal handler for alarms & user signals */
-void signal_handler(int signum)
-{
-	if (signum == SIGUSR2)
-	{
-		reset_stats();
-	}
-	else if (signum == SIGUSR1)
-	{
-		write_stats();
-		reset_stats();
-	}
-	else if (signum == SIGALRM)
-	{	
-		curr_stat_qname_interval_ctr += 1;
-		write_stats();
-		reset_stats();
-		alarm(stat_emit_interval);
-		if (curr_stat_qname_interval_ctr >= stat_qname_interval_ctr) curr_stat_qname_interval_ctr = 0;
-	}
 }
 
 /* Initialise the DNS query counter module */
@@ -902,6 +876,29 @@ eemo_rv eemo_dnsdistribution_stats_handleqr(eemo_ip_packet_info ip_info, int is_
 	eemo_dns_query* query_it = NULL;
 	eemo_dns_rr* rr_it 	 = NULL;
 
+	/* Variables used for timing */
+	struct timespec time_after;
+	long int passed_time_s = 0;
+	long int passed_time_ns = 0;
+	float passed_time_total = 0;
+
+	clock_gettime(CLOCK_REALTIME, &time_after);
+	passed_time_s = time_after.tv_sec - time_before.tv_sec;
+	passed_time_ns = time_after.tv_nsec - time_before.tv_nsec;
+	passed_time_total = (float) passed_time_s + (float) passed_time_ns/1000000000;
+
+	/* Write statistics if the sufficient amount of time has passed */
+	if (passed_time_total >= stat_emit_interval)
+	{
+		curr_stat_qname_interval_ctr += 1;
+		write_stats();
+		reset_stats();
+		if (curr_stat_qname_interval_ctr >= stat_qname_interval_ctr) curr_stat_qname_interval_ctr = 0;
+		
+		/* Reset the timer */
+		clock_gettime(CLOCK_REALTIME, &time_before);
+	}
+		
 	if (dns_packet->qr_flag)
 	{
 		/* This is a response */
