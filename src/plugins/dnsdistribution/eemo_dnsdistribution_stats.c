@@ -101,6 +101,8 @@ static char*	stat_file_rcodes			= NULL;
 static char**	ips_resolver				= NULL;
 static int	ips_count				= 0;
 static int 	stat_emit_interval			= 0;
+static int 	stat_qname_interval_ctr			= 0;
+static int 	curr_stat_qname_interval_ctr		= 0;
 static int	nr_quer					= 0;
 static int	nr_quer_out				= 0;
 static int	nr_resp					= 0;
@@ -147,6 +149,7 @@ static struct	hashentry_ii *sigs_per_resp_table	= NULL;
 
 void init_var(void)
 {	
+	INFO_MSG("Initializing variables..");
 	struct ll_hashtable *s		= NULL; /* Temporary struct for iteration */
 
 	/* Initialize the TTL tables */
@@ -275,7 +278,8 @@ void init_var(void)
 /* Free memory of all variables used in a stat reset (i.e. the filepath values are not freed) */
 void free_var(void)
 {
-	struct hashentry_si *s 		= NULL; /* Temporary struct for iteration */
+	INFO_MSG("Freeing variables");
+	struct hashentry_si *s 			= NULL; /* Temporary struct for iteration */
 						/* For now, we dont care if the TTL value is changed twice within our time span, so no else statement */
 	struct hashentry_si *tmp 		= NULL; /* Temporary struct for iteration */
 	struct ll_hashtable *ttl_table  	= NULL;
@@ -305,11 +309,14 @@ void free_var(void)
 	}
 
 	/* Free memory of qname hashtable */
-	HASH_ITER(hh, qname_table, s, tmp)
+	if (curr_stat_qname_interval_ctr >= stat_qname_interval_ctr) 
 	{
-		HASH_DEL(qname_table, s);
-		free(s->name);
-		free(s);
+		HASH_ITER(hh, qname_table, s, tmp)
+		{
+			HASH_DEL(qname_table, s);
+			free(s->name);
+			free(s);
+		}
 	}
 }
 
@@ -355,6 +362,7 @@ void write_stats(void)
 	passed_time_ns = time_after.tv_nsec - time_before.tv_nsec;
 	passed_time_total = (float) passed_time_s + (float) passed_time_ns/1000000000;
 
+	INFO_MSG("- General..");
 	if (stat_fp_general != NULL)
 	{
 		/* time, queries, responses, queries to ns, frag, trun, trun_sigs, sigs, resp_sigs, chr*/
@@ -364,7 +372,8 @@ void write_stats(void)
 	}
 
 	/* Printing QNAME popularity statistics */
-	if (stat_fp_qname_popularity != NULL)
+	INFO_MSG("- QNAME popularity..");
+	if (stat_fp_qname_popularity != NULL && curr_stat_qname_interval_ctr >= stat_qname_interval_ctr)
 	{		
 		struct hashentry_si *s		= NULL;
 		struct hashentry_si *tmp 	= NULL;
@@ -384,6 +393,7 @@ void write_stats(void)
 	}
 		
 	/* Printing TTL occurrences statistics */
+	INFO_MSG("- TTL occurrences..");
 	LL_FOREACH(ttl_tables, ttl_table)
 	{
 		char filepath[1024] = {0};
@@ -438,6 +448,7 @@ void write_stats(void)
 	}
 
 	/* Printing number of signatures per query statistics */
+	INFO_MSG("- Signatures per query..");
 	if (stat_fp_sigs_per_resp != NULL)
 	{
                 HASH_SORT( sigs_per_resp_table, sort_on_key_ascending);
@@ -455,6 +466,7 @@ void write_stats(void)
 	}	
 	
 	/* Printing rcode statistics */
+	INFO_MSG("- RCODE..");
 	if (stat_fp_rcodes != NULL)
 	{
 		fprintf(stat_fp_rcodes, "%d\t%d\t%d\t%d\t%d\t%d\n", rcodes.NOERROR, rcodes.FORMERR, rcodes.SERVFAIL, rcodes.NXDOMAIN, rcodes.NOTIMPL, rcodes.REFUSED);	
@@ -466,6 +478,7 @@ void write_stats(void)
 /* Reset statistics */
 void reset_stats(void)
 {
+	INFO_MSG("Resetting stats..");
 	free_var();	
 	init_var();
 
@@ -487,15 +500,17 @@ void signal_handler(int signum)
 		reset_stats();
 	}
 	else if (signum == SIGALRM)
-	{
+	{	
+		curr_stat_qname_interval_ctr += 1;
 		write_stats();
 		reset_stats();
 		alarm(stat_emit_interval);
+		if (curr_stat_qname_interval_ctr >= stat_qname_interval_ctr) curr_stat_qname_interval_ctr = 0;
 	}
 }
 
 /* Initialise the DNS query counter module */
-void eemo_dnsdistribution_stats_init(char* stats_file_general, char* stats_file_qname_popularity, char* stats_file_ttl, char* stats_file_sigs_per_resp, char* stats_file_rcodes, char** resolver_ips, int ip_count, int emit_interval)
+void eemo_dnsdistribution_stats_init(char* stats_file_general, char* stats_file_qname_popularity, char* stats_file_ttl, char* stats_file_sigs_per_resp, char* stats_file_rcodes, char** resolver_ips, int ip_count, int emit_interval, int emit_qname_ctr)
 {
 	stat_file_general 		= stats_file_general;
 	stat_file_qname_popularity 	= stats_file_qname_popularity;
@@ -505,6 +520,7 @@ void eemo_dnsdistribution_stats_init(char* stats_file_general, char* stats_file_
 	ips_resolver 			= resolver_ips;
 	ips_count 			= ip_count;
 	stat_emit_interval		= emit_interval;
+	stat_qname_interval_ctr		= emit_qname_ctr;
 	int i 				= 0;
 	struct ll_hashtable *ttl_table 	= NULL;
 
@@ -529,6 +545,8 @@ void eemo_dnsdistribution_stats_init(char* stats_file_general, char* stats_file_
 	{
 		INFO_MSG("Not emitting statistics per interval");	
 	}
+	
+	INFO_MSG("Qname popularity is only transmitted once every %d emit intervals", stat_qname_interval_ctr);	
 
 	init_var();
 

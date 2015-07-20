@@ -58,6 +58,7 @@ eemo_rv eemo_dnsdistribution_init(eemo_export_fn_table_ptr eemo_fn, const char* 
 	char** 	resolver_ips			= NULL;
 	int 	ip_count			= 0;
 	int	emit_interval			= 0;
+	int	emit_qname_ctr			= 0;
 	eemo_rv rv				= ERV_OK;
 
 	/* Initialise logging for the plugin */
@@ -104,8 +105,13 @@ eemo_rv eemo_dnsdistribution_init(eemo_export_fn_table_ptr eemo_fn, const char* 
 		return ERV_CONFIG_ERROR;
 	}
 
+	if ((eemo_fn->conf_get_int)(conf_base_path, "emit_qname_ctr", &emit_qname_ctr, 0) != ERV_OK)
+	{
+		return ERV_CONFIG_ERROR;
+	}
+
 	/* Initialise the DNS statistics counter */
-	eemo_dnsdistribution_stats_init(file_general, file_qname_popularity, file_ttl, file_sigs_per_resp, file_rcodes, resolver_ips, ip_count, emit_interval);
+	eemo_dnsdistribution_stats_init(file_general, file_qname_popularity, file_ttl, file_sigs_per_resp, file_rcodes, resolver_ips, ip_count, emit_interval, emit_qname_ctr);
 
 	/* Register DNS query handler */
 	rv = (eemo_fn->reg_dns_handler)(&eemo_dnsdistribution_stats_handleqr, PARSE_QUERY | PARSE_RESPONSE | PARSE_CANONICALIZE_NAME, &stats_dns_handler_handle);
