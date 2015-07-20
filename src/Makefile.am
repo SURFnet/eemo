@@ -53,6 +53,8 @@ eemo_SOURCES =			dns_handler.c \
 				ifaddr_lookup.h \
 				ip_handler.c \
 				ip_handler.h \
+				ip_reassemble.c \
+				ip_reassemble.h \
 				ip_metadata.c \
 				ip_metadata.h \
 				tcp_handler.c \

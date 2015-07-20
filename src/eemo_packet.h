@@ -1,7 +1,6 @@
-/* $Id$ */
-
 /*
- * Copyright (c) 2010-2011 SURFnet bv
+ * Copyright (c) 2010-2015 SURFnet bv
+ * Copyright (c) 2015 Roland van Rijswijk-Deij
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -44,13 +43,16 @@
 /* Generic packet structure */
 typedef struct
 {
-	u_char*	data;
-	u_short	len;
+	const u_char*	data;
+	u_short		len;
 }
 eemo_packet_buf;
 
+/* Fill packet buf from existing with offset */
+void eemo_pbuf_shrink(eemo_packet_buf* dst, const eemo_packet_buf* src, const size_t ofs);
+
 /* Create a new packet structure */
-eemo_packet_buf* eemo_pbuf_new(u_char* data, u_short len);
+eemo_packet_buf* eemo_pbuf_new(const u_char* data, u_short len);
 
 /* Free up a packet structure */
 void eemo_pbuf_free(eemo_packet_buf* pbuf);

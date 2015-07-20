@@ -47,6 +47,7 @@
 #include "ether_handler.h"
 #include "ip_metadata.h"
 #include "eemo_config.h"
+#include "ip_reassemble.h"
 
 /* The handles for the IPv4 and IPv6 Ethernet handlers */
 static unsigned long	ip4handler_handle	= 0;
@@ -59,38 +60,20 @@ static eemo_ip_handler*	ip_handlers 		= NULL;
 static int		md_lookup_src		= 1;	/* Perform metadata lookup for source IP? */
 static int		md_lookup_dst		= 1;	/* Perform metadata lookup for destination IP? */
 
-/* Convert IPv4 packet header to host byte order */
-void eemo_ipv4_ntoh(eemo_hdr_ipv4* hdr)
-{
-	hdr->ip4_len 	= ntohs(hdr->ip4_len);
-	hdr->ip4_id	= ntohs(hdr->ip4_id);
-	hdr->ip4_ofs	= ntohs(hdr->ip4_ofs);
-	hdr->ip4_chksum	= ntohs(hdr->ip4_chksum);
-}
-
-/* Convert IPv6 packet header to host byte order */
-void eemo_ipv6_ntoh(eemo_hdr_ipv6* hdr)
-{
-	int i = 0;
-
-	hdr->ip6_len	= ntohs(hdr->ip6_len);
-
-	for (i = 0; i < 8; i++)
-	{
-		hdr->ip6_src[i] = ntohs(hdr->ip6_src[i]);
-		hdr->ip6_dst[i] = ntohs(hdr->ip6_dst[i]);
-	}
-}
-
 /* Handle an IPv4 packet */
-eemo_rv eemo_handle_ipv4_packet(eemo_packet_buf* packet, eemo_ether_packet_info ether_info)
+eemo_rv eemo_handle_ipv4_packet(const eemo_packet_buf* packet, eemo_ether_packet_info ether_info)
 {
-	u_char version = 0;
-	eemo_ip_packet_info ip_info;
-	u_short offset = 0;
-	eemo_ip_handler* handler_it = NULL;
-	eemo_rv rv = ERV_SKIPPED;
-	u_short ip_proto = 0;
+	u_char			version		= 0;
+	eemo_ip_packet_info	ip_info;
+	u_short			offset		= 0;
+	eemo_ip_handler*	handler_it	= NULL;
+	eemo_rv			rv		= ERV_SKIPPED;
+	u_short			ip_proto	= 0;
+	eemo_packet_buf		ip_data		= { NULL, 0 };
+	/*u_short			ip4_len		= 0;*/	/* TODO: we'll need this for reassembly */
+	u_short			ip4_id		= 0;
+	u_short			ip4_ofs		= 0;
+	int			release_ra	= 0;
 
 	/* Clear ip_info structure */
 	memset(&ip_info, 0, sizeof(ip_info));
@@ -123,24 +106,78 @@ eemo_rv eemo_handle_ipv4_packet(eemo_packet_buf* packet, eemo_ether_packet_info 
 		hdr = (eemo_hdr_ipv4*) packet->data;
 
 		/* Convert to host byte order */
-		eemo_ipv4_ntoh(hdr);
+		/*ip4_len	= ntohs(hdr->ip4_len);*/	/* TODO: we'll need this for reassembly */
+		ip4_id	= ntohs(hdr->ip4_id);
+		ip4_ofs	= ntohs(hdr->ip4_ofs);
+
+		/*
+		 * FIXME: if we are every going to do anything with the IPv4 checksum
+		 *        field, it should be converted to host byte order first
+		 */
+
+		/* Check header length */
+		if (IP_HDRLEN(hdr->ip4_ver_hl) < 5)
+		{
+			ERROR_MSG("Malformed IPv4 packet (header length %d < 5)", IP_HDRLEN(hdr->ip4_ver_hl));
+
+			return ERV_MALFORMED;
+		}
+		else if (IP_HDRLEN(hdr->ip4_ver_hl) > 5)
+		{
+			DEBUG_MSG("IPv4 packet with options (header length %d words)", IP_HDRLEN(hdr->ip4_ver_hl));
+		}
 
 		/* Copy relevant information to the ip_info structure */
-		ip_info.fragment_ofs 	= hdr->ip4_ofs & IPV4_FRAGMASK;
-		ip_info.is_fragment 	= (ip_info.fragment_ofs > 0) || FLAG_SET(hdr->ip4_ofs, IPV4_MOREFRAG);
-		ip_info.more_frags 	= FLAG_SET(hdr->ip4_ofs, IPV4_MOREFRAG);
+		ip_info.fragment_ofs 	= (ip4_ofs & IPV4_FRAGMASK) * 8;
+		ip_info.is_fragment 	= (ip_info.fragment_ofs > 0) || FLAG_SET(ip4_ofs, IPV4_MOREFRAG);
+		ip_info.more_frags 	= FLAG_SET(ip4_ofs, IPV4_MOREFRAG);
 		ip_info.ip_type 	= IP_TYPE_V4;
-		snprintf(ip_info.ip_src, NI_MAXHOST, "%d.%d.%d.%d", hdr->ip4_src[0], hdr->ip4_src[1], hdr->ip4_src[2], hdr->ip4_src[3]);
-		snprintf(ip_info.ip_dst, NI_MAXHOST, "%d.%d.%d.%d", hdr->ip4_dst[0], hdr->ip4_dst[1], hdr->ip4_dst[2], hdr->ip4_dst[3]);
-		memcpy(&ip_info.src_addr.v4, hdr->ip4_src, 4);
-		memcpy(&ip_info.dst_addr.v4, hdr->ip4_dst, 4);
+		ip_info.ip_id		= ip4_id;
 		ip_info.ttl		= hdr->ip4_ttl;
 
+		if (inet_ntop(AF_INET, hdr->ip4_src, ip_info.ip_src, INET6_ADDRSTRLEN) == NULL)
+		{
+			DEBUG_MSG("Failed to convert source IPv4 address to string representation");
+		}
+
+		if (inet_ntop(AF_INET, hdr->ip4_dst, ip_info.ip_dst, INET6_ADDRSTRLEN) == NULL)
+		{
+			DEBUG_MSG("Failed to convert destination IPv4 address to string representation");
+		}
+		memcpy(&ip_info.src_addr.v4, hdr->ip4_src, 4);
+		memcpy(&ip_info.dst_addr.v4, hdr->ip4_dst, 4);
+
 		/* Determine the offset */
-		offset = sizeof(eemo_hdr_ipv4);
+		offset = IP_HDRLEN(hdr->ip4_ver_hl) << 2;
 
 		/* Determine the IP protocol */
 		ip_proto = hdr->ip4_proto;
+
+		/* Take IP data */
+		eemo_pbuf_shrink(&ip_data, packet, offset);
+
+		/* If this is a fragment, try to reassemble it */
+		if (ip_info.is_fragment)
+		{
+			eemo_rv	ra_rv	= eemo_reasm_v4_fragment((struct in_addr*) &ip_info.src_addr.v4, (struct in_addr*) &ip_info.dst_addr.v4, ip_proto, ip_info.ip_id, ip_info.fragment_ofs, &ip_data, !FLAG_SET(ip4_ofs, IPV4_MOREFRAG), &ip_data);
+
+			switch(ra_rv)
+			{
+			case ERV_NEED_MORE_FRAGS:
+				return ERV_HANDLED;
+			case ERV_REASM_DISABLED:
+				break;
+			case ERV_REASM_FAILED:
+				return ERV_SKIPPED;
+			case ERV_OK:
+				release_ra = 1; /* need to release the reassembled packet after processing */
+				ip_info.is_reassembled = 1;
+				break;
+			default:
+				ERROR_MSG("Unexpected return value 0x%08X from IP reassembly module", ra_rv);
+				return ERV_SKIPPED;
+			}
+		}
 
 		/* Perform IP-to-AS and Geo IP lookup */
 		if (md_lookup_src)
@@ -168,17 +205,7 @@ eemo_rv eemo_handle_ipv4_packet(eemo_packet_buf* packet, eemo_ether_packet_info 
 
 		if ((handler_it->handler_fn != NULL) && (handler_it->which_ip_proto == ip_proto))
 		{
-			eemo_packet_buf* ip_data = 
-				eemo_pbuf_new(&packet->data[offset], packet->len - offset);
-
-			if (ip_data == NULL)
-			{
-				return ERV_MEMORY;
-			}
-
-			handler_rv = (handler_it->handler_fn)(ip_data, ip_info);
-
-			eemo_pbuf_free(ip_data);
+			handler_rv = (handler_it->handler_fn)(&ip_data, ip_info);
 		}
 
 		if (rv != ERV_HANDLED)
@@ -195,18 +222,26 @@ eemo_rv eemo_handle_ipv4_packet(eemo_packet_buf* packet, eemo_ether_packet_info 
 	free(ip_info.dst_as_full);
 	free(ip_info.dst_geo_ip);
 
+	if (release_ra)
+	{
+		eemo_reasm_v4_free((struct in_addr*) &ip_info.src_addr.v4, (struct in_addr*) &ip_info.dst_addr.v4, ip_proto, ip_info.ip_id);
+	}
+
 	return rv;
 }
 
 /* Handle an IPv6 packet */
-eemo_rv eemo_handle_ipv6_packet(eemo_packet_buf* packet, eemo_ether_packet_info ether_info)
+eemo_rv eemo_handle_ipv6_packet(const eemo_packet_buf* packet, eemo_ether_packet_info ether_info)
 {
-	u_char version = 0;
-	eemo_ip_packet_info ip_info;
-	u_short offset = 0;
-	eemo_ip_handler* handler_it = NULL;
-	eemo_rv rv = ERV_SKIPPED;
-	u_short ip_proto = 0;
+	u_char			version		= 0;
+	eemo_ip_packet_info	ip_info;
+	u_short			offset		= 0;
+	eemo_ip_handler*	handler_it	= NULL;
+	eemo_rv			rv		= ERV_SKIPPED;
+	u_short			ip_proto	= 0;
+	eemo_packet_buf		ip_data		= { NULL, 0 };
+	int			release_ra	= 0;
+	/*u_short			ip6_len		= 0;*/	/* TODO: we'll need this for reassembly */
 
 	/* Clear ip_info structure */
 	memset(&ip_info, 0, sizeof(ip_info));	
@@ -226,7 +261,8 @@ eemo_rv eemo_handle_ipv6_packet(eemo_packet_buf* packet, eemo_ether_packet_info 
 
 	if (version == IP_TYPE_V6)
 	{
-		eemo_hdr_ipv6* hdr = NULL;
+		eemo_hdr_ipv6*	hdr		= NULL;
+		int		skip_ext_hdr	= 1;
 
 		/* Check minimum length */
 		if (packet->len < sizeof(eemo_hdr_ipv6))
@@ -243,19 +279,24 @@ eemo_rv eemo_handle_ipv6_packet(eemo_packet_buf* packet, eemo_ether_packet_info 
 		memcpy(ip_info.dst_addr.v6, hdr->ip6_dst, 8 * sizeof(u_short));
 
 		/* Convert to host byte order */
-		eemo_ipv6_ntoh(hdr);
+		/*ip6_len	= ntohs(hdr->ip6_len);*/ /* TODO: we'll need this for reassembly */
 
 		/* Copy relevant information to the ip_info structure */
 		ip_info.fragment_ofs	= 0; /* currently not supported */
 		ip_info.is_fragment	= 0; /* currently not supported */
 		ip_info.more_frags 	= 0; /* currently not supported */
 		ip_info.ip_type		= IP_TYPE_V6;
-		snprintf(ip_info.ip_src, NI_MAXHOST, "%x:%x:%x:%x:%x:%x:%x:%x",
-			hdr->ip6_src[0], hdr->ip6_src[1], hdr->ip6_src[2], hdr->ip6_src[3], 
-			hdr->ip6_src[4], hdr->ip6_src[5], hdr->ip6_src[6], hdr->ip6_src[7]);
-		snprintf(ip_info.ip_dst, NI_MAXHOST, "%x:%x:%x:%x:%x:%x:%x:%x",
-			hdr->ip6_dst[0], hdr->ip6_dst[1], hdr->ip6_dst[2], hdr->ip6_dst[3], 
-			hdr->ip6_dst[4], hdr->ip6_dst[5], hdr->ip6_dst[6], hdr->ip6_dst[7]);
+
+		if (inet_ntop(AF_INET6, hdr->ip6_src, ip_info.ip_src, INET6_ADDRSTRLEN) == NULL)
+		{
+			DEBUG_MSG("Failed to convert source IPv6 address to string representation");
+		}
+
+		if (inet_ntop(AF_INET6, hdr->ip6_dst, ip_info.ip_dst, INET6_ADDRSTRLEN) == NULL)
+		{
+			DEBUG_MSG("Failed to convert destination IPv6 address to string representation");
+		}
+
 		ip_info.ttl		= hdr->ip6_hop_lmt;
 
 		/* Determine the offset */
@@ -263,6 +304,112 @@ eemo_rv eemo_handle_ipv6_packet(eemo_packet_buf* packet, eemo_ether_packet_info 
 
 		/* Determine the IP protocol */
 		ip_proto = hdr->ip6_next_hdr;
+
+		/* Take IP data */
+		eemo_pbuf_shrink(&ip_data, packet, offset);
+
+		/* Skip over extension headers so we get to the "meat" of the packet */
+		while (skip_ext_hdr && (ip_data.len > 0))
+		{
+			if (ip_proto == IPV6_NH_ROUTING)
+			{
+				DEBUG_MSG("Skipping IPv6 routing extension header");
+			}
+			else if (ip_proto == IPV6_NH_ESP)
+			{
+				DEBUG_MSG("IPv6 IPsec packet, cannot handle encrypted traffic, skipping whole packet");
+
+				return ERV_SKIPPED;
+			}
+			else if (ip_proto == IPV6_NH_AH)
+			{
+				DEBUG_MSG("IPv6 IPsec packet, cannot handle encrypted traffic, skipping whole packet");
+
+				return ERV_SKIPPED;
+			}
+			else if (ip_proto == IPV6_NH_OPTIONS)
+			{
+				DEBUG_MSG("Skipping IPv6 options extension header");
+			}
+			else if (ip_proto == IPV6_NH_MOBILITY)
+			{
+				DEBUG_MSG("Skipping IPv6 mobility extension header");
+			}
+			else if (ip_proto == IPV6_NH_HIP)
+			{
+				DEBUG_MSG("Skipping IPv6 host-identification-protocol extension header");
+			}
+			else if (ip_proto == IPV6_NH_SHIM6)
+			{
+				DEBUG_MSG("Skipping IPv6 SHIM6 extension header");
+			}
+			else if (ip_proto == IPV6_NH_EXP1)
+			{
+				DEBUG_MSG("Skipping IPv6 experimental extension header (253)");
+			}
+			else if (ip_proto == IPV6_NH_EXP2)
+			{
+				DEBUG_MSG("Skipping IPv6 experimental extension header (254)");
+			}
+			else
+			{
+				skip_ext_hdr = 0;
+			}
+
+			if (skip_ext_hdr)
+			{
+				eemo_hdr_ipv6_generic_ext*	ext_h	= (eemo_hdr_ipv6_generic_ext*) &ip_data.data[0];
+
+				ip_proto = ext_h->ip6_next_hdr;
+
+				eemo_pbuf_shrink(&ip_data, &ip_data, (ext_h->ip6_hdr_len + 1) * 8);
+			}
+		}
+
+		if (ip_proto == IPV6_NH_FRAG)
+		{
+			/* This is a fragment */
+			eemo_rv			ra_rv		= 0;
+			eemo_hdr_ipv6_frag_ext*	frag_hdr	= (eemo_hdr_ipv6_frag_ext*) &ip_data.data[0];
+			u_short			ip_ofs		= 0;
+			u_char			is_last		= 0;
+
+			if (ip_data.len < sizeof(eemo_hdr_ipv6_frag_ext))
+			{
+				ERROR_MSG("Invalid fragment extension header in IPv6 packet");
+
+				return ERV_SKIPPED;
+			}
+
+			ip_ofs			= IPV6_FRAG_OFS(ntohs(frag_hdr->ip6_ofs));
+			is_last			= IPV6_FRAG_IS_LAST(ntohs(frag_hdr->ip6_ofs));
+			ip_info.ip6_id		= ntohl(frag_hdr->ip6_id);
+			ip_info.is_fragment	= 1;
+
+			/* Remove fragment extension header */
+			eemo_pbuf_shrink(&ip_data, &ip_data, sizeof(eemo_hdr_ipv6_frag_ext));
+
+			ra_rv = eemo_reasm_v6_fragment((const struct in6_addr*) &ip_info.src_addr.v6, (const struct in6_addr*) &ip_info.dst_addr.v6, ip_info.ip6_id, ip_ofs, &ip_data, is_last, &ip_data);
+
+			switch(ra_rv)
+			{
+			case ERV_NEED_MORE_FRAGS:
+				return ERV_HANDLED;
+			case ERV_REASM_DISABLED:
+				break;
+			case ERV_REASM_FAILED:
+				return ERV_SKIPPED;
+			case ERV_OK:
+				release_ra = 1; /* need to release the reassembled packet after processing */
+				ip_info.is_reassembled = 1;
+				break;
+			default:
+				ERROR_MSG("Unexpected return value 0x%08X from IP reassembly module", ra_rv);
+				return ERV_SKIPPED;
+			}
+
+			ip_proto = frag_hdr->ip6_next_hdr;
+		}
 
 		/* Perform IP-to-AS and Geo IP lookup */
 		if (md_lookup_src)
@@ -290,17 +437,7 @@ eemo_rv eemo_handle_ipv6_packet(eemo_packet_buf* packet, eemo_ether_packet_info 
 
 		if ((handler_it->handler_fn != NULL) && (handler_it->which_ip_proto == ip_proto))
 		{
-			eemo_packet_buf* ip_data = 
-				eemo_pbuf_new(&packet->data[offset], packet->len - offset);
-
-			if (ip_data == NULL)
-			{
-				return ERV_MEMORY;
-			}
-	
-			handler_rv = (handler_it->handler_fn)(ip_data, ip_info);
-
-			eemo_pbuf_free(ip_data);
+			handler_rv = (handler_it->handler_fn)(&ip_data, ip_info);
 		}
 
 		if (rv != ERV_HANDLED)
@@ -316,6 +453,11 @@ eemo_rv eemo_handle_ipv6_packet(eemo_packet_buf* packet, eemo_ether_packet_info 
 	free(ip_info.dst_as_short);
 	free(ip_info.dst_as_full);
 	free(ip_info.dst_geo_ip);
+
+	if (release_ra)
+	{
+		eemo_reasm_v6_free((const struct in6_addr*) &ip_info.src_addr.v6, (const struct in6_addr*) &ip_info.dst_addr.v6, ip_info.ip6_id);
+	}
 
 	return rv;
 }

@@ -133,7 +133,7 @@ eemo_dns_packet;
 #define PARSE_CANONICALIZE_NAME		0x00000008	/* Canonicalize all names to lower case */
 
 /* Parse a DNS packet */
-eemo_rv eemo_parse_dns_packet(eemo_packet_buf* packet, eemo_dns_packet* dns_packet, unsigned long parser_flags, unsigned short udp_len, int is_fragmented);
+eemo_rv eemo_parse_dns_packet(const eemo_packet_buf* packet, eemo_dns_packet* dns_packet, unsigned long parser_flags, unsigned short udp_len, int is_fragmented);
 
 /* Free a DNS packet structure */
 void eemo_free_dns_packet(eemo_dns_packet* dns_packet);

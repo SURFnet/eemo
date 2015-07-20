@@ -1,7 +1,6 @@
-/* $Id$ */
-
 /*
- * Copyright (c) 2010-2011 SURFnet bv
+ * Copyright (c) 2010-2015 SURFnet bv
+ * Copyright (c) 2015 Roland van Rijswijk-Deij
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -56,6 +55,9 @@ typedef unsigned long eemo_rv;
 #define ERV_MALFORMED		0x80001000	/* The packet was recognised but is malformed */
 #define ERV_PARTIAL		0x80001001	/* The packet contained partial data (fragmented or part of a TCP stream) */
 #define ERV_DNS_NAME_LOOPS	0x80002000	/* The parsed DNS name contains a cyclic pointer reference */
+#define ERV_NEED_MORE_FRAGS	0x80003000	/* More fragments are needed to reassemble the full packet */
+#define ERV_REASM_DISABLED	0x80003001	/* IP reassembly was disabled in the configuration */
+#define ERV_REASM_FAILED	0x80003002	/* IP reassembly failed */
 
 /* Error messages */
 #define ERV_GENERAL_ERROR	0x80000000	/* An undefined error occurred */

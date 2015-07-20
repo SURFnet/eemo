@@ -1,7 +1,6 @@
-/* $Id$ */
-
 /*
- * Copyright (c) 2010-2011 SURFnet bv
+ * Copyright (c) 2010-2015 SURFnet bv
+ * Copyright (c) 2015 Roland van Rijswijk-Deij
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -49,19 +48,19 @@
 #include "dns_types.h"
 
 /* The linked list of DNS query handlers */
-static eemo_dns_handler* dns_handlers = NULL;
+static eemo_dns_handler*	dns_handlers			= NULL;
 
 /* UDP and TCP DNS handler handles */
-static unsigned long udp_dns_in_handler_handle = 0;
-static unsigned long udp_dns_out_handler_handle = 0;
-static unsigned long tcp_dns_in_handler_handle = 0;
-static unsigned long tcp_dns_out_handler_handle = 0;
+static unsigned long		udp_dns_in_handler_handle	= 0;
+static unsigned long		udp_dns_out_handler_handle	= 0;
+static unsigned long		tcp_dns_in_handler_handle	= 0;
+static unsigned long		tcp_dns_out_handler_handle	= 0;
 
 /* DNS parser flags */
-static unsigned long dns_parser_flags = PARSE_NONE;
+static unsigned long 		dns_parser_flags		= PARSE_NONE;
 
 /* Handle DNS payload */
-eemo_rv eemo_handle_dns_payload(eemo_packet_buf* packet, eemo_ip_packet_info ip_info, int is_tcp, unsigned short srcport, unsigned short dstport, unsigned short udp_len, int is_fragmented)
+eemo_rv eemo_handle_dns_payload(const eemo_packet_buf* packet, eemo_ip_packet_info ip_info, int is_tcp, unsigned short srcport, unsigned short dstport, unsigned short udp_len, int is_fragmented)
 {
 	eemo_rv			rv 		= ERV_SKIPPED;
 	eemo_dns_handler*	handler_it 	= NULL;
@@ -106,7 +105,7 @@ eemo_rv eemo_handle_dns_payload(eemo_packet_buf* packet, eemo_ip_packet_info ip_
 }
 
 /* Handle a UDP DNS packet */
-eemo_rv eemo_handle_dns_udp_packet(eemo_packet_buf* packet, eemo_ip_packet_info ip_info, u_short srcport, u_short dstport, u_short length)
+eemo_rv eemo_handle_dns_udp_packet(const eemo_packet_buf* packet, eemo_ip_packet_info ip_info, u_short srcport, u_short dstport, u_short length)
 {
 	/* Skip packets that are not coming from or going to port 53 */
 	if ((srcport != DNS_PORT) && (dstport != DNS_PORT)) return ERV_SKIPPED;
@@ -115,11 +114,11 @@ eemo_rv eemo_handle_dns_udp_packet(eemo_packet_buf* packet, eemo_ip_packet_info 
 }
 
 /* Handle a TCP DNS packet */
-eemo_rv eemo_handle_dns_tcp_packet(eemo_packet_buf* packet, eemo_ip_packet_info ip_info, eemo_tcp_packet_info tcp_info)
+eemo_rv eemo_handle_dns_tcp_packet(const eemo_packet_buf* packet, eemo_ip_packet_info ip_info, eemo_tcp_packet_info tcp_info)
 {
-	eemo_packet_buf* dns_data = NULL;
-	eemo_rv rv = ERV_OK;
-	u_short dns_length = 0;
+	eemo_packet_buf	dns_data	= { NULL, 0 };
+	eemo_rv		rv		= ERV_OK;
+	u_short		dns_length	= 0;
 
 	/* Skip packets that are not coming from or going to port 53 */
 	if ((tcp_info.srcport != DNS_PORT) && (tcp_info.dstport != DNS_PORT)) return ERV_SKIPPED;
@@ -149,17 +148,9 @@ eemo_rv eemo_handle_dns_tcp_packet(eemo_packet_buf* packet, eemo_ip_packet_info 
 		return ERV_MALFORMED;
 	}
 
-	dns_data = eemo_pbuf_new(&packet->data[2], packet->len - 2);
+	eemo_pbuf_shrink(&dns_data, packet, 2);
 
-	if (dns_data == NULL)
-	{
-		/* Out of memory! */
-		return ERV_MEMORY;
-	}
-
-	rv = eemo_handle_dns_payload(dns_data, ip_info, 1, tcp_info.srcport, tcp_info.dstport, 0, 0);
-
-	eemo_pbuf_free(dns_data);
+	rv = eemo_handle_dns_payload(&dns_data, ip_info, 1, tcp_info.srcport, tcp_info.dstport, 0, 0);
 
 	return rv;
 }

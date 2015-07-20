@@ -72,7 +72,7 @@ static socklen_t		local_addr_len		= 0;
 static int			local_socket		= -1;
 
 /* Sample UDP handler */
-eemo_rv eemo_udprexmit_udp_handler(eemo_packet_buf* pkt, eemo_ip_packet_info ip_info, u_short srcport, u_short dstport, u_short length)
+eemo_rv eemo_udprexmit_udp_handler(const eemo_packet_buf* pkt, eemo_ip_packet_info ip_info, u_short srcport, u_short dstport, u_short length)
 {
 	int	i		= 0;
 	int	ip_match	= 0;

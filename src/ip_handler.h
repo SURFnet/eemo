@@ -40,6 +40,7 @@
 #include "config.h"
 #include <pcap.h>
 #include <netdb.h>
+#include <arpa/inet.h>
 #include "eemo.h"
 #include "eemo_packet.h"
 
@@ -55,6 +56,23 @@
 #define IPV4_MOREFRAG	0x2000
 #define IPV4_FRAGMASK	0x1fff
 
+/* IPv6 next header definitions */
+#define IPV6_NH_ROUTING		43
+#define IPV6_NH_FRAG		44
+#define IPV6_NH_ESP		50		/* IPsec, means we cannot process the packet */
+#define IPV6_NH_AH		51		/* IPsec, means we cannot process the packet */
+#define IPV6_NH_OPTIONS		60
+#define IPV6_NH_MOBILITY	135
+#define IPV6_NH_HIP		139
+#define IPV6_NH_SHIM6		140
+#define IPV6_NH_EXP1		253
+#define IPV6_NH_EXP2		254
+
+/* Extract IPv6 fragment offset */
+#define IPV6_FRAG_OFS(x) (x & 0xfff8)
+
+/* Is this the last IPv6 fragment? */
+#define IPV6_FRAG_IS_LAST(x) (!((x & 0x0001) == 0x0001))
 
 #pragma pack(push, 1)
 /* IPv4 packet header */
@@ -86,6 +104,24 @@ typedef struct
 	u_short		ip6_dst[8];	/* destination address */
 }
 eemo_hdr_ipv6;
+
+/* IPv6 fragment extension header */
+typedef struct
+{
+	u_char		ip6_next_hdr;	/* next header */
+	u_char		ip6_reserved;
+	u_short		ip6_ofs;	/* fragment offset */
+	u_int		ip6_id;		/* IP ID */
+}
+eemo_hdr_ipv6_frag_ext;
+
+/* Generic IPv6 extension header */
+typedef struct
+{
+	u_char		ip6_next_hdr;	/* next header */
+	u_char		ip6_hdr_len;	/* header length excluding first 8 octets */
+}
+eemo_hdr_ipv6_generic_ext;
 #pragma pack(pop)
 
 /* IP packet info */
@@ -94,35 +130,38 @@ eemo_hdr_ipv6;
 
 typedef struct
 {
-	char 		ip_src[NI_MAXHOST]; 	/* source address */
-	char 		ip_dst[NI_MAXHOST];	/* destination address */
-	unsigned char 	ip_type;		/* protocol v4 or v6 */
-	unsigned char 	is_fragment;		/* is this a fragment? */
-	unsigned char	more_frags;		/* are there more fragments to follow? */
-	u_short 	fragment_ofs;		/* fragment offset */
+	char 		ip_src[INET6_ADDRSTRLEN];	/* source address */
+	char 		ip_dst[INET6_ADDRSTRLEN];	/* destination address */
+	unsigned char 	ip_type;			/* protocol v4 or v6 */
+	unsigned char 	is_fragment;			/* is this a fragmented packet? */
+	unsigned char	is_reassembled;			/* is this a fully reassembled packet? */
+	unsigned char	more_frags;			/* are there more fragments to follow? */
+	u_short 	fragment_ofs;			/* fragment offset */
+	u_short		ip_id;				/* IP packet identifier */
+	u_int		ip6_id;				/* IPv6 packet identifier */
 	union
 	{
-		u_int	v4;			/* caution: network byte order! */
-		u_short	v6[8];			/* caution: network byte order! */
-	}		src_addr;		/* binary source address */
+		u_int	v4;				/* caution: network byte order! */
+		u_short	v6[8];				/* caution: network byte order! */
+	}		src_addr;			/* binary source address */
 	union
 	{
-		u_int	v4;			/* caution: network byte order! */
-		u_short	v6[8];			/* caution: network byte order! */
-	}		dst_addr;		/* binary destination address */
-	u_char		ttl;			/* time-to-live (or hop limit for v6) */
-	struct timeval	ts;			/* capture timestamp */
-	char*		src_as_short;		/* Short AS for source IP */
-	char*		src_as_full;		/* Full AS for source IP */
-	char*		src_geo_ip;		/* Geo IP info for source IP */
-	char*		dst_as_short;		/* Short AS for destination IP */
-	char*		dst_as_full;		/* Full AS for destination IP */
-	char*		dst_geo_ip;		/* Geo IP info for destination IP */
+		u_int	v4;				/* caution: network byte order! */
+		u_short	v6[8];				/* caution: network byte order! */
+	}		dst_addr;			/* binary destination address */
+	u_char		ttl;				/* time-to-live (or hop limit for v6) */
+	struct timeval	ts;				/* capture timestamp */
+	char*		src_as_short;			/* Short AS for source IP */
+	char*		src_as_full;			/* Full AS for source IP */
+	char*		src_geo_ip;			/* Geo IP info for source IP */
+	char*		dst_as_short;			/* Short AS for destination IP */
+	char*		dst_as_full;			/* Full AS for destination IP */
+	char*		dst_geo_ip;			/* Geo IP info for destination IP */
 }
 eemo_ip_packet_info;
 
 /* Defines a handler for IP packets */
-typedef eemo_rv (*eemo_ip_handler_fn) (eemo_packet_buf*, eemo_ip_packet_info);
+typedef eemo_rv (*eemo_ip_handler_fn) (const eemo_packet_buf*, eemo_ip_packet_info);
 
 /* Defines an IP handler record */
 typedef struct eemo_ip_handler

@@ -217,6 +217,8 @@ struct
 	unsigned long long RSIZE_ABOVE_4096;
 	unsigned long long RSIZE_TOTAL;
 	unsigned long long RSIZE_COUNTED;
+	unsigned long long RSIZE_COUNTED_V4;
+	unsigned long long RSIZE_COUNTED_V6;
 }
 rsize_ctr;
 
@@ -225,6 +227,7 @@ struct
 {
 	unsigned long long RCODE_NOERROR;
 	unsigned long long RCODE_NODATA;
+	unsigned long long RCODE_REFERRAL;
 	unsigned long long RCODE_FORMERR;
 	unsigned long long RCODE_SERVFAIL;
 	unsigned long long RCODE_NXDOMAIN;
@@ -239,6 +242,8 @@ struct
 {
 	unsigned long long R_FRAG;
 	unsigned long long R_UNFRAG;
+	unsigned long long R_FRAG_V4;
+	unsigned long long R_FRAG_V6;
 }
 rfrag_ctr;
 
@@ -248,6 +253,14 @@ struct
 	unsigned long long RFLAG_TC;
 }
 rflags_ctr;
+
+/* Notification counters */
+struct
+{
+	unsigned long long NOTIFY_REQ;
+	unsigned long long NOTIFY_ANS;
+}
+notify_ctr;
 
 /* Configuration */
 char** 	stat_ips 		= NULL;
@@ -281,6 +294,8 @@ void write_stats(void)
 	unsigned long long	QUERY_TOTAL		= 0;
 	float			R_FRAG_PCT		= 0.0f;
 	float			R_UNFRAG_PCT		= 0.0f;
+	float			R_FRAG_V4_PCT		= 0.0f;
+	float			R_FRAG_V6_PCT		= 0.0f;
 	unsigned long long	R_FRAG_UNFRAG_TOTAL	= 0;
 	float			RSIZE_PCT_LT_512	= 0.0f;
 	float			RSIZE_PCT_512_1023	= 0.0f;
@@ -345,6 +360,16 @@ void write_stats(void)
 		{
 			R_FRAG_PCT		= (rfrag_ctr.R_FRAG * 100.0f)			/ (float) R_FRAG_UNFRAG_TOTAL;
 			R_UNFRAG_PCT		= (rfrag_ctr.R_UNFRAG * 100.0f)			/ (float) R_FRAG_UNFRAG_TOTAL;
+		}
+
+		if (rsize_ctr.RSIZE_COUNTED_V4 > 0)
+		{
+			R_FRAG_V4_PCT		= (rfrag_ctr.R_FRAG_V4 * 100.0f)		/ (float) rsize_ctr.RSIZE_COUNTED_V4;
+		}
+
+		if (rsize_ctr.RSIZE_COUNTED_V6 > 0)
+		{
+			R_FRAG_V6_PCT		= (rfrag_ctr.R_FRAG_V6 * 100.0f)		/ (float) rsize_ctr.RSIZE_COUNTED_V6;
 		}
 
 		/* Calculate bucketed response size percentages */
@@ -515,6 +540,7 @@ void write_stats(void)
 		EMIT_INT("rsize.ctr.counted",		rsize_ctr.RSIZE_COUNTED);
 		EMIT_INT("rcode.ctr.NOERROR",		rcode_ctr.RCODE_NOERROR);
 		EMIT_INT("rcode.ctr.NODATA",		rcode_ctr.RCODE_NODATA);
+		EMIT_INT("rcode.ctr.REFERRAL",		rcode_ctr.RCODE_REFERRAL);
 		EMIT_INT("rcode.ctr.FORMERR",		rcode_ctr.RCODE_FORMERR);
 		EMIT_INT("rcode.ctr.SERVFAIL",		rcode_ctr.RCODE_SERVFAIL);
 		EMIT_INT("rcode.ctr.NXDOMAIN",		rcode_ctr.RCODE_NXDOMAIN);
@@ -523,8 +549,12 @@ void write_stats(void)
 		EMIT_INT("rcode.ctr.UNKNOWN",		rcode_ctr.RCODE_UNKNOWN);
 		EMIT_INT("rfrag.ctr.frag",		rfrag_ctr.R_FRAG);
 		EMIT_INT("rfrag.ctr.unfrag",		rfrag_ctr.R_UNFRAG);
+		EMIT_INT("rfrag.ctr.v4.frag",		rfrag_ctr.R_FRAG_V4);
+		EMIT_INT("rfrag.ctr.v6.frag",		rfrag_ctr.R_FRAG_V6);
 		EMIT_PCT("rfrag.pct.frag",		R_FRAG_PCT);
 		EMIT_PCT("rfrag.pct.unfrag",		R_UNFRAG_PCT);
+		EMIT_PCT("rfrag.pct.v4.frag",		R_FRAG_V4_PCT);
+		EMIT_PCT("rfrag.pct.v6.frag",		R_FRAG_V6_PCT);
 		EMIT_INT("rfrag.ctr.total",		R_FRAG_UNFRAG_TOTAL);
 		EMIT_PCT("rsize.pct.below512",		RSIZE_PCT_LT_512);
 		EMIT_PCT("rsize.pct.512to1023",		RSIZE_PCT_512_1023);
@@ -537,6 +567,8 @@ void write_stats(void)
 		EMIT_PCT("rsize.pct.above4096",		RSIZE_PCT_GT_4096);
 		EMIT_PCT("rsize.avg", 			RSIZE_AVERAGE);
 		EMIT_INT("rflags.ctr.tc",		rflags_ctr.RFLAG_TC);
+		EMIT_INT("notify.req.ctr",		notify_ctr.NOTIFY_REQ);
+		EMIT_INT("notify.ans.ctr",		notify_ctr.NOTIFY_ANS);
 
 		fflush(stat_fp);
 
@@ -575,6 +607,7 @@ void eemo_dnszabbix_stats_reset(void)
 	memset(&rcode_ctr, 0, sizeof(rcode_ctr));
 	memset(&rfrag_ctr, 0, sizeof(rfrag_ctr));
 	memset(&rflags_ctr, 0, sizeof(rflags_ctr));
+	memset(&notify_ctr, 0, sizeof(notify_ctr));
 
 	DEBUG_MSG("DNS statistics reset");
 }
@@ -664,6 +697,16 @@ eemo_rv eemo_dnszabbix_stats_handleqr(eemo_ip_packet_info ip_info, int is_tcp, c
 		if (dns_packet->is_fragmented)
 		{
 			rfrag_ctr.R_FRAG++;
+
+			switch(ip_info.ip_type)
+			{
+			case IP_TYPE_V4:
+				rfrag_ctr.R_FRAG_V4++;
+				break;
+			case IP_TYPE_V6:
+				rfrag_ctr.R_FRAG_V6++;
+				break;
+			}
 		}
 		else
 		{
@@ -827,9 +870,58 @@ eemo_rv eemo_dnszabbix_stats_handleqr(eemo_ip_packet_info ip_info, int is_tcp, c
 		switch (dns_packet->rcode)
 		{
 		case DNS_RCODE_NOERROR:
-			if (dns_packet->answers == NULL)
+			if (dns_packet->opcode == DNS_OPCODE_NOTIFY)
 			{
-				rcode_ctr.RCODE_NODATA++;
+				/* This was a notification */
+				notify_ctr.NOTIFY_ANS++;
+			}
+			else if (dns_packet->answers == NULL)
+			{
+				int		has_soa_in_auth	= 0;
+				int		has_ns_in_auth	= 0;
+				int		auth_count	= 0;
+				eemo_dns_rr*	aut_it		= NULL;
+
+				LL_FOREACH(dns_packet->authorities, aut_it)
+				{
+					auth_count++;
+
+					if (aut_it->type == DNS_QTYPE_SOA)
+					{
+						has_soa_in_auth = 1;
+						break;
+					}
+					else if (aut_it->type == DNS_QTYPE_NS)
+					{
+						has_ns_in_auth = 1;
+						break;
+					}
+				}
+
+				if (has_soa_in_auth)
+				{
+					/* This is a NODATA answer */
+					rcode_ctr.RCODE_NODATA++;
+				}
+				else if (has_ns_in_auth)
+				{
+					/* This is a referral */
+					rcode_ctr.RCODE_REFERRAL++;
+				}
+				else
+				{
+					if (!dns_packet->tc_flag)
+					{
+						/* The packet isn't truncated, this is weird... */
+						WARNING_MSG("Response for %s (qtype %d) with empty answer section that is not a referral or NODATA answer (answer has %d authority records)", (dns_packet->questions == NULL) ? "<unknown>" : dns_packet->questions->qname, (dns_packet->questions == NULL) ? -1 : dns_packet->questions->qtype, auth_count);
+
+						rcode_ctr.RCODE_UNKNOWN++;
+					}
+					else
+					{
+						/* Truncated, ignore it */
+					}
+				}
 			}
 			else
 			{
@@ -898,6 +990,16 @@ eemo_rv eemo_dnszabbix_stats_handleqr(eemo_ip_packet_info ip_info, int is_tcp, c
 
 			rsize_ctr.RSIZE_TOTAL += dns_packet->udp_len;
 			rsize_ctr.RSIZE_COUNTED++;
+
+			switch(ip_info.ip_type)
+			{
+			case IP_TYPE_V4:
+				rsize_ctr.RSIZE_COUNTED_V4++;
+				break;
+			case IP_TYPE_V6:
+				rsize_ctr.RSIZE_COUNTED_V6++;
+				break;
+			}
 		}
 
 		/* Count flags */
@@ -935,156 +1037,164 @@ eemo_rv eemo_dnszabbix_stats_handleqr(eemo_ip_packet_info ip_info, int is_tcp, c
 				return ERV_SKIPPED;
 			}
 		}
-	
-		LL_FOREACH(dns_packet->questions, query_it)
+
+		if (dns_packet->opcode == DNS_OPCODE_NOTIFY)
 		{
-			/* Log query class */
-			switch(query_it->qclass)
+			/* This is a notification */
+			notify_ctr.NOTIFY_REQ++;
+		}
+		else
+		{
+			LL_FOREACH(dns_packet->questions, query_it)
 			{
-			case DNS_QCLASS_UNSPECIFIED:
-				qclass_ctr.UNSPECIFIED++;
-				break;
-			case DNS_QCLASS_IN:
-				qclass_ctr.IN++;
-				break;
-			case DNS_QCLASS_CS:
-				qclass_ctr.CS++;
-				break;
-			case DNS_QCLASS_CH:
-				qclass_ctr.CH++;
-				break;
-			case DNS_QCLASS_HS:
-				qclass_ctr.HS++;
-				break;
-			case DNS_QCLASS_ANY:
-				qclass_ctr.ANY++;
-				break;
-			default:
-				qclass_ctr.UNKNOWN++;
-			}
-		
-			/* Log query type */
-			switch(query_it->qtype)
-			{
-			case DNS_QTYPE_UNSPECIFIED:
-				qtype_ctr.UNSPECIFIED++;
-				break;
-			case DNS_QTYPE_A:
-				qtype_ctr.A++;
-				break;
-			case DNS_QTYPE_AAAA:
-				qtype_ctr.AAAA++;
-				break;
-			case DNS_QTYPE_AFSDB:
-				qtype_ctr.AFSDB++;
-				break;
-			case DNS_QTYPE_APL:
-				qtype_ctr.APL++;
-				break;
-			case DNS_QTYPE_CERT:
-				qtype_ctr.CERT++;
-				break;
-			case DNS_QTYPE_CNAME:
-				qtype_ctr.CNAME++;
-				break;
-			case DNS_QTYPE_DHCID:
-				qtype_ctr.DHCID++;
-				break;
-			case DNS_QTYPE_DLV:
-				qtype_ctr.DLV++;
-				break;
-			case DNS_QTYPE_DNAME:
-				qtype_ctr.DNAME++;
-				break;
-			case DNS_QTYPE_DNSKEY:
-				qtype_ctr.DNSKEY++;
-				break;
-			case DNS_QTYPE_DS:
-				qtype_ctr.DS++;
-				break;
-			case DNS_QTYPE_HIP:
-				qtype_ctr.HIP++;
-				break;
-			case DNS_QTYPE_IPSECKEY:
-				qtype_ctr.IPSECKEY++;
-				break;
-			case DNS_QTYPE_KEY:
-				qtype_ctr.KEY++;
-				break;
-			case DNS_QTYPE_KX:
-				qtype_ctr.KX++;
-				break;
-			case DNS_QTYPE_LOC:
-				qtype_ctr.LOC++;
-				break;
-			case DNS_QTYPE_MX:
-				qtype_ctr.MX++;
-				break;
-			case DNS_QTYPE_NAPTR:
-				qtype_ctr.NAPTR++;
-				break;
-			case DNS_QTYPE_NS:
-				qtype_ctr.NS++;
-				break;
-			case DNS_QTYPE_NSEC:
-				qtype_ctr.NSEC++;
-				break;
-			case DNS_QTYPE_NSEC3:
-				qtype_ctr.NSEC3++;
-				break;
-			case DNS_QTYPE_NSEC3PARAM:
-				qtype_ctr.NSEC3PARAM++;
-				break;
-			case DNS_QTYPE_PTR:
-				qtype_ctr.PTR++;
-				break;
-			case DNS_QTYPE_RRSIG:
-				qtype_ctr.RRSIG++;
-				break;
-			case DNS_QTYPE_RP:
-				qtype_ctr.RP++;
-				break;
-			case DNS_QTYPE_SIG:
-				qtype_ctr.SIG++;
-				break;
-			case DNS_QTYPE_SOA:
-				qtype_ctr.SOA++;
-				break;
-			case DNS_QTYPE_SPF:
-				qtype_ctr.SPF++;
-				break;
-			case DNS_QTYPE_SRV:
-				qtype_ctr.SRV++;
-				break;
-			case DNS_QTYPE_SSHFP:
-				qtype_ctr.SSHFP++;
-				break;
-			case DNS_QTYPE_TA:
-				qtype_ctr.TA++;
-				break;
-			case DNS_QTYPE_TKEY:
-				qtype_ctr.TKEY++;
-				break;
-			case DNS_QTYPE_TSIG:
-				qtype_ctr.TSIG++;
-				break;
-			case DNS_QTYPE_TXT:
-				qtype_ctr.TXT++;
-				break;
-			case DNS_QTYPE_ANY:
-				qtype_ctr.ANY++;
-				break;
-			case DNS_QTYPE_AXFR:
-				qtype_ctr.AXFR++;
-				break;
-			case DNS_QTYPE_IXFR:
-				qtype_ctr.IXFR++;
-				break;
-			case DNS_QTYPE_OPT:
-				qtype_ctr.OPT++;
-				break;
-			default:
-				qtype_ctr.UNKNOWN++;
+				/* Log query class */
+				switch(query_it->qclass)
+				{
+				case DNS_QCLASS_UNSPECIFIED:
+					qclass_ctr.UNSPECIFIED++;
+					break;
+				case DNS_QCLASS_IN:
+					qclass_ctr.IN++;
+					break;
+				case DNS_QCLASS_CS:
+					qclass_ctr.CS++;
+					break;
+				case DNS_QCLASS_CH:
+					qclass_ctr.CH++;
+					break;
+				case DNS_QCLASS_HS:
+					qclass_ctr.HS++;
+					break;
+				case DNS_QCLASS_ANY:
+					qclass_ctr.ANY++;
+					break;
+				default:
+					qclass_ctr.UNKNOWN++;
+				}
+			
+				/* Log query type */
+				switch(query_it->qtype)
+				{
+				case DNS_QTYPE_UNSPECIFIED:
+					qtype_ctr.UNSPECIFIED++;
+					break;
+				case DNS_QTYPE_A:
+					qtype_ctr.A++;
+					break;
+				case DNS_QTYPE_AAAA:
+					qtype_ctr.AAAA++;
+					break;
+				case DNS_QTYPE_AFSDB:
+					qtype_ctr.AFSDB++;
+					break;
+				case DNS_QTYPE_APL:
+					qtype_ctr.APL++;
+					break;
+				case DNS_QTYPE_CERT:
+					qtype_ctr.CERT++;
+					break;
+				case DNS_QTYPE_CNAME:
+					qtype_ctr.CNAME++;
+					break;
+				case DNS_QTYPE_DHCID:
+					qtype_ctr.DHCID++;
+					break;
+				case DNS_QTYPE_DLV:
+					qtype_ctr.DLV++;
+					break;
+				case DNS_QTYPE_DNAME:
+					qtype_ctr.DNAME++;
+					break;
+				case DNS_QTYPE_DNSKEY:
+					qtype_ctr.DNSKEY++;
+					break;
+				case DNS_QTYPE_DS:
+					qtype_ctr.DS++;
+					break;
+				case DNS_QTYPE_HIP:
+					qtype_ctr.HIP++;
+					break;
+				case DNS_QTYPE_IPSECKEY:
+					qtype_ctr.IPSECKEY++;
+					break;
+				case DNS_QTYPE_KEY:
+					qtype_ctr.KEY++;
+					break;
+				case DNS_QTYPE_KX:
+					qtype_ctr.KX++;
+					break;
+				case DNS_QTYPE_LOC:
+					qtype_ctr.LOC++;
+					break;
+				case DNS_QTYPE_MX:
+					qtype_ctr.MX++;
+					break;
+				case DNS_QTYPE_NAPTR:
+					qtype_ctr.NAPTR++;
+					break;
+				case DNS_QTYPE_NS:
+					qtype_ctr.NS++;
+					break;
+				case DNS_QTYPE_NSEC:
+					qtype_ctr.NSEC++;
+					break;
+				case DNS_QTYPE_NSEC3:
+					qtype_ctr.NSEC3++;
+					break;
+				case DNS_QTYPE_NSEC3PARAM:
+					qtype_ctr.NSEC3PARAM++;
+					break;
+				case DNS_QTYPE_PTR:
+					qtype_ctr.PTR++;
+					break;
+				case DNS_QTYPE_RRSIG:
+					qtype_ctr.RRSIG++;
+					break;
+				case DNS_QTYPE_RP:
+					qtype_ctr.RP++;
+					break;
+				case DNS_QTYPE_SIG:
+					qtype_ctr.SIG++;
+					break;
+				case DNS_QTYPE_SOA:
+					qtype_ctr.SOA++;
+					break;
+				case DNS_QTYPE_SPF:
+					qtype_ctr.SPF++;
+					break;
+				case DNS_QTYPE_SRV:
+					qtype_ctr.SRV++;
+					break;
+				case DNS_QTYPE_SSHFP:
+					qtype_ctr.SSHFP++;
+					break;
+				case DNS_QTYPE_TA:
+					qtype_ctr.TA++;
+					break;
+				case DNS_QTYPE_TKEY:
+					qtype_ctr.TKEY++;
+					break;
+				case DNS_QTYPE_TSIG:
+					qtype_ctr.TSIG++;
+					break;
+				case DNS_QTYPE_TXT:
+					qtype_ctr.TXT++;
+					break;
+				case DNS_QTYPE_ANY:
+					qtype_ctr.ANY++;
+					break;
+				case DNS_QTYPE_AXFR:
+					qtype_ctr.AXFR++;
+					break;
+				case DNS_QTYPE_IXFR:
+					qtype_ctr.IXFR++;
+					break;
+				case DNS_QTYPE_OPT:
+					qtype_ctr.OPT++;
+					break;
+				default:
+					qtype_ctr.UNKNOWN++;
+				}
 			}
 		}
 	

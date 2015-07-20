@@ -52,6 +52,7 @@
 #include "eemo_modules.h"
 #include "eemo_log.h"
 #include "ip_metadata.h"
+#include "ip_reassemble.h"
 
 void version(void)
 {
@@ -363,6 +364,14 @@ int main(int argc, char* argv[])
 		return ERV_GENERAL_ERROR;
 	}
 
+	/* Initialise IP reassembly module */
+	if (eemo_reasm_init() != ERV_OK)
+	{
+		ERROR_MSG("Failed to initialise IP reassembly module");
+
+		return ERV_GENERAL_ERROR;
+	}
+
 	/* Initialise packet handlers */
 	if (eemo_init_ether_handler() != ERV_OK)
 	{
@@ -433,6 +442,9 @@ int main(int argc, char* argv[])
 	eemo_icmp_handler_cleanup();
 	eemo_ip_handler_cleanup();
 	eemo_ether_handler_cleanup();
+
+	/* Uninitialise IP reassembly module */
+	eemo_reasm_finalize();
 
 	/* Uninitialise metadata handling */
 	eemo_md_finalize();

@@ -1,7 +1,6 @@
-/* $Id$ */
-
 /*
- * Copyright (c) 2010-2012 SURFnet bv
+ * Copyright (c) 2010-2015 SURFnet bv
+ * Copyright (c) 2015 Roland van Rijswijk-Deij
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -51,25 +50,15 @@ static unsigned long tcp_ip_handler_handle = 0;
 /* The linked list of TCP packet handlers */
 static eemo_tcp_handler* tcp_handlers = NULL;
 
-/* Convert TCP packet header to host byte order */
-void eemo_tcp_ntoh(eemo_hdr_tcp* hdr)
-{
-	hdr->tcp_srcport	= ntohs(hdr->tcp_srcport);
-	hdr->tcp_dstport	= ntohs(hdr->tcp_dstport);
-	hdr->tcp_seqno		= ntohl(hdr->tcp_seqno);
-	hdr->tcp_ackno		= ntohl(hdr->tcp_ackno);
-	hdr->tcp_win		= ntohs(hdr->tcp_win);
-	hdr->tcp_chksum		= ntohs(hdr->tcp_chksum);
-	hdr->tcp_urgent		= ntohs(hdr->tcp_urgent);
-}
-
 /* Handle a TCP packet */
-eemo_rv eemo_handle_tcp_packet(eemo_packet_buf* packet, eemo_ip_packet_info ip_info)
+eemo_rv eemo_handle_tcp_packet(const eemo_packet_buf* packet, eemo_ip_packet_info ip_info)
 {
-	eemo_hdr_tcp* hdr = NULL;
-	size_t hdr_len = 0;
-	eemo_tcp_handler* handler_it = NULL;
-	eemo_rv rv = ERV_SKIPPED;
+	eemo_hdr_tcp*		hdr			= NULL;
+	eemo_tcp_handler*	handler_it		= NULL;
+	eemo_rv			rv			= ERV_SKIPPED;
+	eemo_packet_buf		tcp_data		= { NULL, 0 };
+	eemo_tcp_packet_info 	tcp_info		= { 0, 0, 0, 0, 0, 0, 0 };
+	size_t			delta_ofs		= 0;
 
 	/* Check minimum length */
 	if (packet->len < sizeof(eemo_hdr_tcp))
@@ -82,16 +71,28 @@ eemo_rv eemo_handle_tcp_packet(eemo_packet_buf* packet, eemo_ip_packet_info ip_i
 	hdr = (eemo_hdr_tcp*) packet->data;
 
 	/* Convert the header to host byte order */
-	eemo_tcp_ntoh(hdr);
+	tcp_info.srcport	= ntohs(hdr->tcp_srcport);
+	tcp_info.dstport	= ntohs(hdr->tcp_dstport);
+	tcp_info.seqno		= ntohl(hdr->tcp_seqno);
+	tcp_info.ackno		= ntohl(hdr->tcp_ackno);
+	tcp_info.flags		= hdr->tcp_flags;
+	tcp_info.winsize	= ntohs(hdr->tcp_win);
+	tcp_info.urgptr		= ntohs(hdr->tcp_urgent);
 
-	/* Determine the true header length */
-	hdr_len = (hdr->tcp_ofs) >> 4;
-	hdr_len *= 4; /* size in packet in 32-bit words */
+	/*
+	 * FIXME: if we are ever going to do anything with the TCP checksum,
+	 *        it will need to be converted to host byte order
+	 */
 
-	if (packet->len < hdr_len)
+	/* Take TCP data */
+	delta_ofs = ((hdr->tcp_ofs & 0xf0) >> 4) * 4; /* header length in 32-bit words */
+
+	if (delta_ofs > packet->len)
 	{
 		return ERV_MALFORMED;
 	}
+
+	eemo_pbuf_shrink(&tcp_data, packet, delta_ofs);
 
 	/* See if there is a handler given the source and destination port for this packet */
 	LL_FOREACH(tcp_handlers, handler_it)
@@ -99,38 +100,11 @@ eemo_rv eemo_handle_tcp_packet(eemo_packet_buf* packet, eemo_ip_packet_info ip_i
 		eemo_rv handler_rv = ERV_SKIPPED;
 
 		if ((handler_it->handler_fn != NULL) &&
-		    (((handler_it->srcport == TCP_ANY_PORT) || (handler_it->srcport == hdr->tcp_srcport)) &&
-		     ((handler_it->dstport == TCP_ANY_PORT) || (handler_it->dstport == hdr->tcp_dstport))))
+		    (((handler_it->srcport == TCP_ANY_PORT) || (handler_it->srcport == tcp_info.srcport)) &&
+		     ((handler_it->dstport == TCP_ANY_PORT) || (handler_it->dstport == tcp_info.dstport))))
 		{
-			size_t delta_ofs = ((hdr->tcp_ofs & 0xf0) >> 4) * 4; /* header length in 32-bit words */
-			eemo_packet_buf* tcp_data = NULL; 
-			eemo_tcp_packet_info tcp_info;
-
-			if (delta_ofs > packet->len)
-			{
-				return ERV_MALFORMED;
-			}
-
-			tcp_data = eemo_pbuf_new(&packet->data[delta_ofs], packet->len - delta_ofs);
-	
-			if (tcp_data == NULL)
-			{
-				return ERV_MEMORY;
-			}
-
-			/* Copy TCP information */
-			tcp_info.srcport 	= hdr->tcp_srcport;
-			tcp_info.dstport	= hdr->tcp_dstport;
-			tcp_info.seqno		= hdr->tcp_seqno;
-			tcp_info.ackno		= hdr->tcp_ackno;
-			tcp_info.flags		= hdr->tcp_flags;
-			tcp_info.winsize	= hdr->tcp_win;
-			tcp_info.urgptr		= hdr->tcp_urgent;
-
 			/* Call handler */
-			handler_rv = (handler_it->handler_fn)(tcp_data, ip_info, tcp_info);
-
-			eemo_pbuf_free(tcp_data);
+			handler_rv = (handler_it->handler_fn)(&tcp_data, ip_info, tcp_info);
 		}
 
 		if (rv != ERV_HANDLED)

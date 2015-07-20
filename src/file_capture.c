@@ -118,13 +118,11 @@ static void stop_signal_handler(int signum)
 /* PCAP callback handler */
 static void eemo_pcap_callback(u_char* user_ptr, const struct pcap_pkthdr* hdr, const u_char* capture_data)
 {
-	eemo_rv rv;
+	eemo_rv 	rv	= ERV_OK;
+	eemo_packet_buf	packet	= { (u_char*) capture_data, hdr->len };
 
 	/* Count the packet */
 	capture_ctr++;
-
-	/* Copy the captured data */
-	eemo_packet_buf* packet = eemo_pbuf_new((u_char*) capture_data, hdr->len);
 
 	/* Log the packet to file if necessary */
 	if (log_current_packet)
@@ -144,7 +142,7 @@ static void eemo_pcap_callback(u_char* user_ptr, const struct pcap_pkthdr* hdr, 
 	}
 
 	/* Run it through the Ethernet handlers */
-	rv = eemo_handle_ether_packet(packet, hdr->ts);
+	rv = eemo_handle_ether_packet(&packet, hdr->ts);
 
 	/* Conditionally increment the handled packet counter */
 	if (rv == ERV_HANDLED)
@@ -162,9 +160,6 @@ static void eemo_pcap_callback(u_char* user_ptr, const struct pcap_pkthdr* hdr, 
 			INFO_MSG("Captured %llu packets %llu of which were handled by a plug-in", capture_ctr, handled_ctr);
 		}
 	}
-
-	/* Free the packet data */
-	eemo_pbuf_free(packet);
 }
 
 /* Initialise direct capturing */

@@ -1,7 +1,6 @@
-/* $Id$ */
-
 /*
- * Copyright (c) 2010-2012 SURFnet bv
+ * Copyright (c) 2010-2015 SURFnet bv
+ * Copyright (c) 2015 Roland van Rijswijk-Deij
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -51,7 +50,7 @@ void eemo_dnssensorfw_ipfw_init(const char* hostname, const int port, const int 
 void eemo_dnssensorfw_ipfw_uninit(eemo_conf_free_string_array_fn free_strings);
 
 /* Handle all packets */
-eemo_rv eemo_dnssensorfw_ipfw_handle_pkt(eemo_packet_buf* packet, eemo_ether_packet_info pktinfo);
+eemo_rv eemo_dnssensorfw_ipfw_handle_pkt(const eemo_packet_buf* packet, eemo_ether_packet_info pktinfo);
 
 #endif /* !_EEMO_DNSSENSORFW_IPFW_H */
 

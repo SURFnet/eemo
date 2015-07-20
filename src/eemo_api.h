@@ -1,7 +1,6 @@
-/* $Id$ */
-
 /*
- * Copyright (c) 2010-2011 SURFnet bv
+ * Copyright (c) 2010-2015 SURFnet bv
+ * Copyright (c) 2015 Roland van Rijswijk-Deij
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -47,6 +46,7 @@
 #include "icmp_handler.h"
 #include "tcp_handler.h"
 #include "udp_handler.h"
+#include "ip_metadata.h"
 
 /* Function table exported by EEMO; always check version before using */
 #define EEMO_EXPORT_FN_VERSION		3

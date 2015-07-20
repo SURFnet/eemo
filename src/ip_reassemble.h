@@ -31,65 +31,42 @@
 
 /*
  * The Extensible IP Monitor (EEMO)
- * ICMP packet handling
+ * IP reassembly
  */
 
-#ifndef _EEMO_ICMP_HANDLER_H
-#define _EEMO_ICMP_HANDLER_H
+#ifndef _EEMO_IP_REASSEMBLE_H
+#define _EEMO_IP_REASSEMBLE_H
 
 #include "config.h"
-#include <pcap.h>
-#include <netdb.h>
 #include "eemo.h"
 #include "eemo_packet.h"
-#include "ip_handler.h"
+#include <pcap.h>
+#include <netdb.h>
+#include <arpa/inet.h>
 
-#define IP_ICMPv4		1
-#define IP_ICMPv6		58
+/* Initialise reassembly module */
+eemo_rv eemo_reasm_init(void);
 
-#pragma pack(push, 1)
-/* ICMP packet header; this header is the same for ICMPv4 and ICMPv6 */
-typedef struct
-{
-	u_char	icmp_type;	/* ICMP message type */
-	u_char	icmp_code;	/* ICMP message code */
-	u_short	icmp_chksum;	/* ICMP checksum */
-}
-eemo_hdr_icmp;
-#pragma pack(pop)
+/* Uninitialise reassembly module */
+eemo_rv eemo_reasm_finalize(void);
 
-/* Defines an ICMP packet handler */
-typedef eemo_rv (*eemo_icmp_handler_fn) (const eemo_packet_buf*, eemo_ip_packet_info, u_char /*type*/, u_char /*code*/); 
+/*
+ * Process an IPv4 fragment; will return ERV_NEED_MORE_FRAGS if more
+ * fragments are needed to reassemble the packet, and ERV_OK if a full
+ * packet was reassembled (in which case <pkt> contains the packet
+ * data. Caller must release reassembled packets with the appropriate
+ * call below!
+ */
+eemo_rv eemo_reasm_v4_fragment(const struct in_addr* src, const struct in_addr* dst, const u_char ip_proto, const u_short ip_id, const u_short ip_ofs, const eemo_packet_buf* fragment, const int is_last, eemo_packet_buf* pkt);
 
-/* Defines an ICMP handler record */
-typedef struct eemo_icmp_handler
-{
-	u_char			icmp_type;	/* ICMP message type handled */
-	u_char			icmp_code;	/* ICMP message code handled */
-	unsigned char		iptype;		/* IP type (v4 or v6) */
-	eemo_icmp_handler_fn	handler_fn;	/* Handler function */
+/* Process an IPv6 fragment; semantics of parameters same as for IPv4 */
+eemo_rv eemo_reasm_v6_fragment(const struct in6_addr* src, const struct in6_addr* dst, const u_int ip_id, const u_short ip_ofs, const eemo_packet_buf* fragment, const int is_last, eemo_packet_buf* pkt);
 
-	/* Administrativia */
-	unsigned long		handle;		/* Handler handle */
-	struct eemo_icmp_handler* next;		/* Single LL next element */
-}
-eemo_icmp_handler;
+/* Discard a reassembled IPv4 packet */
+void eemo_reasm_v4_free(const struct in_addr* src, const struct in_addr* dst, const u_char ip_proto, const u_short ip_id);
 
-/* Register an ICMP handler */
-typedef eemo_rv (*eemo_reg_icmp_handler_fn) (u_char, u_char, unsigned char, eemo_icmp_handler_fn, unsigned long*);
+/* Discard a reassembled IPv6 packet */
+void eemo_reasm_v6_free(const struct in6_addr* src, const struct in6_addr* dst, const u_int ip_id);
 
-eemo_rv eemo_reg_icmp_handler(u_char icmp_type, u_char icmp_code, unsigned char iptype, eemo_icmp_handler_fn handler_fn, unsigned long* handle);
-
-/* Unregister an ICMP handler */
-typedef eemo_rv (*eemo_unreg_icmp_handler_fn) (unsigned long);
-
-eemo_rv eemo_unreg_icmp_handler(unsigned long handle);
-
-/* Initialise ICMP handling */
-eemo_rv eemo_init_icmp_handler(void);
-
-/* Clean up */
-void eemo_icmp_handler_cleanup(void);
-
-#endif /* !_EEMO_ICMP_HANDLER_H */
+#endif /* !_EEMO_IP_REASSEMBLE_H */
 
