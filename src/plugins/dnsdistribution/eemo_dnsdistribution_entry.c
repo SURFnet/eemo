@@ -105,7 +105,7 @@ eemo_rv eemo_dnsdistribution_init(eemo_export_fn_table_ptr eemo_fn, const char* 
 		return ERV_CONFIG_ERROR;
 	}
 
-	if ((eemo_fn->conf_get_int)(conf_base_path, "emit_qname_ctr", &emit_qname_ctr, 0) != ERV_OK)
+	if ((eemo_fn->conf_get_int)(conf_base_path, "emit_qname_ctr", &emit_qname_ctr, 1) != ERV_OK)
 	{
 		return ERV_CONFIG_ERROR;
 	}

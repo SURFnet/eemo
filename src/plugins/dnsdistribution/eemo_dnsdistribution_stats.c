@@ -49,6 +49,13 @@
 
 #define IP_ANY	"*"
 
+/* */
+typedef enum {
+	QUESTION,
+	ANSWER,
+	AUTHORITY,
+	ADDITIONAL
+} dns_section; 
 
 /* Hashtable that hold strings as keys and integers as values (e.g. domain names and their popularity) */
 struct hashentry_si
@@ -92,6 +99,14 @@ static struct rcodes_table
 	unsigned int REFUSED;
 } rcodes;
 
+/* Statistics file */
+FILE*	stat_fp_qnamepop_cl	= NULL;
+FILE*	stat_fp_qnamepop_q_ns	= NULL;
+FILE*	stat_fp_qnamepop_r_ns	= NULL;
+FILE*	stat_fp_general		= NULL;
+FILE*	stat_fp_sigs_per_resp	= NULL;
+FILE*	stat_fp_rcodes		= NULL;
+
 /* Configuration */
 static char*	stat_file_general			= NULL;
 static char*	stat_file_qname_popularity		= NULL;
@@ -113,37 +128,31 @@ static int 	nr_sigs					= 0;
 static int	nr_resp_with_sigs			= 0;
 static struct	timespec time_before;
 static struct 	hashentry_si *qname_table	 	= NULL;
+static struct 	hashentry_si *qname_table_q_ns 		= NULL;
+static struct 	hashentry_si *qname_table_r_ns 		= NULL;
 static struct	ll_hashtable 	*ttl_table_ALL		= NULL;
 static struct	ll_hashtable 	*ttl_table_A		= NULL;
 static struct	ll_hashtable 	*ttl_table_AAAA		= NULL;
 static struct	ll_hashtable 	*ttl_table_PTR		= NULL;
 static struct	ll_hashtable 	*ttl_table_NS		= NULL;
+static struct	ll_hashtable 	*ttl_table_NS_auth	= NULL;
 static struct	ll_hashtable 	*ttl_table_SOA		= NULL;
+static struct	ll_hashtable 	*ttl_table_SOA_auth	= NULL;
+static struct	ll_hashtable 	*ttl_table_DS		= NULL;
+static struct	ll_hashtable 	*ttl_table_DS_auth	= NULL;
 static struct	ll_hashtable 	*ttl_table_CNAME	= NULL;
 static struct	ll_hashtable 	*ttl_table_DNSKEY	= NULL;
 static struct	ll_hashtable 	*ttl_table_RRSIG	= NULL;
+static struct	ll_hashtable 	*ttl_table_RRSIG_auth	= NULL;
 static struct	ll_hashtable 	*ttl_table_TXT		= NULL;
 static struct	ll_hashtable 	*ttl_table_MX		= NULL;
 static struct	ll_hashtable 	*ttl_table_NSEC		= NULL;
+static struct	ll_hashtable 	*ttl_table_NSEC_auth	= NULL;
 static struct	ll_hashtable 	*ttl_table_NSEC3	= NULL;
+static struct	ll_hashtable 	*ttl_table_NSEC3_auth	= NULL;
 static struct	ll_hashtable 	*ttl_table_SRV		= NULL;
 static struct	ll_hashtable 	*ttl_table_TSIG		= NULL;
 static struct	ll_hashtable 	*ttl_table_DLV		= NULL;
-static struct	ll_hashtable 	*ttl_changed_A		= NULL;
-static struct	ll_hashtable 	*ttl_changed_AAAA	= NULL;
-static struct	ll_hashtable 	*ttl_changed_PTR	= NULL;
-static struct	ll_hashtable 	*ttl_changed_NS		= NULL;
-static struct	ll_hashtable 	*ttl_changed_SOA	= NULL;
-static struct	ll_hashtable 	*ttl_changed_CNAME	= NULL;
-static struct	ll_hashtable 	*ttl_changed_DNSKEY	= NULL;
-static struct	ll_hashtable 	*ttl_changed_RRSIG	= NULL;
-static struct	ll_hashtable 	*ttl_changed_TXT	= NULL;
-static struct	ll_hashtable 	*ttl_changed_MX		= NULL;
-static struct	ll_hashtable 	*ttl_changed_NSEC	= NULL;
-static struct	ll_hashtable 	*ttl_changed_NSEC3	= NULL;
-static struct	ll_hashtable 	*ttl_changed_SRV	= NULL;
-static struct	ll_hashtable 	*ttl_changed_TSIG	= NULL;
-static struct	ll_hashtable 	*ttl_changed_DLV	= NULL;
 static struct 	ll_hashtable 	*ttl_tables 		= NULL;
 static struct	hashentry_ii *sigs_per_resp_table	= NULL;
 
@@ -153,99 +162,75 @@ void init_var(void)
 	struct ll_hashtable *s		= NULL; /* Temporary struct for iteration */
 
 	/* Initialize the TTL tables */
-	ttl_table_ALL 		= ( struct ll_hashtable* ) malloc ( sizeof ( struct ll_hashtable) );
-	ttl_table_A  		= ( struct ll_hashtable* ) malloc ( sizeof ( struct ll_hashtable) );
-	ttl_table_AAAA  	= ( struct ll_hashtable* ) malloc ( sizeof ( struct ll_hashtable) );
-	ttl_table_PTR  		= ( struct ll_hashtable* ) malloc ( sizeof ( struct ll_hashtable) );
-	ttl_table_NS  		= ( struct ll_hashtable* ) malloc ( sizeof ( struct ll_hashtable) );
-	ttl_table_SOA		= ( struct ll_hashtable* ) malloc ( sizeof ( struct ll_hashtable) );
-	ttl_table_CNAME		= ( struct ll_hashtable* ) malloc ( sizeof ( struct ll_hashtable) );
-	ttl_table_DNSKEY	= ( struct ll_hashtable* ) malloc ( sizeof ( struct ll_hashtable) );
-	ttl_table_RRSIG		= ( struct ll_hashtable* ) malloc ( sizeof ( struct ll_hashtable) );
-	ttl_table_TXT		= ( struct ll_hashtable* ) malloc ( sizeof ( struct ll_hashtable) );
-	ttl_table_MX		= ( struct ll_hashtable* ) malloc ( sizeof ( struct ll_hashtable) );
-	ttl_table_NSEC		= ( struct ll_hashtable* ) malloc ( sizeof ( struct ll_hashtable) );
-	ttl_table_NSEC3		= ( struct ll_hashtable* ) malloc ( sizeof ( struct ll_hashtable) );
-	ttl_table_SRV		= ( struct ll_hashtable* ) malloc ( sizeof ( struct ll_hashtable) );
-	ttl_table_TSIG		= ( struct ll_hashtable* ) malloc ( sizeof ( struct ll_hashtable) );
-	ttl_table_DLV		= ( struct ll_hashtable* ) malloc ( sizeof ( struct ll_hashtable) );
-	ttl_changed_A  		= ( struct ll_hashtable* ) malloc ( sizeof ( struct ll_hashtable) );
-	ttl_changed_AAAA  	= ( struct ll_hashtable* ) malloc ( sizeof ( struct ll_hashtable) );
-	ttl_changed_PTR  	= ( struct ll_hashtable* ) malloc ( sizeof ( struct ll_hashtable) );
-	ttl_changed_NS  	= ( struct ll_hashtable* ) malloc ( sizeof ( struct ll_hashtable) );
-	ttl_changed_SOA		= ( struct ll_hashtable* ) malloc ( sizeof ( struct ll_hashtable) );
-	ttl_changed_CNAME	= ( struct ll_hashtable* ) malloc ( sizeof ( struct ll_hashtable) );
-	ttl_changed_DNSKEY	= ( struct ll_hashtable* ) malloc ( sizeof ( struct ll_hashtable) );
-	ttl_changed_RRSIG	= ( struct ll_hashtable* ) malloc ( sizeof ( struct ll_hashtable) );
-	ttl_changed_TXT		= ( struct ll_hashtable* ) malloc ( sizeof ( struct ll_hashtable) );
-	ttl_changed_MX		= ( struct ll_hashtable* ) malloc ( sizeof ( struct ll_hashtable) );
-	ttl_changed_NSEC	= ( struct ll_hashtable* ) malloc ( sizeof ( struct ll_hashtable) );
-	ttl_changed_NSEC3	= ( struct ll_hashtable* ) malloc ( sizeof ( struct ll_hashtable) );
-	ttl_changed_SRV		= ( struct ll_hashtable* ) malloc ( sizeof ( struct ll_hashtable) );
-	ttl_changed_TSIG	= ( struct ll_hashtable* ) malloc ( sizeof ( struct ll_hashtable) );
-	ttl_changed_DLV		= ( struct ll_hashtable* ) malloc ( sizeof ( struct ll_hashtable) );
-	ttl_table_ALL->tag	= "ALL";
-	ttl_table_A->tag	= "A";
-	ttl_table_AAAA->tag	= "AAAA";
-	ttl_table_PTR->tag	= "PTR";
-	ttl_table_NS->tag	= "NS";
-	ttl_table_SOA->tag	= "SOA";
-	ttl_table_CNAME->tag	= "CNAME";
-	ttl_table_DNSKEY->tag	= "DNSKEY";
-	ttl_table_RRSIG->tag	= "RRSIG";
-	ttl_table_TXT->tag	= "TXT";
-	ttl_table_MX->tag	= "MX";
-	ttl_table_NSEC->tag	= "NSEC";
-	ttl_table_NSEC3->tag	= "NSEC3";
-	ttl_table_SRV->tag	= "SRV";
-	ttl_table_TSIG->tag	= "TSIG";
-	ttl_table_DLV->tag	= "DLV";
-	ttl_changed_A->tag	= "CHANGED.A";
-	ttl_changed_AAAA->tag	= "CHANGED.AAAA";
-	ttl_changed_PTR->tag	= "CHANGED.PTR";
-	ttl_changed_NS->tag	= "CHANGED.NS";
-	ttl_changed_SOA->tag	= "CHANGED.SOA";
-	ttl_changed_CNAME->tag	= "CHANGED.CNAME";
-	ttl_changed_DNSKEY->tag	= "CHANGED.DNSKEY";
-	ttl_changed_RRSIG->tag	= "CHANGED.RRSIG";
-	ttl_changed_TXT->tag	= "CHANGED.TXT";
-	ttl_changed_MX->tag	= "CHANGED.MX";
-	ttl_changed_NSEC->tag	= "CHANGED.NSEC";
-	ttl_changed_NSEC3->tag	= "CHANGED.NSEC3";
-	ttl_changed_SRV->tag	= "CHANGED.SRV";
-	ttl_changed_TSIG->tag	= "CHANGED.TSIG";
-	ttl_changed_DLV->tag	= "CHANGED.DLV";
+	ttl_table_ALL 			= ( struct ll_hashtable* ) malloc ( sizeof ( struct ll_hashtable) );
+	ttl_table_A  			= ( struct ll_hashtable* ) malloc ( sizeof ( struct ll_hashtable) );
+	ttl_table_AAAA  		= ( struct ll_hashtable* ) malloc ( sizeof ( struct ll_hashtable) );
+	ttl_table_PTR  			= ( struct ll_hashtable* ) malloc ( sizeof ( struct ll_hashtable) );
+	ttl_table_NS  			= ( struct ll_hashtable* ) malloc ( sizeof ( struct ll_hashtable) );
+	ttl_table_NS_auth		= ( struct ll_hashtable* ) malloc ( sizeof ( struct ll_hashtable) );
+	ttl_table_SOA			= ( struct ll_hashtable* ) malloc ( sizeof ( struct ll_hashtable) );
+	ttl_table_SOA_auth		= ( struct ll_hashtable* ) malloc ( sizeof ( struct ll_hashtable) );
+	ttl_table_DS			= ( struct ll_hashtable* ) malloc ( sizeof ( struct ll_hashtable) );
+	ttl_table_DS_auth		= ( struct ll_hashtable* ) malloc ( sizeof ( struct ll_hashtable) );
+	ttl_table_CNAME			= ( struct ll_hashtable* ) malloc ( sizeof ( struct ll_hashtable) );
+	ttl_table_DNSKEY		= ( struct ll_hashtable* ) malloc ( sizeof ( struct ll_hashtable) );
+	ttl_table_RRSIG			= ( struct ll_hashtable* ) malloc ( sizeof ( struct ll_hashtable) );
+	ttl_table_RRSIG_auth		= ( struct ll_hashtable* ) malloc ( sizeof ( struct ll_hashtable) );
+	ttl_table_TXT			= ( struct ll_hashtable* ) malloc ( sizeof ( struct ll_hashtable) );
+	ttl_table_MX			= ( struct ll_hashtable* ) malloc ( sizeof ( struct ll_hashtable) );
+	ttl_table_NSEC			= ( struct ll_hashtable* ) malloc ( sizeof ( struct ll_hashtable) );
+	ttl_table_NSEC_auth		= ( struct ll_hashtable* ) malloc ( sizeof ( struct ll_hashtable) );
+	ttl_table_NSEC3			= ( struct ll_hashtable* ) malloc ( sizeof ( struct ll_hashtable) );
+	ttl_table_NSEC3_auth		= ( struct ll_hashtable* ) malloc ( sizeof ( struct ll_hashtable) );
+	ttl_table_SRV			= ( struct ll_hashtable* ) malloc ( sizeof ( struct ll_hashtable) );
+	ttl_table_TSIG			= ( struct ll_hashtable* ) malloc ( sizeof ( struct ll_hashtable) );
+	ttl_table_DLV			= ( struct ll_hashtable* ) malloc ( sizeof ( struct ll_hashtable) );
+	ttl_table_ALL->tag		= "ALL";
+	ttl_table_A->tag		= "A";
+	ttl_table_AAAA->tag		= "AAAA";
+	ttl_table_PTR->tag		= "PTR";
+	ttl_table_NS->tag		= "NS";
+	ttl_table_NS_auth->tag		= "NS_AUTH";
+	ttl_table_SOA->tag		= "SOA";
+	ttl_table_SOA_auth->tag		= "SOA_AUTH";
+	ttl_table_DS->tag		= "DS";
+	ttl_table_DS_auth->tag		= "DS_AUTH";
+	ttl_table_CNAME->tag		= "CNAME";
+	ttl_table_DNSKEY->tag		= "DNSKEY";
+	ttl_table_RRSIG->tag		= "RRSIG";
+	ttl_table_RRSIG_auth->tag	= "RRSIG_AUTH";
+	ttl_table_TXT->tag		= "TXT";
+	ttl_table_MX->tag		= "MX";
+	ttl_table_NSEC->tag		= "NSEC";
+	ttl_table_NSEC_auth->tag	= "NSEC_AUTH";
+	ttl_table_NSEC3->tag		= "NSEC3";
+	ttl_table_NSEC3_auth->tag	= "NSEC3_AUTH";
+	ttl_table_SRV->tag		= "SRV";
+	ttl_table_TSIG->tag		= "TSIG";
+	ttl_table_DLV->tag		= "DLV";
 	LL_APPEND(ttl_tables, ttl_table_ALL);
 	LL_APPEND(ttl_tables, ttl_table_A);
 	LL_APPEND(ttl_tables, ttl_table_AAAA);
 	LL_APPEND(ttl_tables, ttl_table_PTR);
 	LL_APPEND(ttl_tables, ttl_table_NS);
+	LL_APPEND(ttl_tables, ttl_table_NS_auth);
 	LL_APPEND(ttl_tables, ttl_table_SOA);
+	LL_APPEND(ttl_tables, ttl_table_SOA_auth);
+	LL_APPEND(ttl_tables, ttl_table_DS);
+	LL_APPEND(ttl_tables, ttl_table_DS_auth);
 	LL_APPEND(ttl_tables, ttl_table_CNAME);
 	LL_APPEND(ttl_tables, ttl_table_DNSKEY);
 	LL_APPEND(ttl_tables, ttl_table_RRSIG);
+	LL_APPEND(ttl_tables, ttl_table_RRSIG_auth);
 	LL_APPEND(ttl_tables, ttl_table_TXT);
 	LL_APPEND(ttl_tables, ttl_table_MX);
 	LL_APPEND(ttl_tables, ttl_table_NSEC);
+	LL_APPEND(ttl_tables, ttl_table_NSEC_auth);
 	LL_APPEND(ttl_tables, ttl_table_NSEC3);
+	LL_APPEND(ttl_tables, ttl_table_NSEC3_auth);
 	LL_APPEND(ttl_tables, ttl_table_SRV);
 	LL_APPEND(ttl_tables, ttl_table_TSIG);
 	LL_APPEND(ttl_tables, ttl_table_DLV);
-	LL_APPEND(ttl_tables, ttl_changed_A);
-	LL_APPEND(ttl_tables, ttl_changed_AAAA);
-	LL_APPEND(ttl_tables, ttl_changed_PTR);
-	LL_APPEND(ttl_tables, ttl_changed_NS);
-	LL_APPEND(ttl_tables, ttl_changed_SOA);
-	LL_APPEND(ttl_tables, ttl_changed_CNAME);
-	LL_APPEND(ttl_tables, ttl_changed_DNSKEY);
-	LL_APPEND(ttl_tables, ttl_changed_RRSIG);
-	LL_APPEND(ttl_tables, ttl_changed_TXT);
-	LL_APPEND(ttl_tables, ttl_changed_MX);
-	LL_APPEND(ttl_tables, ttl_changed_NSEC);
-	LL_APPEND(ttl_tables, ttl_changed_NSEC3);
-	LL_APPEND(ttl_tables, ttl_changed_SRV);
-	LL_APPEND(ttl_tables, ttl_changed_TSIG);
-	LL_APPEND(ttl_tables, ttl_changed_DLV);
 	
 	LL_FOREACH(ttl_tables, s)
 	{	
@@ -280,7 +265,6 @@ void free_var(void)
 {
 	INFO_MSG("Freeing variables");
 	struct hashentry_si *s 			= NULL; /* Temporary struct for iteration */
-						/* For now, we dont care if the TTL value is changed twice within our time span, so no else statement */
 	struct hashentry_si *tmp 		= NULL; /* Temporary struct for iteration */
 	struct ll_hashtable *ttl_table  	= NULL;
 	struct ll_hashtable *ttl_table_tmp	= NULL;
@@ -317,14 +301,22 @@ void free_var(void)
 			free(s->name);
 			free(s);
 		}
+
+		HASH_ITER(hh, qname_table_q_ns, s, tmp)
+		{
+			HASH_DEL(qname_table_q_ns, s);
+			free(s->name);
+			free(s);
+		}
+
+		HASH_ITER(hh, qname_table_r_ns, s, tmp)
+		{
+			HASH_DEL(qname_table_r_ns, s);
+			free(s->name);
+			free(s);
+		}
 	}
 }
-
-/* Statistics file */
-FILE*	stat_fp_qname_popularity			= NULL;
-FILE*	stat_fp_general					= NULL;
-FILE*	stat_fp_sigs_per_resp				= NULL;
-FILE*	stat_fp_rcodes					= NULL;
 
 /* Sorts two hash_si items, based on their (integer) value */
 int sort_on_value_descending(struct hashentry_si* a, struct hashentry_si* b)
@@ -343,17 +335,28 @@ void write_stats(void)
 {
 	INFO_MSG("Writing stats..");
 	int ln 				= 1;
-	stat_fp_general		 	= fopen(stat_file_general, "a");
-	stat_fp_qname_popularity 	= fopen(stat_file_qname_popularity, "a");
-	stat_fp_sigs_per_resp 		= fopen(stat_file_sigs_per_resp, "a");
+	stat_fp_general	 		= fopen(stat_file_general, "a");
+	stat_fp_qnamepop_cl 		= fopen(stat_file_qname_popularity, "a");
+	stat_fp_sigs_per_resp		= fopen(stat_file_sigs_per_resp, "a");
 	stat_fp_rcodes	 		= fopen(stat_file_rcodes, "a");
+
+	/* QNAME table towards NSs */
+	char filepath_q_ns[1024] 	= {0};
+	snprintf(filepath_q_ns, 1024, "%s_Q_NS", stat_file_qname_popularity);
+	stat_fp_qnamepop_q_ns	 	= fopen(filepath_q_ns, "a");
+
+	/* QNAME table from NSs */
+	char filepath_r_ns[1024] 	= {0};
+	snprintf(filepath_r_ns, 1024, "%s_R_NS", stat_file_qname_popularity);
+	stat_fp_qnamepop_r_ns 		= fopen(filepath_r_ns, "a");
+
 	struct ll_hashtable *ttl_table 	= NULL;
 
 	/* Variables used in timing */
 	struct timespec time_after;
-	long int passed_time_s = 0;
-	long int passed_time_ns = 0;
-	float passed_time_total = 0;
+	long int passed_time_s 		= 0;
+	long int passed_time_ns 	= 0;
+	float passed_time_total 	= 0;
 
 	clock_gettime(CLOCK_REALTIME, &time_after);
 
@@ -367,14 +370,13 @@ void write_stats(void)
 		INFO_MSG("- General..");
 		/* time, queries, responses, queries to ns, frag, trun, trun_sigs, sigs, resp_sigs, chr*/
 		fprintf(stat_fp_general, "%.3f\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%0.2f\n", passed_time_total, nr_quer, nr_resp, chr.RESPONSES, nr_quer_out, nr_frag, nr_trun, nr_trun_with_sigs, nr_sigs, nr_resp_with_sigs, 100 - (((double) chr.RESPONSES/ (double) chr.QUERIES)*100));
-		fflush(stat_fp_general);
 		fclose(stat_fp_general);	
 	}
 
 	/* Printing QNAME popularity statistics */
-	if (stat_fp_qname_popularity != NULL && curr_stat_qname_interval_ctr >= stat_qname_interval_ctr)
+	if (stat_fp_qnamepop_cl != NULL && curr_stat_qname_interval_ctr >= stat_qname_interval_ctr)
 	{		
-		INFO_MSG("- QNAME popularity..");
+		INFO_MSG("- QNAME popularity from clients..");
 		struct hashentry_si *s		= NULL;
 		struct hashentry_si *tmp 	= NULL;
 
@@ -383,15 +385,52 @@ void write_stats(void)
 
 		HASH_ITER(hh, qname_table, s, tmp)
 		{
-			fprintf(stat_fp_qname_popularity, "%u\t%u\t%s\n", ln, s->value, s->name);
+			fprintf(stat_fp_qnamepop_cl, "%u\t%u\t%s\n", ln, s->value, s->name);
 			ln++;
 		}
-		fprintf(stat_fp_qname_popularity, "\n\n");
+		fprintf(stat_fp_qnamepop_cl, "\n\n");
 		
-		fflush(stat_fp_qname_popularity);
-		fclose(stat_fp_qname_popularity);
+		fclose(stat_fp_qnamepop_cl);
+	}
+
+	if (stat_fp_qnamepop_q_ns != NULL && curr_stat_qname_interval_ctr >= stat_qname_interval_ctr)
+	{		
+		INFO_MSG("- QNAME popularity towards NSs..");
+		struct hashentry_si *s		= NULL;
+		struct hashentry_si *tmp 	= NULL;
+
+		/* Sort the qname hashtable */
+		HASH_SORT( qname_table_q_ns, sort_on_value_descending);
+
+		HASH_ITER(hh, qname_table_q_ns, s, tmp)
+		{
+			fprintf(stat_fp_qnamepop_q_ns, "%u\t%u\t%s\n", ln, s->value, s->name);
+			ln++;
+		}
+		fprintf(stat_fp_qnamepop_q_ns, "\n\n");
+		
+		fclose(stat_fp_qnamepop_q_ns);
 	}
 		
+	if (stat_fp_qnamepop_r_ns != NULL && curr_stat_qname_interval_ctr >= stat_qname_interval_ctr)
+	{		
+		INFO_MSG("- QNAME popularity from NSs..");
+		struct hashentry_si *s		= NULL;
+		struct hashentry_si *tmp 	= NULL;
+
+		/* Sort the qname hashtable */
+		HASH_SORT( qname_table_r_ns, sort_on_value_descending);
+
+		HASH_ITER(hh, qname_table_r_ns, s, tmp)
+		{
+			fprintf(stat_fp_qnamepop_r_ns, "%u\t%u\t%s\n", ln, s->value, s->name);
+			ln++;
+		}
+		fprintf(stat_fp_qnamepop_r_ns, "\n\n");
+		
+		fclose(stat_fp_qnamepop_r_ns);
+	}
+
 	/* Printing TTL occurrences statistics */
 	INFO_MSG("- TTL occurrences..");
 	LL_FOREACH(ttl_tables, ttl_table)
@@ -443,7 +482,6 @@ void write_stats(void)
 		}
 		fprintf(stat_fp_ttl, "\n\n");
 		
-		fflush(stat_fp_ttl);
 		fclose(stat_fp_ttl);
 	}
 
@@ -461,7 +499,6 @@ void write_stats(void)
 		}
 		fprintf(stat_fp_sigs_per_resp, "\n\n");		
 		
-		fflush(stat_fp_sigs_per_resp);
 		fclose(stat_fp_sigs_per_resp);
 	}	
 	
@@ -470,7 +507,7 @@ void write_stats(void)
 	{
 		INFO_MSG("- RCODE..");
 		fprintf(stat_fp_rcodes, "%d\t%d\t%d\t%d\t%d\t%d\n", rcodes.NOERROR, rcodes.FORMERR, rcodes.SERVFAIL, rcodes.NXDOMAIN, rcodes.NOTIMPL, rcodes.REFUSED);	
-		fflush(stat_fp_rcodes);
+		
 		fclose(stat_fp_rcodes);
 	}	
 }
@@ -505,15 +542,9 @@ void eemo_dnsdistribution_stats_init(char* stats_file_general, char* stats_file_
 		INFO_MSG("The requests are filtered for the resolver with %s as IP address", ips_resolver[i]);
 	}
 
-	/* Register signal handler */
-	signal(SIGUSR1, signal_handler);
-	signal(SIGUSR2, signal_handler);
-	signal(SIGALRM, signal_handler);
-
 	if (stat_emit_interval > 0)
 	{
 		INFO_MSG("Emitting statistics every %d seconds", stat_emit_interval);
-		alarm(stat_emit_interval); 
 	}
 	else
 	{
@@ -527,22 +558,30 @@ void eemo_dnsdistribution_stats_init(char* stats_file_general, char* stats_file_
 	/* Create output files, initialize the first line */
 	stat_fp_general = fopen(stat_file_general, "w");
 	if (stat_fp_general != NULL) fprintf(stat_fp_general, "time\tqueries\tresponses\tauth_resp\toutgoing queries\tfrag\ttrunc\ttrunc_w_sigs\tsignatures\tresponses_w_sigs\tchr\n");
-	fflush(stat_fp_general);
 	fclose(stat_fp_general);
 	
-	stat_fp_qname_popularity = fopen(stat_file_qname_popularity, "w");
-	if (stat_fp_qname_popularity != NULL) fprintf(stat_fp_qname_popularity, "line number\tpopularity\tdomain name\n");
-	fflush(stat_fp_qname_popularity);
-	fclose(stat_fp_qname_popularity);
+	stat_fp_qnamepop_cl = fopen(stat_file_qname_popularity, "w");
+	if (stat_fp_qnamepop_cl != NULL) fprintf(stat_fp_qnamepop_cl, "line number\tpopularity\tdomain name\n");
+	fclose(stat_fp_qnamepop_cl);
+
+	char filepath_q_ns[1024] = {0};
+        snprintf(filepath_q_ns, 1024, "%s_Q_NS", stat_file_qname_popularity);
+        FILE* stat_fp_qnamepop_q_ns = fopen(filepath_q_ns, "w");
+	if (stat_fp_qnamepop_q_ns != NULL) fprintf(stat_fp_qnamepop_q_ns, "line number\tpopularity\tdomain name\n");
+	fclose(stat_fp_qnamepop_q_ns);
+
+	char filepath_r_ns[1024] = {0};
+        snprintf(filepath_r_ns, 1024, "%s_R_NS", stat_file_qname_popularity);
+        FILE* stat_fp_qnamepop_r_ns = fopen(filepath_r_ns, "w");
+	if (stat_fp_qnamepop_r_ns != NULL) fprintf(stat_fp_qnamepop_r_ns, "line number\tpopularity\tdomain name\n");
+	fclose(stat_fp_qnamepop_r_ns);
 
 	stat_fp_sigs_per_resp  = fopen(stat_file_sigs_per_resp, "w");
 	if (stat_fp_sigs_per_resp != NULL) fprintf(stat_fp_sigs_per_resp, "sigs per resp\toccurrence\n");
-	fflush(stat_fp_sigs_per_resp);
 	fclose(stat_fp_sigs_per_resp);
 
 	stat_fp_rcodes  = fopen(stat_file_rcodes, "w");
 	if (stat_fp_rcodes != NULL) fprintf(stat_fp_rcodes, "NOERROR\tFORMERR\tSERVFAIL\tNXDOMAIN\tNOTIMPL\tREFUSED\n");
-	fflush(stat_fp_rcodes);
 	fclose(stat_fp_rcodes);
 	
 	LL_FOREACH(ttl_tables, ttl_table)
@@ -551,7 +590,6 @@ void eemo_dnsdistribution_stats_init(char* stats_file_general, char* stats_file_
 		snprintf(filepath, 1024, "%s.%s", stat_file_ttl, ttl_table->tag);
 		FILE *stat_fp_ttl = fopen(filepath, "w");
 		if (stat_fp_ttl != NULL) fprintf(stat_fp_ttl, "ttl\toccurrence\tcdf\n");
-		fflush(stat_fp_ttl);
 		fclose(stat_fp_ttl);
 	}
 
@@ -566,11 +604,6 @@ void eemo_dnsdistribution_stats_uninit(eemo_conf_free_string_array_fn free_strin
 	struct hashentry_si *s 		= NULL; /* Temporary struct for iteration */
 	struct hashentry_si *tmp 	= NULL; /* Temporary struct for iteration */
 	struct ll_hashtable *ttl_table  = NULL;
-
-	/* Unregister signal handlers */
-	signal(SIGUSR1, SIG_DFL);
-	signal(SIGUSR2, SIG_DFL);
-	signal(SIGALRM, SIG_DFL);
 	
 	/* Free memory of TTL hashtables */
 	LL_FOREACH(ttl_tables, ttl_table)
@@ -593,6 +626,20 @@ void eemo_dnsdistribution_stats_uninit(eemo_conf_free_string_array_fn free_strin
 		free(s);
 	}
 	
+	HASH_ITER(hh, qname_table_q_ns, s, tmp)
+	{
+		HASH_DEL(qname_table_q_ns, s);
+		free(s->name);
+		free(s);
+	}
+
+	HASH_ITER(hh, qname_table_r_ns, s, tmp)
+	{
+		HASH_DEL(qname_table_r_ns, s);
+		free(s->name);
+		free(s);
+	}
+
 	/* Free memory of the files */
 	free(stat_file_general);
 	free(stat_file_qname_popularity);
@@ -602,8 +649,8 @@ void eemo_dnsdistribution_stats_uninit(eemo_conf_free_string_array_fn free_strin
 }
 
 /* Analyses the RR set for statistic purposes,
-   return if the RR is a signature */
-int analyse_rr(eemo_dns_rr* rr_it, const eemo_dns_packet* dns_paket)
+   returns if the RR is a signature */
+int analyse_rr(eemo_dns_rr* rr_it, dns_section section)
 {
 	int is_sig = 0;
 
@@ -615,6 +662,11 @@ int analyse_rr(eemo_dns_rr* rr_it, const eemo_dns_packet* dns_paket)
 	}
 
 	struct hashentry_si *s  = NULL; /* Search entry */
+
+	/* DEBUG */
+	if (section == AUTHORITY && rr_it->type != DNS_QTYPE_NS && rr_it->type != DNS_QTYPE_RRSIG && rr_it->type != DNS_QTYPE_SOA && rr_it->type != DNS_QTYPE_NSEC && rr_it->type != DNS_QTYPE_NSEC3 && rr_it->type != DNS_QTYPE_DS){
+		INFO_MSG("Unexpected type: %d", rr_it->type);
+	}
 
 	/* Select the right hashtable */			
 	switch( rr_it->type )
@@ -629,10 +681,28 @@ int analyse_rr(eemo_dns_rr* rr_it, const eemo_dns_packet* dns_paket)
 		HASH_FIND_STR ( ttl_table_PTR->table, rr_it->name , s );
 		break;					
 	case DNS_QTYPE_NS:
-		HASH_FIND_STR ( ttl_table_NS->table, rr_it->name , s );
+		if (section == ANSWER){
+			HASH_FIND_STR ( ttl_table_NS->table, rr_it->name , s );
+		}
+		else if (section == AUTHORITY){
+			HASH_FIND_STR ( ttl_table_NS_auth->table, rr_it->name , s );
+		}
 		break;					
 	case DNS_QTYPE_SOA:
-		HASH_FIND_STR ( ttl_table_SOA->table, rr_it->name , s );
+		if (section == ANSWER){
+			HASH_FIND_STR ( ttl_table_SOA->table, rr_it->name , s );
+		}
+		else if (section == AUTHORITY){
+			HASH_FIND_STR ( ttl_table_SOA_auth->table, rr_it->name , s );
+		}
+		break;					
+	case DNS_QTYPE_DS:
+		if (section == ANSWER){
+			HASH_FIND_STR ( ttl_table_DS->table, rr_it->name , s );
+		}
+		else if (section == AUTHORITY){
+			HASH_FIND_STR ( ttl_table_DS_auth->table, rr_it->name , s );
+		}
 		break;					
 	case DNS_QTYPE_CNAME:
 		HASH_FIND_STR ( ttl_table_CNAME->table, rr_it->name , s );
@@ -641,16 +711,31 @@ int analyse_rr(eemo_dns_rr* rr_it, const eemo_dns_packet* dns_paket)
 		HASH_FIND_STR ( ttl_table_DNSKEY->table, rr_it->name , s );
 		break;
 	case DNS_QTYPE_RRSIG:
-		HASH_FIND_STR ( ttl_table_RRSIG->table, rr_it->name , s );
+		if (section == ANSWER){
+			HASH_FIND_STR ( ttl_table_RRSIG->table, rr_it->name , s );
+		}
+		else if (section == AUTHORITY){
+			HASH_FIND_STR ( ttl_table_RRSIG_auth->table, rr_it->name , s );
+		}
 		break;
 	case DNS_QTYPE_TXT:
 		HASH_FIND_STR ( ttl_table_TXT->table, rr_it->name , s );
 		break;
 	case DNS_QTYPE_NSEC:
-		HASH_FIND_STR ( ttl_table_NSEC->table, rr_it->name , s );
+		if (section == ANSWER){
+			HASH_FIND_STR ( ttl_table_NSEC->table, rr_it->name , s );
+		}
+		else if (section == AUTHORITY){
+			HASH_FIND_STR ( ttl_table_NSEC_auth->table, rr_it->name , s );
+		}
 		break;
 	case DNS_QTYPE_NSEC3:
-		HASH_FIND_STR ( ttl_table_NSEC3->table, rr_it->name , s );
+		if (section == ANSWER){
+			HASH_FIND_STR ( ttl_table_NSEC3->table, rr_it->name , s );
+		}
+		else if (section == AUTHORITY){
+			HASH_FIND_STR ( ttl_table_NSEC3_auth->table, rr_it->name , s );
+		}
 		break;
 	case DNS_QTYPE_SRV:
 		HASH_FIND_STR ( ttl_table_SRV->table, rr_it->name , s );
@@ -665,14 +750,15 @@ int analyse_rr(eemo_dns_rr* rr_it, const eemo_dns_packet* dns_paket)
 		break;
 	}
 	
+	/* Name was never received before: add to ttl_table, ignore otherwise */
 	if (s == NULL)
 	{
-		/* Name was never received before: add to ttl_table, ignore otherwise */
 		struct hashentry_si *d = NULL; /* new entry */
 		d = ( struct hashentry_si* ) malloc ( sizeof ( struct hashentry_si ) );
 		d->name = strdup(rr_it->name);
 		d->value = rr_it->ttl;
 
+		/* Add the new entry to the correct hashtable, based on its response type */
 		switch( rr_it->type )
 		{
 		case DNS_QTYPE_A:
@@ -685,10 +771,28 @@ int analyse_rr(eemo_dns_rr* rr_it, const eemo_dns_packet* dns_paket)
 			HASH_ADD_KEYPTR ( hh, ttl_table_PTR->table, d->name, strlen ( d->name ), d );
 			break;
 		case DNS_QTYPE_NS:
-			HASH_ADD_KEYPTR ( hh, ttl_table_NS->table, d->name, strlen ( d->name ), d );
+			if (section == ANSWER){
+				HASH_ADD_KEYPTR ( hh, ttl_table_NS->table, d->name, strlen ( d->name ), d );
+			}
+			else if (section == AUTHORITY){
+				HASH_ADD_KEYPTR ( hh, ttl_table_NS_auth->table, d->name, strlen ( d->name ), d );
+			}
 			break;
 		case DNS_QTYPE_SOA:
-			HASH_ADD_KEYPTR ( hh, ttl_table_SOA->table, d->name, strlen ( d->name ), d );
+			if (section == ANSWER){
+				HASH_ADD_KEYPTR ( hh, ttl_table_SOA->table, d->name, strlen ( d->name ), d );
+			}
+			else if (section == AUTHORITY){
+				HASH_ADD_KEYPTR ( hh, ttl_table_SOA_auth->table, d->name, strlen ( d->name ), d );
+			}
+			break;
+		case DNS_QTYPE_DS:
+			if (section == ANSWER){
+				HASH_ADD_KEYPTR ( hh, ttl_table_DS->table, d->name, strlen ( d->name ), d );
+			}
+			else if (section == AUTHORITY){
+				HASH_ADD_KEYPTR ( hh, ttl_table_DS_auth->table, d->name, strlen ( d->name ), d );
+			}
 			break;
 		case DNS_QTYPE_CNAME:
 			HASH_ADD_KEYPTR ( hh, ttl_table_CNAME->table, d->name, strlen ( d->name ), d );
@@ -697,7 +801,12 @@ int analyse_rr(eemo_dns_rr* rr_it, const eemo_dns_packet* dns_paket)
 			HASH_ADD_KEYPTR ( hh, ttl_table_DNSKEY->table, d->name, strlen ( d->name ), d );
 			break;
 		case DNS_QTYPE_RRSIG:
-			HASH_ADD_KEYPTR ( hh, ttl_table_RRSIG->table, d->name, strlen ( d->name ), d );
+			if (section == ANSWER){
+				HASH_ADD_KEYPTR ( hh, ttl_table_RRSIG->table, d->name, strlen ( d->name ), d );
+			}
+			else if (section == AUTHORITY){
+				HASH_ADD_KEYPTR ( hh, ttl_table_RRSIG_auth->table, d->name, strlen ( d->name ), d );
+			}
 			break;
 		case DNS_QTYPE_TXT:
 			HASH_ADD_KEYPTR ( hh, ttl_table_TXT->table, d->name, strlen ( d->name ), d );
@@ -706,10 +815,20 @@ int analyse_rr(eemo_dns_rr* rr_it, const eemo_dns_packet* dns_paket)
 			HASH_ADD_KEYPTR ( hh, ttl_table_MX->table, d->name, strlen ( d->name ), d );
 			break;
 		case DNS_QTYPE_NSEC:
-			HASH_ADD_KEYPTR ( hh, ttl_table_NSEC->table, d->name, strlen ( d->name ), d );
+			if (section == ANSWER){
+				HASH_ADD_KEYPTR ( hh, ttl_table_NSEC->table, d->name, strlen ( d->name ), d );
+			}
+			else if (section == AUTHORITY){
+				HASH_ADD_KEYPTR ( hh, ttl_table_NSEC_auth->table, d->name, strlen ( d->name ), d );
+			}
 			break;
 		case DNS_QTYPE_NSEC3:
-			HASH_ADD_KEYPTR ( hh, ttl_table_NSEC3->table, d->name, strlen ( d->name ), d );
+			if (section == ANSWER){
+				HASH_ADD_KEYPTR ( hh, ttl_table_NSEC3->table, d->name, strlen ( d->name ), d );
+			}
+			else if (section == AUTHORITY){
+				HASH_ADD_KEYPTR ( hh, ttl_table_NSEC3_auth->table, d->name, strlen ( d->name ), d );
+			}
 			break;
 		case DNS_QTYPE_SRV:
 			HASH_ADD_KEYPTR ( hh, ttl_table_SRV->table, d->name, strlen ( d->name ), d );
@@ -727,133 +846,8 @@ int analyse_rr(eemo_dns_rr* rr_it, const eemo_dns_packet* dns_paket)
 			break;
 		}
 	}
-	/* Name was received before, an entry should be placed in the corresponding CHANGED table if the TTL is smaller */
-	else if (rr_it->ttl < s->value)
-	{
-		/* Check if the CHANGED table already contains an entry for the name/query type combination */
-		struct hashentry_si *t = NULL; /* search entry */
-		/* Set the current value in the TTL to the lowest */
-		s->value = rr_it->ttl;
-		switch( rr_it->type )
-		{
-		case DNS_QTYPE_A:
-			HASH_FIND_STR ( ttl_changed_A->table, rr_it->name , t );
-			break;
-		case DNS_QTYPE_AAAA:
-			HASH_FIND_STR ( ttl_changed_AAAA->table, rr_it->name , t );
-			break;
-		case DNS_QTYPE_PTR:
-			HASH_FIND_STR ( ttl_changed_PTR->table, rr_it->name , t );
-			break;					
-		case DNS_QTYPE_NS:
-			HASH_FIND_STR ( ttl_changed_NS->table, rr_it->name , t );
-			break;					
-		case DNS_QTYPE_SOA:
-			HASH_FIND_STR ( ttl_changed_SOA->table, rr_it->name , t );
-			break;					
-		case DNS_QTYPE_CNAME:
-			HASH_FIND_STR ( ttl_changed_CNAME->table, rr_it->name , t );
-			break;					
-		case DNS_QTYPE_DNSKEY:
-			HASH_FIND_STR ( ttl_changed_DNSKEY->table, rr_it->name , t );
-			break;
-		case DNS_QTYPE_RRSIG:
-			HASH_FIND_STR ( ttl_changed_RRSIG->table, rr_it->name , t );
-			break;
-		case DNS_QTYPE_TXT:
-			HASH_FIND_STR ( ttl_changed_TXT->table, rr_it->name , t );
-			break;
-		case DNS_QTYPE_MX:
-			HASH_FIND_STR ( ttl_changed_MX->table, rr_it->name , t );
-			break;
-		case DNS_QTYPE_NSEC:
-			HASH_FIND_STR ( ttl_changed_NSEC->table, rr_it->name , s );
-			break;
-		case DNS_QTYPE_NSEC3:
-			HASH_FIND_STR ( ttl_changed_NSEC3->table, rr_it->name , s );
-			break;
-		case DNS_QTYPE_SRV:
-			HASH_FIND_STR ( ttl_changed_SRV->table, rr_it->name , s );
-			break;
-		case DNS_QTYPE_TSIG:
-			HASH_FIND_STR ( ttl_changed_TSIG->table, rr_it->name , s );
-			break;
-		case DNS_QTYPE_DLV:
-			HASH_FIND_STR ( ttl_changed_DLV->table, rr_it->name , s );
-			break;
-		default:
-			break;
-		}
-		
-		/* The CHANGED table does not contain an entry yet: add one */							if ( t == NULL)
-		{
-			struct hashentry_si *d = NULL; /* new entry */
-			d = ( struct hashentry_si* ) malloc ( sizeof ( struct hashentry_si ) );
-			d->name = strdup(rr_it->name);
-			d->value = 1;
-
-			switch( rr_it->type )
-			{
-			case DNS_QTYPE_A:
-				HASH_ADD_KEYPTR ( hh, ttl_changed_A->table, d->name, strlen ( d->name ), d );
-				break;
-			case DNS_QTYPE_AAAA:
-				HASH_ADD_KEYPTR ( hh, ttl_changed_AAAA->table, d->name, strlen ( d->name ), d );
-				break;
-			case DNS_QTYPE_PTR:
-				HASH_ADD_KEYPTR ( hh, ttl_changed_PTR->table, d->name, strlen ( d->name ), d );
-				break;
-			case DNS_QTYPE_NS:
-				HASH_ADD_KEYPTR ( hh, ttl_changed_NS->table, d->name, strlen ( d->name ), d );
-				break;
-			case DNS_QTYPE_SOA:
-				HASH_ADD_KEYPTR ( hh, ttl_changed_SOA->table, d->name, strlen ( d->name ), d );
-				break;
-			case DNS_QTYPE_CNAME:
-				HASH_ADD_KEYPTR ( hh, ttl_changed_CNAME->table, d->name, strlen ( d->name ), d );
-				break;
-			case DNS_QTYPE_DNSKEY:
-				HASH_ADD_KEYPTR ( hh, ttl_changed_DNSKEY->table, d->name, strlen ( d->name ), d );
-				break;
-			case DNS_QTYPE_RRSIG:
-				HASH_ADD_KEYPTR ( hh, ttl_changed_RRSIG->table, d->name, strlen ( d->name ), d );
-				break;
-			case DNS_QTYPE_TXT:
-				HASH_ADD_KEYPTR ( hh, ttl_changed_TXT->table, d->name, strlen ( d->name ), d );
-				break;
-			case DNS_QTYPE_MX:
-				HASH_ADD_KEYPTR ( hh, ttl_changed_MX->table, d->name, strlen ( d->name ), d );
-				break;
-			case DNS_QTYPE_NSEC:
-				HASH_ADD_KEYPTR ( hh, ttl_changed_NSEC->table, d->name, strlen ( d->name ), d );
-				break;
-			case DNS_QTYPE_NSEC3:
-				HASH_ADD_KEYPTR ( hh, ttl_changed_NSEC3->table, d->name, strlen ( d->name ), d );
-				break;
-			case DNS_QTYPE_SRV:
-				HASH_ADD_KEYPTR ( hh, ttl_changed_SRV->table, d->name, strlen ( d->name ), d );
-				break;
-			case DNS_QTYPE_TSIG:
-				HASH_ADD_KEYPTR ( hh, ttl_changed_TSIG->table, d->name, strlen ( d->name ), d );
-				break;
-			case DNS_QTYPE_DLV:
-				HASH_ADD_KEYPTR ( hh, ttl_changed_DLV->table, d->name, strlen ( d->name ), d );
-				break;
-			default:
-				/* We do not want to collect stats for response types for which no hashtable exist, so the entry is removed */
-				free(d->name);
-				free(d);
-				break;
-			}
-		}
-		
-		else
-		{
-			t->value++;
-		}
-	}
-
-	/* Also add to the hashtabel that stores ALL responses */
+	
+	/* Also add to the hashtable that stores ALL responses */
 	s = NULL;
 	HASH_FIND_STR ( ttl_table_ALL->table, rr_it->name , s );
 	if (s == NULL)
@@ -926,22 +920,46 @@ eemo_rv eemo_dnsdistribution_stats_handleqr(eemo_ip_packet_info ip_info, int is_
 				{
 					nr_frag++;
 				}
+
 				/* Only 'authoritative answers' are considered in the cache hit ratio*/
 				if (dns_packet->aa_flag == 1)
 				{
 					chr.RESPONSES++; /* Cache hit ratio statistics */
 				}
 				
-				/* Iterate over all ANSWER records */
-				LL_FOREACH(dns_packet->answers, rr_it)
+				/* Iterate over all QUESTION records */	
+				LL_FOREACH(dns_packet->questions, query_it)
 				{
-					sigs_in_resp +=	analyse_rr(rr_it, dns_packet);
+					/* Log popularity of domain names */
+					struct hashentry_si *s = NULL;
+					HASH_FIND_STR ( qname_table_r_ns, query_it->qname, s );
+					if ( s != NULL ) 
+					{
+						/* Domain name was requested before: increment its value */
+						s->value++;
+					}
+					else
+					{
+						 /* Domain name was never requested before: add to qname_table */
+						struct hashentry_si *d = NULL;
+						d = ( struct hashentry_si* ) malloc ( sizeof ( struct hashentry_si ) );
+						d->name = malloc( strlen( query_it->qname )+1 );
+						strcpy(d->name, query_it->qname);
+						d->value = 1;
+						HASH_ADD_KEYPTR ( hh, qname_table_r_ns, d->name, strlen ( d->name ), d );	
+					}
 				}
 
 				/* Iterate over all ANSWER records */
+				LL_FOREACH(dns_packet->answers, rr_it)
+				{
+					sigs_in_resp +=	analyse_rr(rr_it, ANSWER);
+				}
+
+				/* Iterate over all AUTHORITY records */
 				LL_FOREACH(dns_packet->authorities, rr_it)
 				{
-					sigs_in_resp +=	analyse_rr(rr_it, dns_packet);
+					sigs_in_resp +=	analyse_rr(rr_it, AUTHORITY);
 				}
 
 				/* Iterate over all ADDITIONAL records */
@@ -969,6 +987,8 @@ eemo_rv eemo_dnsdistribution_stats_handleqr(eemo_ip_packet_info ip_info, int is_
 						break;
 					case DNS_RCODE_REFUSED:
 						rcodes.REFUSED++;
+						break;
+					default:
 						break;
 				}						
 			
@@ -1040,10 +1060,34 @@ eemo_rv eemo_dnsdistribution_stats_handleqr(eemo_ip_packet_info ip_info, int is_
 				}
 			break;
 			}
+			
 			/* Outgoing queries */
 			else if ((!strcmp(ip_info.ip_src, ips_resolver[i]) || !strcmp(ip_info.ip_src, IP_ANY)) && dns_packet->srcport != 53 && dns_packet->dstport == 53)
 			{
 				nr_quer_out++;
+
+				LL_FOREACH(dns_packet->questions, query_it)
+                                {
+                                        /* Log value of domain names */
+                                        struct hashentry_si *s = NULL;
+                                        HASH_FIND_STR ( qname_table_q_ns, query_it->qname, s );
+                                        if ( s != NULL )
+                                        {
+                                                /* Domain name was requested before: increment its value */
+                                                s->value++;
+                                        }
+                                        else
+                                        {
+                                                 /* Domain name was never requested before: add to qname_table_q_ns */
+                                                struct hashentry_si *d = NULL;
+                                                d = ( struct hashentry_si* ) malloc ( sizeof ( struct hashentry_si ) );
+                                                d->name = malloc( strlen( query_it->qname )+1 );
+                                                strcpy(d->name, query_it->qname);
+                                                d->value = 1;
+                                                HASH_ADD_KEYPTR ( hh, qname_table_q_ns, d->name, strlen ( d->name ), d );
+                                        }
+                                }
+
 			}			
 		}
 	}
