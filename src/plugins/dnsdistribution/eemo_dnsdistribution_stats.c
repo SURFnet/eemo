@@ -393,6 +393,7 @@ void write_stats(void)
 		fclose(stat_fp_qnamepop_cl);
 	}
 
+	ln = 1;
 	if (stat_fp_qnamepop_q_ns != NULL && curr_stat_qname_interval_ctr >= stat_qname_interval_ctr)
 	{		
 		INFO_MSG("- QNAME popularity towards NSs..");
@@ -411,7 +412,8 @@ void write_stats(void)
 		
 		fclose(stat_fp_qnamepop_q_ns);
 	}
-		
+	
+	ln = 1;	
 	if (stat_fp_qnamepop_r_ns != NULL && curr_stat_qname_interval_ctr >= stat_qname_interval_ctr)
 	{		
 		INFO_MSG("- QNAME popularity from NSs..");
