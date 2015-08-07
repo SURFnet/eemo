@@ -125,6 +125,7 @@ static int	nr_frag					= 0;
 static int	nr_trun					= 0;
 static int	nr_trun_with_sigs			= 0;
 static int 	nr_sigs					= 0;
+static int 	nr_sigs_aa					= 0;
 static int	nr_resp_with_sigs			= 0;
 static struct	timespec time_before;
 static struct 	hashentry_si *qname_table	 	= NULL;
@@ -132,7 +133,9 @@ static struct 	hashentry_si *qname_table_q_ns 		= NULL;
 static struct 	hashentry_si *qname_table_r_ns 		= NULL;
 static struct	ll_hashtable 	*ttl_table_ALL		= NULL;
 static struct	ll_hashtable 	*ttl_table_A		= NULL;
+static struct	ll_hashtable 	*ttl_table_A_add	= NULL;
 static struct	ll_hashtable 	*ttl_table_AAAA		= NULL;
+static struct	ll_hashtable 	*ttl_table_AAAA_add	= NULL;
 static struct	ll_hashtable 	*ttl_table_PTR		= NULL;
 static struct	ll_hashtable 	*ttl_table_NS		= NULL;
 static struct	ll_hashtable 	*ttl_table_NS_auth	= NULL;
@@ -144,6 +147,7 @@ static struct	ll_hashtable 	*ttl_table_CNAME	= NULL;
 static struct	ll_hashtable 	*ttl_table_DNSKEY	= NULL;
 static struct	ll_hashtable 	*ttl_table_RRSIG	= NULL;
 static struct	ll_hashtable 	*ttl_table_RRSIG_auth	= NULL;
+static struct	ll_hashtable 	*ttl_table_RRSIG_add	= NULL;
 static struct	ll_hashtable 	*ttl_table_TXT		= NULL;
 static struct	ll_hashtable 	*ttl_table_MX		= NULL;
 static struct	ll_hashtable 	*ttl_table_NSEC		= NULL;
@@ -164,7 +168,9 @@ void init_var(void)
 	/* Initialize the TTL tables */
 	ttl_table_ALL 			= ( struct ll_hashtable* ) malloc ( sizeof ( struct ll_hashtable) );
 	ttl_table_A  			= ( struct ll_hashtable* ) malloc ( sizeof ( struct ll_hashtable) );
+	ttl_table_A_add			= ( struct ll_hashtable* ) malloc ( sizeof ( struct ll_hashtable) );
 	ttl_table_AAAA  		= ( struct ll_hashtable* ) malloc ( sizeof ( struct ll_hashtable) );
+	ttl_table_AAAA_add 		= ( struct ll_hashtable* ) malloc ( sizeof ( struct ll_hashtable) );
 	ttl_table_PTR  			= ( struct ll_hashtable* ) malloc ( sizeof ( struct ll_hashtable) );
 	ttl_table_NS  			= ( struct ll_hashtable* ) malloc ( sizeof ( struct ll_hashtable) );
 	ttl_table_NS_auth		= ( struct ll_hashtable* ) malloc ( sizeof ( struct ll_hashtable) );
@@ -176,6 +182,7 @@ void init_var(void)
 	ttl_table_DNSKEY		= ( struct ll_hashtable* ) malloc ( sizeof ( struct ll_hashtable) );
 	ttl_table_RRSIG			= ( struct ll_hashtable* ) malloc ( sizeof ( struct ll_hashtable) );
 	ttl_table_RRSIG_auth		= ( struct ll_hashtable* ) malloc ( sizeof ( struct ll_hashtable) );
+	ttl_table_RRSIG_add		= ( struct ll_hashtable* ) malloc ( sizeof ( struct ll_hashtable) );
 	ttl_table_TXT			= ( struct ll_hashtable* ) malloc ( sizeof ( struct ll_hashtable) );
 	ttl_table_MX			= ( struct ll_hashtable* ) malloc ( sizeof ( struct ll_hashtable) );
 	ttl_table_NSEC			= ( struct ll_hashtable* ) malloc ( sizeof ( struct ll_hashtable) );
@@ -187,7 +194,9 @@ void init_var(void)
 	ttl_table_DLV			= ( struct ll_hashtable* ) malloc ( sizeof ( struct ll_hashtable) );
 	ttl_table_ALL->tag		= "ALL";
 	ttl_table_A->tag		= "A";
+	ttl_table_A_add->tag		= "A_ADD";
 	ttl_table_AAAA->tag		= "AAAA";
+	ttl_table_AAAA_add->tag		= "AAAA_ADD";
 	ttl_table_PTR->tag		= "PTR";
 	ttl_table_NS->tag		= "NS";
 	ttl_table_NS_auth->tag		= "NS_AUTH";
@@ -199,6 +208,7 @@ void init_var(void)
 	ttl_table_DNSKEY->tag		= "DNSKEY";
 	ttl_table_RRSIG->tag		= "RRSIG";
 	ttl_table_RRSIG_auth->tag	= "RRSIG_AUTH";
+	ttl_table_RRSIG_add->tag	= "RRSIG_ADD";
 	ttl_table_TXT->tag		= "TXT";
 	ttl_table_MX->tag		= "MX";
 	ttl_table_NSEC->tag		= "NSEC";
@@ -210,7 +220,9 @@ void init_var(void)
 	ttl_table_DLV->tag		= "DLV";
 	LL_APPEND(ttl_tables, ttl_table_ALL);
 	LL_APPEND(ttl_tables, ttl_table_A);
+	LL_APPEND(ttl_tables, ttl_table_A_add);
 	LL_APPEND(ttl_tables, ttl_table_AAAA);
+	LL_APPEND(ttl_tables, ttl_table_AAAA_add);
 	LL_APPEND(ttl_tables, ttl_table_PTR);
 	LL_APPEND(ttl_tables, ttl_table_NS);
 	LL_APPEND(ttl_tables, ttl_table_NS_auth);
@@ -222,6 +234,7 @@ void init_var(void)
 	LL_APPEND(ttl_tables, ttl_table_DNSKEY);
 	LL_APPEND(ttl_tables, ttl_table_RRSIG);
 	LL_APPEND(ttl_tables, ttl_table_RRSIG_auth);
+	LL_APPEND(ttl_tables, ttl_table_RRSIG_add);
 	LL_APPEND(ttl_tables, ttl_table_TXT);
 	LL_APPEND(ttl_tables, ttl_table_MX);
 	LL_APPEND(ttl_tables, ttl_table_NSEC);
@@ -253,6 +266,7 @@ void init_var(void)
 	nr_quer			= 0;
 	nr_quer_out		= 0;
 	nr_sigs 		= 0;
+	nr_sigs_aa 		= 0;
 	nr_frag			= 0;
 	nr_trun			= 0;
 	nr_trun_with_sigs	= 0;
@@ -369,7 +383,7 @@ void write_stats(void)
 	{
 		INFO_MSG("- General..");
 		/* time, queries, responses, queries to ns, frag, trun, trun_sigs, sigs, resp_sigs, chr*/
-		fprintf(stat_fp_general, "%.3f\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%0.2f\n", passed_time_total, nr_quer, nr_resp, chr.RESPONSES, nr_quer_out, nr_frag, nr_trun, nr_trun_with_sigs, nr_sigs, nr_resp_with_sigs, 100 - (((double) chr.RESPONSES/ (double) chr.QUERIES)*100));
+		fprintf(stat_fp_general, "%.3f\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%0.2f\t%d\n", passed_time_total, nr_quer, nr_resp, chr.RESPONSES, nr_quer_out, nr_frag, nr_trun, nr_trun_with_sigs, nr_sigs, nr_resp_with_sigs, 100 - (((double) chr.RESPONSES/ (double) chr.QUERIES)*100), nr_sigs_aa);
 		fclose(stat_fp_general);	
 	}
 
@@ -559,7 +573,7 @@ void eemo_dnsdistribution_stats_init(char* stats_file_general, char* stats_file_
 
 	/* Create output files, initialize the first line */
 	stat_fp_general = fopen(stat_file_general, "w");
-	if (stat_fp_general != NULL) fprintf(stat_fp_general, "time\tqueries\tresponses\tauth_resp\toutgoing queries\tfrag\ttrunc\ttrunc_w_sigs\tsignatures\tresponses_w_sigs\tchr\n");
+	if (stat_fp_general != NULL) fprintf(stat_fp_general, "time\tqueries\tresponses\tauth_resp\toutgoing queries\tfrag\ttrunc\ttrunc_w_sigs\tsignatures\tresponses_w_sigs\tchr\tsignatures_aa\n");
 	fclose(stat_fp_general);
 	
 	stat_fp_qnamepop_cl = fopen(stat_file_qname_popularity, "w");
@@ -652,32 +666,40 @@ void eemo_dnsdistribution_stats_uninit(eemo_conf_free_string_array_fn free_strin
 
 /* Analyses the RR set for statistic purposes,
    returns if the RR is a signature */
-int analyse_rr(eemo_dns_rr* rr_it, dns_section section)
+int analyse_rr(eemo_dns_rr* rr_it, dns_section section, unsigned char aa_flag)
 {
 	int is_sig = 0;
+	struct hashentry_si *s  = NULL; /* Search entry */
 
 	/* Check if the RR set is a signature */
 	if(rr_it->type == DNS_QTYPE_RRSIG)
 	{	
 		nr_sigs++;
 		is_sig++;
-	}
-
-	struct hashentry_si *s  = NULL; /* Search entry */
-
-	/* DEBUG */
-	if (section == AUTHORITY && rr_it->type != DNS_QTYPE_NS && rr_it->type != DNS_QTYPE_RRSIG && rr_it->type != DNS_QTYPE_SOA && rr_it->type != DNS_QTYPE_NSEC && rr_it->type != DNS_QTYPE_NSEC3 && rr_it->type != DNS_QTYPE_DS){
-		INFO_MSG("Unexpected type: %d", rr_it->type);
+		if (aa_flag)
+		{
+			nr_sigs_aa++;
+		}
 	}
 
 	/* Select the right hashtable */			
 	switch( rr_it->type )
 	{
 	case DNS_QTYPE_A:
-		HASH_FIND_STR ( ttl_table_A->table, rr_it->name , s );
+		if (section == ANSWER){
+			HASH_FIND_STR ( ttl_table_A->table, rr_it->name , s );
+		}
+		else if (section == ADDITIONAL){
+			HASH_FIND_STR ( ttl_table_A_add->table, rr_it->name , s );
+		}
 		break;
 	case DNS_QTYPE_AAAA:
-		HASH_FIND_STR ( ttl_table_AAAA->table, rr_it->name , s );
+		if (section == ANSWER){
+			HASH_FIND_STR ( ttl_table_AAAA->table, rr_it->name , s );
+		}
+		else if (section == ADDITIONAL){
+			HASH_FIND_STR ( ttl_table_AAAA_add->table, rr_it->name , s );
+		}
 		break;
 	case DNS_QTYPE_PTR:
 		HASH_FIND_STR ( ttl_table_PTR->table, rr_it->name , s );
@@ -719,6 +741,9 @@ int analyse_rr(eemo_dns_rr* rr_it, dns_section section)
 		else if (section == AUTHORITY){
 			HASH_FIND_STR ( ttl_table_RRSIG_auth->table, rr_it->name , s );
 		}
+		else if (section == ADDITIONAL){
+					HASH_FIND_STR ( ttl_table_RRSIG_add->table, rr_it->name , s );
+				}
 		break;
 	case DNS_QTYPE_TXT:
 		HASH_FIND_STR ( ttl_table_TXT->table, rr_it->name , s );
@@ -955,18 +980,19 @@ eemo_rv eemo_dnsdistribution_stats_handleqr(eemo_ip_packet_info ip_info, int is_
 				/* Iterate over all ANSWER records */
 				LL_FOREACH(dns_packet->answers, rr_it)
 				{
-					sigs_in_resp +=	analyse_rr(rr_it, ANSWER);
+					sigs_in_resp +=	analyse_rr(rr_it, ANSWER, dns_packet->aa_flag);
 				}
 
 				/* Iterate over all AUTHORITY records */
 				LL_FOREACH(dns_packet->authorities, rr_it)
 				{
-					sigs_in_resp +=	analyse_rr(rr_it, AUTHORITY);
+					sigs_in_resp +=	analyse_rr(rr_it, AUTHORITY, dns_packet->aa_flag);
 				}
 
 				/* Iterate over all ADDITIONAL records */
 				LL_FOREACH(dns_packet->additionals, rr_it)
 				{
+					sigs_in_resp +=	analyse_rr(rr_it, ADDITIONAL, dns_packet->aa_flag);
 				}
 
 				/* Store the RCODE of the packet */
