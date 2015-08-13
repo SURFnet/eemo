@@ -49,7 +49,17 @@
 
 #define IP_ANY	"*"
 
-/* */
+/* Debugging uthash.h */
+#undef uthash_fatal
+#define uthash_fatal(msg) my_fatal_function(msg);
+
+void my_fatal_function(char *msg)
+{
+	INFO_MSG("uthash.h crashed: %s", msg);
+	exit(-1);
+}
+
+/* Possible different sections in DNS message */
 typedef enum {
 	QUESTION,
 	ANSWER,
@@ -382,7 +392,6 @@ void write_stats(void)
 	if (stat_fp_general != NULL)
 	{
 		INFO_MSG("- General..");
-		/* time, queries, responses, queries to ns, frag, trun, trun_sigs, sigs, resp_sigs, chr*/
 		fprintf(stat_fp_general, "%.3f\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%0.2f\t%d\n", passed_time_total, nr_quer, nr_resp, chr.RESPONSES, nr_quer_out, nr_frag, nr_trun, nr_trun_with_sigs, nr_sigs, nr_resp_with_sigs, 100 - (((double) chr.RESPONSES/ (double) chr.QUERIES)*100), nr_sigs_aa);
 		fclose(stat_fp_general);	
 	}
@@ -534,6 +543,7 @@ void reset_stats(void)
 	INFO_MSG("Resetting stats..");
 	free_var();	
 	init_var();
+	INFO_MSG("Resetting stats.. DONE");
 }
 
 /* Initialise the DNS query counter module */
@@ -789,10 +799,20 @@ int analyse_rr(eemo_dns_rr* rr_it, dns_section section, unsigned char aa_flag)
 		switch( rr_it->type )
 		{
 		case DNS_QTYPE_A:
-			HASH_ADD_KEYPTR ( hh, ttl_table_A->table, d->name, strlen ( d->name ), d );
+			if (section == ANSWER){
+				HASH_ADD_KEYPTR ( hh, ttl_table_A->table, d->name, strlen ( d->name ), d );
+			}
+			else if (section == ADDITIONAL){
+				HASH_ADD_KEYPTR ( hh, ttl_table_A_add->table, d->name, strlen ( d->name ), d );
+			}
 			break;
 		case DNS_QTYPE_AAAA:
-			HASH_ADD_KEYPTR ( hh, ttl_table_AAAA->table, d->name, strlen ( d->name ), d );
+			if (section == ANSWER){
+				HASH_ADD_KEYPTR ( hh, ttl_table_AAAA->table, d->name, strlen ( d->name ), d );
+			}
+			else if (section == ADDITIONAL){
+				HASH_ADD_KEYPTR ( hh, ttl_table_AAAA_add->table, d->name, strlen ( d->name ), d );
+			}
 			break;
 		case DNS_QTYPE_PTR:
 			HASH_ADD_KEYPTR ( hh, ttl_table_PTR->table, d->name, strlen ( d->name ), d );
@@ -833,6 +853,9 @@ int analyse_rr(eemo_dns_rr* rr_it, dns_section section, unsigned char aa_flag)
 			}
 			else if (section == AUTHORITY){
 				HASH_ADD_KEYPTR ( hh, ttl_table_RRSIG_auth->table, d->name, strlen ( d->name ), d );
+			}
+			else if (section == ADDITIONAL){
+				HASH_ADD_KEYPTR ( hh, ttl_table_RRSIG_add->table, d->name, strlen ( d->name ), d );
 			}
 			break;
 		case DNS_QTYPE_TXT:
