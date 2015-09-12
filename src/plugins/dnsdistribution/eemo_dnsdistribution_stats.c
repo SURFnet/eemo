@@ -381,14 +381,13 @@ void write_stats(void)
 	long int passed_time_s 		= 0;
 	long int passed_time_ns 	= 0;
 	float passed_time_total 	= 0;
-
 	clock_gettime(CLOCK_REALTIME, &time_after);
-
+	
 	/* Printing general statistics*/
 	passed_time_s = time_after.tv_sec - time_before.tv_sec;
 	passed_time_ns = time_after.tv_nsec - time_before.tv_nsec;
 	passed_time_total = (float) passed_time_s + (float) passed_time_ns/1000000000;
-
+	
 	if (stat_fp_general != NULL)
 	{
 		INFO_MSG("- General..");
@@ -583,7 +582,11 @@ void eemo_dnsdistribution_stats_init(char* stats_file_general, char* stats_file_
 
 	/* Create output files, initialize the first line */
 	stat_fp_general = fopen(stat_file_general, "w");
-	if (stat_fp_general != NULL) fprintf(stat_fp_general, "time\tqueries\tresponses\tauth_resp\toutgoing queries\tfrag\ttrunc\ttrunc_w_sigs\tsignatures\tresponses_w_sigs\tchr\tsignatures_aa\n");
+	if (stat_fp_general != NULL){
+		time_t ltime;
+                ltime = time(NULL);
+		fprintf(stat_fp_general, "%s\ttime\tqueries\tresponses\tauth_resp\toutgoing queries\tfrag\ttrunc\ttrunc_w_sigs\tsignatures\tresponses_w_sigs\tchr\tsignatures_aa\n", asctime(localtime(&ltime)));
+	}
 	fclose(stat_fp_general);
 	
 	stat_fp_qnamepop_cl = fopen(stat_file_qname_popularity, "w");
@@ -960,9 +963,11 @@ eemo_rv eemo_dnsdistribution_stats_handleqr(eemo_ip_packet_info ip_info, int is_
 		   Only consider messsages towards the selected resolver */
 		for (i = 0; i < ips_count; i++)
 		{
+//			if ((!strcmp(ip_info.ip_dst, ips_resolver[i]) || !strcmp(ip_info.ip_dst, IP_ANY)) && dns_packet->srcport == 53 && dns_packet->dstport != 53 && dns_packet->aa_flag == 1)
 			if ((!strcmp(ip_info.ip_dst, ips_resolver[i]) || !strcmp(ip_info.ip_dst, IP_ANY)) && dns_packet->srcport == 53 && dns_packet->dstport != 53)
 			{
 				struct hashentry_ii *search_entry = NULL;
+				char* qname = "";
 				nr_resp++;
 			
 				/* Count number of fragmented responses */	
@@ -980,6 +985,7 @@ eemo_rv eemo_dnsdistribution_stats_handleqr(eemo_ip_packet_info ip_info, int is_
 				/* Iterate over all QUESTION records */	
 				LL_FOREACH(dns_packet->questions, query_it)
 				{
+					qname = query_it->qname;
 					/* Log popularity of domain names */
 					struct hashentry_si *s = NULL;
 					HASH_FIND_STR ( qname_table_r_ns, query_it->qname, s );
@@ -1044,7 +1050,14 @@ eemo_rv eemo_dnsdistribution_stats_handleqr(eemo_ip_packet_info ip_info, int is_
 				}						
 			
 				/* Store whether the response contained signatures */	
-				if (sigs_in_resp  > 0) nr_resp_with_sigs++;                                                     
+				if (sigs_in_resp  > 0)
+				{
+					nr_resp_with_sigs++;                                                     
+					if (strcmp(qname, "") != 0 )
+					{
+						//INFO_MSG("%s", qname);
+					}
+				}
 				/* Store wether the response was truncated */
 				if (dns_packet->tc_flag)
 				{
