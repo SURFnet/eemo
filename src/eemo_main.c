@@ -46,6 +46,7 @@
 #include "tcp_handler.h"
 #include "dns_handler.h"
 #include "dns_types.h"
+#include "raw_handler.h"
 #include "ifaddr_lookup.h"
 #include "eemo_capture.h"
 #include "eemo_config.h"
@@ -373,6 +374,13 @@ int main(int argc, char* argv[])
 	}
 
 	/* Initialise packet handlers */
+	if (eemo_init_raw_handler() != ERV_OK)
+	{
+		ERROR_MSG("Failed to initialise raw packet handler");
+
+		return ERV_GENERAL_ERROR;
+	}
+
 	if (eemo_init_ether_handler() != ERV_OK)
 	{
 		ERROR_MSG("Failed to initialise the Ethernet packet handler");
@@ -442,6 +450,7 @@ int main(int argc, char* argv[])
 	eemo_icmp_handler_cleanup();
 	eemo_ip_handler_cleanup();
 	eemo_ether_handler_cleanup();
+	eemo_raw_handler_cleanup();
 
 	/* Uninitialise IP reassembly module */
 	eemo_reasm_finalize();

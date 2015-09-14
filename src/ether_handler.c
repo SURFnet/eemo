@@ -42,11 +42,15 @@
 #include "eemo.h"
 #include "eemo_log.h"
 #include "ether_handler.h"
+#include "raw_handler.h"
 #include "eemo_handlefactory.h"
 #include "utlist.h"
 
 /* The linked list of Ethernet packet handlers */
-eemo_ether_handler* ether_handlers = NULL;
+static eemo_ether_handler* ether_handlers = NULL;
+
+/* Raw packet handler ID */
+static unsigned long ether_handler_handle	= 0;
 
 /* Register an Ethernet handler */
 eemo_rv eemo_reg_ether_handler(u_short which_eth_type, eemo_ether_handler_fn handler_fn, unsigned long* handle)
@@ -179,6 +183,14 @@ eemo_rv eemo_init_ether_handler(void)
 {
 	ether_handlers = NULL;
 
+	/* Register for raw packets */
+	if (eemo_reg_raw_handler(&eemo_handle_ether_packet, &ether_handler_handle) != ERV_OK)
+	{
+		ERROR_MSG("Failed to register raw packet handler");
+
+		return ERV_GENERAL_ERROR;
+	}
+
 	INFO_MSG("Initialised Ethernet handling");
 
 	return ERV_OK;
@@ -197,6 +209,9 @@ void eemo_ether_handler_cleanup(void)
 
 		free(handler_it);
 	}
+
+	/* Unregister raw packet handler */
+	eemo_unreg_raw_handler(ether_handler_handle);
 
 	INFO_MSG("Uninitialised Ethernet handling");
 }

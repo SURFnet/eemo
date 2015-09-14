@@ -45,6 +45,8 @@ eemo_SOURCES =			dns_handler.c \
 				eemo_tlsutil.h \
 				mt_openssl.c \
 				mt_openssl.h \
+				raw_handler.c \
+				raw_handler.h \
 				ether_handler.c \
 				ether_handler.h \
 				icmp_handler.c \

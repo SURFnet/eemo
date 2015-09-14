@@ -37,7 +37,7 @@
 #include "config.h"
 #include "eemo_log.h"
 #include "ether_capture.h"
-#include "ether_handler.h"
+#include "raw_handler.h"
 #include "eemo_config.h"
 #include "eemo_packet.h"
 #include <stdio.h>
@@ -141,8 +141,8 @@ static void eemo_pcap_callback(u_char* user_ptr, const struct pcap_pkthdr* hdr, 
 		fflush(debug_packet_file);
 	}
 
-	/* Run it through the Ethernet handlers */
-	rv = eemo_handle_ether_packet(&packet, hdr->ts);
+	/* Run it through the handlers */
+	rv = eemo_handle_raw_packet(&packet, hdr->ts);
 
 	/* Conditionally increment the handled packet counter */
 	if (rv == ERV_HANDLED)

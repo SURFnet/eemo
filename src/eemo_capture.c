@@ -41,6 +41,7 @@
 #include "ether_capture.h"
 #include "file_capture.h"
 #include "mux_capture.h"
+#include "raw_handler.h"
 #include <stdlib.h>
 #include <string.h>
 
@@ -128,7 +129,7 @@ eemo_rv eemo_capture_init(const char* interface, const char* savefile)
 		rv = eemo_file_capture_init(savefile);
 		break;
 	case EEMO_CAPTURE_MUX:
-		rv = eemo_mux_capture_init(&eemo_handle_ether_packet);
+		rv = eemo_mux_capture_init(&eemo_handle_raw_packet);
 		break;
 	}
 
