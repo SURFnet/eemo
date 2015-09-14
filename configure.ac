@@ -57,6 +57,11 @@ define([EEMO_DNSZABBIX_CURRENT], [1])
 define([EEMO_DNSZABBIX_REVISION], [0])
 define([EEMO_DNSZABBIX_AGE], [0])
 
+# PCAP dumping
+define([EEMO_DUMPPCAP_CURRENT], [1])
+define([EEMO_DUMPPCAP_REVISION], [0])
+define([EEMO_DUMPPCAP_AGE], [0])
+
 ################################################################################
 # Configuration functions                                                      #
 ################################################################################
@@ -87,6 +92,8 @@ EEMO_ECSMONITOR_VERSION_INFO="EEMO_ECSMONITOR_CURRENT:EEMO_ECSMONITOR_REVISION:E
 AC_SUBST(EEMO_ECSMONITOR_VERSION_INFO)
 EEMO_DNSZABBIX_VERSION_INFO="EEMO_DNSZABBIX_CURRENT:EEMO_DNSZABBIX_REVISION:EEMO_DNSZABBIX_AGE"
 AC_SUBST(EEMO_DNSZABBIX_VERSION_INFO)
+EEMO_DUMPPCAP_VERSION_INFO="EEMO_DUMPPCAP_CURRENT:EEMO_DUMPPCAP_REVISION:EEMO_DUMPPCAP_AGE"
+AC_SUBST(EEMO_DUMPPCAP_VERSION_INFO)
 
 # Checks for compilers and other programs
 AC_PROG_CC_C99
@@ -216,6 +223,7 @@ AC_CONFIG_FILES([
 	src/plugins/udprexmit/Makefile
 	src/plugins/ecsmonitor/Makefile
 	src/plugins/dnszabbix/Makefile
+	src/plugins/dumppcap/Makefile
 	config/Makefile
 	scripts/Makefile
 ])
