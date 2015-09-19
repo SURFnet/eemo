@@ -937,13 +937,14 @@ eemo_rv eemo_dnsdistribution_stats_handleqr(eemo_ip_packet_info ip_info, int is_
 	/* Write statistics if the sufficient amount of time has passed */
 	if (passed_time_total >= stat_emit_interval)
 	{
+		/* Reset the timer */
+		clock_gettime(CLOCK_REALTIME, &time_before);
+
 		curr_stat_qname_interval_ctr += 1;
 		write_stats();
 		reset_stats();
 		if (curr_stat_qname_interval_ctr >= stat_qname_interval_ctr) curr_stat_qname_interval_ctr = 0;
 		
-		/* Reset the timer */
-		clock_gettime(CLOCK_REALTIME, &time_before);
 	}
 		
 	if (dns_packet->qr_flag)
