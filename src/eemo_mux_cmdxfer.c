@@ -265,7 +265,11 @@ eemo_mux_pkt* eemo_cx_pkt_copy(eemo_mux_pkt* pkt)
 {
 	if (pkt != NULL)
 	{
+		pthread_mutex_lock(&pkt->pkt_refmutex);
+
 		pkt->pkt_refctr++;
+
+		pthread_mutex_unlock(&pkt->pkt_refmutex);
 	}
 
 	return pkt;
@@ -301,11 +305,11 @@ void eemo_cx_pkt_free(eemo_mux_pkt* pkt)
 
 	if (--pkt->pkt_refctr == 0)
 	{
-		pthread_mutex_unlock(&pkt->pkt_refmutex);
-		pthread_mutex_destroy(&pkt->pkt_refmutex);
-
 		free(pkt->pkt_data);
 		free(pkt);
+
+		pthread_mutex_unlock(&pkt->pkt_refmutex);
+		pthread_mutex_destroy(&pkt->pkt_refmutex);
 	}
 	else
 	{
