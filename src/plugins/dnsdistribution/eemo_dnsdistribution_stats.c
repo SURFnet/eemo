@@ -118,6 +118,7 @@ FILE*	stat_fp_sigs_per_resp	= NULL;
 FILE*	stat_fp_rcodes		= NULL;
 
 /* Configuration */
+static const int NSEC_PER_SEC 				= 1000000000;
 static char*	stat_file_general			= NULL;
 static char*	stat_file_qname_popularity		= NULL;
 static char*	stat_file_ttl				= NULL;
@@ -138,6 +139,7 @@ static int 	nr_sigs					= 0;
 static int 	nr_sigs_aa					= 0;
 static int	nr_resp_with_sigs			= 0;
 static struct	timespec time_before;
+static struct	timespec time_next;		
 static struct 	hashentry_si *qname_table	 	= NULL;
 static struct 	hashentry_si *qname_table_q_ns 		= NULL;
 static struct 	hashentry_si *qname_table_r_ns 		= NULL;
@@ -386,7 +388,9 @@ void write_stats(void)
 	/* Printing general statistics*/
 	passed_time_s = time_after.tv_sec - time_before.tv_sec;
 	passed_time_ns = time_after.tv_nsec - time_before.tv_nsec;
-	passed_time_total = (float) passed_time_s + (float) passed_time_ns/CLOCKS_PER_SEC;
+	passed_time_total = (float) passed_time_s + (float) passed_time_ns/NSEC_PER_SEC;
+	INFO_MSG("%d %d %d", time_after.tv_sec, time_before.tv_sec, time_after.tv_sec-time_before.tv_sec);
+	INFO_MSG("%d %d %d", time_after.tv_nsec, time_before.tv_nsec, time_after.tv_nsec-time_before.tv_nsec);
 	
 	if (stat_fp_general != NULL)
 	{
@@ -624,9 +628,10 @@ void eemo_dnsdistribution_stats_init(char* stats_file_general, char* stats_file_
 
 	/* Initialize the timer */
 	clock_gettime(CLOCK_REALTIME, &time_before);
-	
-	time_before.tv_sec	= ((time_before.tv_sec / stat_emit_interval)*stat_emit_interval)+stat_emit_interval+1;
-	time_before.tv_nsec 	= 0;
+	time_before.tv_sec 	= ((time_before.tv_sec / stat_emit_interval)*stat_emit_interval) + 1;
+	time_before.tv_nsec	= 0;
+	time_next.tv_sec	= time_before.tv_sec + stat_emit_interval;
+	time_next.tv_nsec 	= 0;
 }
 
 /* Uninitialise the DNS query counter module */
@@ -931,17 +936,18 @@ eemo_rv eemo_dnsdistribution_stats_handleqr(eemo_ip_packet_info ip_info, int is_
 	clock_gettime(CLOCK_REALTIME, &time_after);
 
 	/* Write statistics if the sufficient amount of time has passed */
-	if (time_after.tv_sec >= time_before.tv_sec)
+	if (time_after.tv_sec >= time_next.tv_sec)
 	{
-		/* Reset the timer */
-		time_before.tv_sec = time_before.tv_sec + stat_emit_interval;
-
-		INFO_MSG("Writing stats.. (next %ld %ld)", time_before.tv_sec, time_before.tv_nsec);
+		INFO_MSG("Writing stats.. (next %ld %ld)", time_next.tv_sec, time_next.tv_nsec);
 
 		curr_stat_qname_interval_ctr += 1;
 		write_stats();
 		reset_stats();
 		if (curr_stat_qname_interval_ctr >= stat_qname_interval_ctr) curr_stat_qname_interval_ctr = 0;
+		
+		/* Reset the timer */
+		time_before.tv_sec = time_next.tv_sec;
+		time_next.tv_sec = time_next.tv_sec + stat_emit_interval;
 	}
 		
 	if (dns_packet->qr_flag)
