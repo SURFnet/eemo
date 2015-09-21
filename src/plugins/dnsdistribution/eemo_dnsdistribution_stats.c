@@ -172,7 +172,7 @@ static struct	hashentry_ii *sigs_per_resp_table	= NULL;
 
 void init_var(void)
 {	
-	INFO_MSG("Initializing variables..");
+	//INFO_MSG("Initializing variables..");
 	struct ll_hashtable *s		= NULL; /* Temporary struct for iteration */
 
 	/* Initialize the TTL tables */
@@ -287,7 +287,7 @@ void init_var(void)
 /* Free memory of all variables used in a stat reset (i.e. the filepath values are not freed) */
 void free_var(void)
 {
-	INFO_MSG("Freeing variables");
+	//INFO_MSG("Freeing variables");
 	struct hashentry_si *s 			= NULL; /* Temporary struct for iteration */
 	struct hashentry_si *tmp 		= NULL; /* Temporary struct for iteration */
 	struct ll_hashtable *ttl_table  	= NULL;
@@ -357,7 +357,7 @@ int sort_on_key_ascending(struct hashentry_ii* a, struct hashentry_ii* b)
 /* Write statistics to file */
 void write_stats(void)
 {
-	INFO_MSG("Writing stats..");
+	//INFO_MSG("Writing stats..");
 	int ln 				= 1;
 	stat_fp_general	 		= fopen(stat_file_general, "a");
 	stat_fp_qnamepop_cl 		= fopen(stat_file_qname_popularity, "a");
@@ -386,11 +386,11 @@ void write_stats(void)
 	/* Printing general statistics*/
 	passed_time_s = time_after.tv_sec - time_before.tv_sec;
 	passed_time_ns = time_after.tv_nsec - time_before.tv_nsec;
-	passed_time_total = (float) passed_time_s + (float) passed_time_ns/1000000000;
+	passed_time_total = (float) passed_time_s + (float) passed_time_ns/CLOCKS_PER_SEC;
 	
 	if (stat_fp_general != NULL)
 	{
-		INFO_MSG("- General..");
+		//INFO_MSG("- General..");
 		fprintf(stat_fp_general, "%.3f\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%0.2f\t%d\n", passed_time_total, nr_quer, nr_resp, chr.RESPONSES, nr_quer_out, nr_frag, nr_trun, nr_trun_with_sigs, nr_sigs, nr_resp_with_sigs, 100 - (((double) chr.RESPONSES/ (double) chr.QUERIES)*100), nr_sigs_aa);
 		fclose(stat_fp_general);	
 	}
@@ -398,7 +398,7 @@ void write_stats(void)
 	/* Printing QNAME popularity statistics */
 	if (stat_fp_qnamepop_cl != NULL && curr_stat_qname_interval_ctr >= stat_qname_interval_ctr)
 	{		
-		INFO_MSG("- QNAME popularity from clients..");
+		//INFO_MSG("- QNAME popularity from clients..");
 		struct hashentry_si *s		= NULL;
 		struct hashentry_si *tmp 	= NULL;
 
@@ -418,7 +418,7 @@ void write_stats(void)
 	ln = 1;
 	if (stat_fp_qnamepop_q_ns != NULL && curr_stat_qname_interval_ctr >= stat_qname_interval_ctr)
 	{		
-		INFO_MSG("- QNAME popularity towards NSs..");
+		//INFO_MSG("- QNAME popularity towards NSs..");
 		struct hashentry_si *s		= NULL;
 		struct hashentry_si *tmp 	= NULL;
 
@@ -438,7 +438,7 @@ void write_stats(void)
 	ln = 1;	
 	if (stat_fp_qnamepop_r_ns != NULL && curr_stat_qname_interval_ctr >= stat_qname_interval_ctr)
 	{		
-		INFO_MSG("- QNAME popularity from NSs..");
+		//INFO_MSG("- QNAME popularity from NSs..");
 		struct hashentry_si *s		= NULL;
 		struct hashentry_si *tmp 	= NULL;
 
@@ -456,7 +456,7 @@ void write_stats(void)
 	}
 
 	/* Printing TTL occurrences statistics */
-	INFO_MSG("- TTL occurrences..");
+	//INFO_MSG("- TTL occurrences..");
 	LL_FOREACH(ttl_tables, ttl_table)
 	{
 		char filepath[1024] = {0};
@@ -512,7 +512,7 @@ void write_stats(void)
 	/* Printing number of signatures per query statistics */
 	if (stat_fp_sigs_per_resp != NULL)
 	{
-		INFO_MSG("- Signatures per query..");
+		//INFO_MSG("- Signatures per query..");
                 HASH_SORT( sigs_per_resp_table, sort_on_key_ascending);
 
 		struct hashentry_ii *s_ii	= NULL;
@@ -529,7 +529,7 @@ void write_stats(void)
 	/* Printing rcode statistics */
 	if (stat_fp_rcodes != NULL)
 	{
-		INFO_MSG("- RCODE..");
+		//INFO_MSG("- RCODE..");
 		fprintf(stat_fp_rcodes, "%d\t%d\t%d\t%d\t%d\t%d\n", rcodes.NOERROR, rcodes.FORMERR, rcodes.SERVFAIL, rcodes.NXDOMAIN, rcodes.NOTIMPL, rcodes.REFUSED);	
 		
 		fclose(stat_fp_rcodes);
@@ -539,10 +539,10 @@ void write_stats(void)
 /* Reset statistics */
 void reset_stats(void)
 {
-	INFO_MSG("Resetting stats..");
+	//INFO_MSG("Resetting stats..");
 	free_var();	
 	init_var();
-	INFO_MSG("Resetting stats.. DONE");
+	//INFO_MSG("Resetting stats.. DONE");
 }
 
 /* Initialise the DNS query counter module */
@@ -624,6 +624,9 @@ void eemo_dnsdistribution_stats_init(char* stats_file_general, char* stats_file_
 
 	/* Initialize the timer */
 	clock_gettime(CLOCK_REALTIME, &time_before);
+	
+	time_before.tv_sec	= ((time_before.tv_sec / stat_emit_interval)*stat_emit_interval)+stat_emit_interval+1;
+	time_before.tv_nsec 	= 0;
 }
 
 /* Uninitialise the DNS query counter module */
@@ -923,28 +926,22 @@ eemo_rv eemo_dnsdistribution_stats_handleqr(eemo_ip_packet_info ip_info, int is_
 	eemo_dns_query* query_it = NULL;
 	eemo_dns_rr* rr_it 	 = NULL;
 
-	/* Variables used for timing */
+	/* Used for timing */
 	struct timespec time_after;
-	long int passed_time_s = 0;
-	long int passed_time_ns = 0;
-	float passed_time_total = 0;
-
 	clock_gettime(CLOCK_REALTIME, &time_after);
-	passed_time_s = time_after.tv_sec - time_before.tv_sec;
-	passed_time_ns = time_after.tv_nsec - time_before.tv_nsec;
-	passed_time_total = (float) passed_time_s + (float) passed_time_ns/1000000000;
 
 	/* Write statistics if the sufficient amount of time has passed */
-	if (passed_time_total >= stat_emit_interval)
+	if (time_after.tv_sec >= time_before.tv_sec)
 	{
 		/* Reset the timer */
-		clock_gettime(CLOCK_REALTIME, &time_before);
+		time_before.tv_sec = time_before.tv_sec + stat_emit_interval;
+
+		INFO_MSG("Writing stats.. (next %ld %ld)", time_before.tv_sec, time_before.tv_nsec);
 
 		curr_stat_qname_interval_ctr += 1;
 		write_stats();
 		reset_stats();
 		if (curr_stat_qname_interval_ctr >= stat_qname_interval_ctr) curr_stat_qname_interval_ctr = 0;
-		
 	}
 		
 	if (dns_packet->qr_flag)
