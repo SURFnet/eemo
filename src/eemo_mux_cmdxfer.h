@@ -87,9 +87,6 @@ eemo_mux_pkt* eemo_cx_deserialize_pkt(eemo_mux_cmd* pkt_cmd);
 /* Create a shallow copy of a packet (increases the reference counter) */
 eemo_mux_pkt* eemo_cx_pkt_copy(eemo_mux_pkt* pkt);
 
-/* Clone a packet (creates a deep copy) */
-eemo_mux_pkt* eemo_cx_pkt_clone(const eemo_mux_pkt* pkt);
-
 /* Release the reference to a packet (frees storage when the reference counter reaches zero) */
 void eemo_cx_pkt_free(eemo_mux_pkt* pkt);
 

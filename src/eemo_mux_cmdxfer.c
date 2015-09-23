@@ -275,24 +275,6 @@ eemo_mux_pkt* eemo_cx_pkt_copy(eemo_mux_pkt* pkt)
 	return pkt;
 }
 
-/* Clone a packet (creates a deep copy) */
-eemo_mux_pkt* eemo_cx_pkt_clone(const eemo_mux_pkt* pkt)
-{
-	eemo_mux_pkt*	clone	= (eemo_mux_pkt*) malloc(sizeof(eemo_mux_pkt));
-
-	memset(clone, 0, sizeof(eemo_mux_pkt));
-
-	memcpy(&clone->pkt_ts, &pkt->pkt_ts, sizeof(struct timeval));
-
-	clone->pkt_len = pkt->pkt_len;
-	clone->pkt_data = (uint8_t*) malloc(clone->pkt_len * sizeof(uint8_t));
-	memcpy(clone->pkt_data, pkt->pkt_data, pkt->pkt_len);
-
-	clone->pkt_refctr = 1;
-
-	return clone;
-}
-
 /* Release the reference to a packet (frees storage when the reference counter reaches zero) */
 void eemo_cx_pkt_free(eemo_mux_pkt* pkt)
 {
@@ -305,11 +287,15 @@ void eemo_cx_pkt_free(eemo_mux_pkt* pkt)
 
 	if (--pkt->pkt_refctr == 0)
 	{
+		pthread_mutex_t	dest_mutex;
+
+		memcpy(&dest_mutex, &pkt->pkt_refmutex, sizeof(pthread_mutex_t));
+
 		free(pkt->pkt_data);
 		free(pkt);
 
-		pthread_mutex_unlock(&pkt->pkt_refmutex);
-		pthread_mutex_destroy(&pkt->pkt_refmutex);
+		pthread_mutex_unlock(&dest_mutex);
+		pthread_mutex_destroy(&dest_mutex);
 	}
 	else
 	{
