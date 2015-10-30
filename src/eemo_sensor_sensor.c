@@ -78,6 +78,7 @@ static char*	sensor_iface	= NULL;
 /* Capture */
 static pcap_t*	pcap_handle	= NULL;
 static int	cap_buf_size	= 32;		/* default to 32MB */
+static int	cap_immediate	= 1;		/* use immediate capture */
 
 /* Initialise the sensor */
 eemo_rv eemo_sensor_init(void)
@@ -102,6 +103,15 @@ eemo_rv eemo_sensor_init(void)
 	if ((eemo_conf_get_int("sensor", "bufsize", &cap_buf_size, 32) != ERV_OK) || (cap_buf_size <= 0))
 	{
 		ERROR_MSG("Invalid sensor capture buffer size (%d) configured, giving up", cap_buf_size);
+
+		free(mux_hostname);
+
+		return ERV_CONFIG_ERROR;
+	}
+
+	if (eemo_conf_get_bool("sensor", "immediate_capture", &cap_immediate, 1) != ERV_OK)
+	{
+		ERROR_MSG("Failed to read configuration setting for immediate capture");
 
 		free(mux_hostname);
 
@@ -688,6 +698,23 @@ eemo_rv eemo_sensor_capture(void)
 		pcap_close(new_handle);
 
 		return ERV_GENERAL_ERROR;
+	}
+
+	/* Set immediate capture */
+	if (cap_immediate)
+	{
+		if (pcap_set_immediate_mode(new_handle, 1) != 0)
+		{
+			WARNING_MSG("Failed to activate immediate capture mode");
+		}
+		else
+		{
+			INFO_MSG("Activated immediate capture mode; this may result in a higher CPU load");
+		}
+	}
+	else
+	{
+		INFO_MSG("Performing bufferred capture");
 	}
 
 	/* Set capture buffer size */
