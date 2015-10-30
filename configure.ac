@@ -67,6 +67,11 @@ define([EEMO_DNSKEYEX_CURRENT], [1])
 define([EEMO_DNSKEYEX_REVISION], [0])
 define([EEMO_DNSKEYEX_AGE], [0])
 
+# Extract answer names from DNS answers
+define([EEMO_NAMEX_CURRENT], [1])
+define([EEMO_NAMEX_REVISION], [0])
+define([EEMO_NAMEX_AGE], [0])
+
 ################################################################################
 # Configuration functions                                                      #
 ################################################################################
@@ -101,6 +106,8 @@ EEMO_DUMPPCAP_VERSION_INFO="EEMO_DUMPPCAP_CURRENT:EEMO_DUMPPCAP_REVISION:EEMO_DU
 AC_SUBST(EEMO_DUMPPCAP_VERSION_INFO)
 EEMO_DNSKEYEX_VERSION_INFO="EEMO_DNSKEYEX_CURRENT:EEMO_DNSKEYEX_REVISION:EEMO_DNSKEYEX_AGE"
 AC_SUBST(EEMO_DNSKEYEX_VERSION_INFO)
+EEMO_NAMEX_VERSION_INFO="EEMO_NAMEX_CURRENT:EEMO_NAMEX_REVISION:EEMO_NAMEX_AGE"
+AC_SUBST(EEMO_NAMEX_VERSION_INFO)
 
 # Checks for compilers and other programs
 AC_PROG_CC_C99
@@ -232,6 +239,7 @@ AC_CONFIG_FILES([
 	src/plugins/dnszabbix/Makefile
 	src/plugins/dumppcap/Makefile
 	src/plugins/dnskeyex/Makefile
+	src/plugins/namex/Makefile
 	config/Makefile
 	scripts/Makefile
 ])

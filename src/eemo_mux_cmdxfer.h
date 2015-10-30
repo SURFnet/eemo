@@ -64,6 +64,7 @@ typedef struct
 	uint32_t	pkt_len;
 	int32_t		pkt_refctr;
 	pthread_mutex_t	pkt_refmutex;
+	uint8_t*	pkt_tofree;
 }
 eemo_mux_pkt;
 

@@ -141,13 +141,13 @@ void eemo_cx_cmd_free(eemo_mux_cmd* recv_cmd)
 {
 	assert(recv_cmd != NULL);
 
-	free(recv_cmd->cmd_data);
+	if (recv_cmd->cmd_data != NULL) free(recv_cmd->cmd_data);
 	recv_cmd->cmd_len = 0;
 	recv_cmd->cmd_data = NULL;
 }
 
 /* Create a new packet */
-eemo_mux_pkt* eemo_cx_new_packet(const struct timeval ts, const uint8_t* data, const uint32_t len)
+eemo_mux_pkt* eemo_cx_new_packet(const struct timeval ts, uint8_t* data, const uint32_t len, uint8_t* tofree)
 {
 	pthread_mutexattr_t	pkt_mutex_attr;
 	eemo_mux_pkt*		new_pkt	= (eemo_mux_pkt*) malloc(sizeof(eemo_mux_pkt));
@@ -171,9 +171,9 @@ eemo_mux_pkt* eemo_cx_new_packet(const struct timeval ts, const uint8_t* data, c
 
 	memcpy(&new_pkt->pkt_ts, &ts, sizeof(struct timeval));
 
-	new_pkt->pkt_len = len;
-	new_pkt->pkt_data = (uint8_t*) malloc(len * sizeof(uint8_t));
-	memcpy(new_pkt->pkt_data, data, len);
+	new_pkt->pkt_len 	= len;
+	new_pkt->pkt_data 	= data;
+	new_pkt->pkt_tofree	= tofree;
 
 	new_pkt->pkt_refctr = 1;
 
@@ -247,6 +247,7 @@ eemo_mux_pkt* eemo_cx_deserialize_pkt(eemo_mux_cmd* pkt_cmd)
 
 	struct timeval	ts	= { 0, 0 };
 	uint32_t	pkt_len	= pkt_cmd->cmd_len - (2 * sizeof(uint64_t));
+	uint8_t*	tofree	= pkt_cmd->cmd_data;
 
 	if (pkt_cmd->cmd_len < (2 * sizeof(uint64_t)))
 	{
@@ -257,7 +258,9 @@ eemo_mux_pkt* eemo_cx_deserialize_pkt(eemo_mux_cmd* pkt_cmd)
 	ts.tv_sec	= (time_t) 	be64toh(*((uint64_t*) &pkt_cmd->cmd_data[0]));
 	ts.tv_usec	= (suseconds_t)	be64toh(*((uint64_t*) &pkt_cmd->cmd_data[sizeof(uint64_t)]));
 
-	return eemo_cx_new_packet(ts, &pkt_cmd->cmd_data[2 * sizeof(uint64_t)], pkt_len);
+	pkt_cmd->cmd_data = NULL;
+
+	return eemo_cx_new_packet(ts, &tofree[2 * sizeof(uint64_t)], pkt_len, tofree);
 }
 
 /* Create a shallow copy of a packet (increases the reference counter) */
@@ -291,7 +294,7 @@ void eemo_cx_pkt_free(eemo_mux_pkt* pkt)
 
 		memcpy(&dest_mutex, &pkt->pkt_refmutex, sizeof(pthread_mutex_t));
 
-		free(pkt->pkt_data);
+		free(pkt->pkt_tofree);
 		free(pkt);
 
 		pthread_mutex_unlock(&dest_mutex);
