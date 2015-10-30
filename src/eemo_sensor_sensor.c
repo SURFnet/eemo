@@ -42,6 +42,7 @@
 #include "eemo_tlscomm.h"
 #include "eemo_mux_cmdxfer.h"
 #include "eemo_mux_proto.h"
+#include "eemo_mux_queue.h"
 #include <unistd.h>
 #include <errno.h>
 #include <sys/socket.h>
@@ -57,14 +58,16 @@
 #include <pcap.h>
 
 /* Server configuration */
-static char*			mux_hostname	= NULL;	
-static int			mux_port	= -1;
+static char*	mux_hostname	= NULL;	
+static int	mux_port	= -1;
 
 /* Connection to the multiplexer */
-static SSL_CTX*	tls_ctx				= NULL;
-static SSL*	tls				= NULL;
-static int	mux_socket			= -1;
-static char	mux_ip_str[INET6_ADDRSTRLEN]	= { 0 };
+static SSL_CTX*		tls_ctx				= NULL;
+static SSL*		tls				= NULL;
+static int		mux_socket			= -1;
+static char		mux_ip_str[INET6_ADDRSTRLEN]	= { 0 };
+static int 		max_qlen			= 100000;
+static mux_queue*	mux_q				= NULL;
 
 /* Sensor state */
 static int	sensor_exit	= 0;
@@ -78,7 +81,6 @@ static char*	sensor_iface	= NULL;
 /* Capture */
 static pcap_t*	pcap_handle	= NULL;
 static int	cap_buf_size	= 32;		/* default to 32MB */
-static int	cap_immediate	= 1;		/* use immediate capture */
 
 /* Initialise the sensor */
 eemo_rv eemo_sensor_init(void)
@@ -109,9 +111,9 @@ eemo_rv eemo_sensor_init(void)
 		return ERV_CONFIG_ERROR;
 	}
 
-	if (eemo_conf_get_bool("sensor", "immediate_capture", &cap_immediate, 1) != ERV_OK)
+	if ((eemo_conf_get_int("sensor", "max_queue_len", &max_qlen, 100000) != ERV_OK) || (max_qlen <= 0))
 	{
-		ERROR_MSG("Failed to read configuration setting for immediate capture");
+		ERROR_MSG("Invalid maximum transmission queue length (%d) configured, giving up", max_qlen);
 
 		free(mux_hostname);
 
@@ -534,6 +536,10 @@ int eemo_sensor_connect_mux(void)
 		}
 
 		eemo_cx_cmd_free(&cmd);
+
+		mux_q = eemo_q_new(tls, max_qlen, 0);
+
+		assert(mux_q != NULL);
 		
 		return 0;
 
@@ -562,6 +568,12 @@ errorcond:
 void eemo_sensor_disconnect_mux(void)
 {
 	eemo_mux_cmd	cmd	= { 0, 0, NULL };
+
+	if (mux_q != NULL)
+	{
+		eemo_q_stop(mux_q);
+		mux_q = NULL;
+	}
 
 	if ((tls == NULL) || (tls_ctx == NULL) || (mux_socket < 0))
 	{
@@ -630,18 +642,63 @@ shutdown:
 /* PCAP callback handler */
 void eemo_sensor_pcap_cb(u_char* user_ptr, const struct pcap_pkthdr* hdr, const u_char* data)
 {
+	eemo_rv		rv	= ERV_OK;
+	eemo_mux_pkt*	pkt	= NULL;
+
 	if (sensor_exit)
 	{
 		pcap_breakloop(pcap_handle);
 	}
 
-	/* Send the captured packet to the multiplexer */
-	if (eemo_cx_send_pkt_sensor(tls, hdr->ts, data, hdr->len) != ERV_OK)
+	if (mux_q == NULL)
 	{
-		ERROR_MSG("Failed to transmit captured packet to mux server, stopping capture");
+		ERROR_MSG("No active multiplexer queue, should not happen!");
 
 		pcap_breakloop(pcap_handle);
+
+		return;
 	}
+
+	if (!mux_q->queue_state)
+	{
+		WARNING_MSG("Multiplexer queue state changed to invalid, stopping capture");
+
+		pcap_breakloop(pcap_handle);
+
+		return;
+	}
+
+	/* Send the captured packet to the multiplexer */
+	pkt = eemo_cx_pkt_from_capture(hdr->ts, data, hdr->len);
+
+	if (pkt == NULL)
+	{
+		ERROR_MSG("Failed to construct packet to send, giving up on capture");
+
+		pcap_breakloop(pcap_handle);
+
+		return;
+	}
+
+	if ((rv = eemo_q_enqueue(mux_q, pkt)) != ERV_OK)
+	{
+		if (rv == ERV_QUEUE_OVERFLOW)
+		{
+			WARNING_MSG("Send queue to multiplexer overflowing");
+		}
+		else if (rv == ERV_QUEUE_OK)
+		{
+			INFO_MSG("Send queue to multiplexer no longer overflowing");
+		}
+		else
+		{
+			ERROR_MSG("Error enqueueing packet to send to multiplexer");
+
+			pcap_breakloop(pcap_handle);
+		}
+	}
+
+	eemo_cx_pkt_free(pkt);
 }
 
 /* Start and run capture */
@@ -698,23 +755,6 @@ eemo_rv eemo_sensor_capture(void)
 		pcap_close(new_handle);
 
 		return ERV_GENERAL_ERROR;
-	}
-
-	/* Set immediate capture */
-	if (cap_immediate)
-	{
-		if (pcap_set_immediate_mode(new_handle, 1) != 0)
-		{
-			WARNING_MSG("Failed to activate immediate capture mode");
-		}
-		else
-		{
-			INFO_MSG("Activated immediate capture mode; this may result in a higher CPU load");
-		}
-	}
-	else
-	{
-		INFO_MSG("Performing bufferred capture");
 	}
 
 	/* Set capture buffer size */

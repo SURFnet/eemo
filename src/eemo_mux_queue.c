@@ -38,37 +38,37 @@
 #include "eemo.h"
 #include "eemo_api.h"
 #include "eemo_mux_cmdxfer.h"
-#include "eemo_mux_client.h"
+#include "eemo_mux_queue.h"
 #include <pthread.h>
 #include <openssl/ssl.h>
 #include <assert.h>
 
 /* Client thread procedure */
-static void* eemo_cq_int_threadproc(void* params)
+static void* eemo_q_int_threadproc(void* params)
 {
 	assert(params != NULL);
 
-	client_queue*	q		= (client_queue*) params;
-	cq_entry*	sendq		= NULL;
-	cq_entry*	sendq_it	= NULL;
-	cq_entry*	cleanup		= NULL;
+	mux_queue*	q		= (mux_queue*) params;
+	q_entry*	sendq		= NULL;
+	q_entry*	sendq_it	= NULL;
+	q_entry*	cleanup		= NULL;
 
-	DEBUG_MSG("Entering client queue thread procedure (0x%08x)", (unsigned int) pthread_self());
+	DEBUG_MSG("Entering queue queue thread procedure (0x%08x)", (unsigned int) pthread_self());
 
-	while (q->client_run && q->client_state)
+	while (q->queue_run && q->queue_state)
 	{
 		sendq = NULL;
 
-		/* Wait for new data to send to the client */
+		/* Wait for new data to send to the queue */
 		pthread_mutex_lock(&q->q_mutex);
 
-		while((q->q_len == 0) && (q->client_run))
+		while((q->q_len == 0) && (q->queue_run))
 		{
 			pthread_cond_wait(&q->q_signal, &q->q_mutex);
 		}
 
 		/* First, check if we should exit */
-		if (!q->client_run)
+		if (!q->queue_run)
 		{
 			pthread_mutex_unlock(&q->q_mutex);
 
@@ -89,15 +89,15 @@ static void* eemo_cq_int_threadproc(void* params)
 
 		while (sendq_it != NULL)
 		{
-			if (q->client_state && (eemo_cx_send_pkt_client(q->tls, sendq_it->cq_pkt) != ERV_OK))
+			if (q->queue_state && (eemo_cx_send_pkt(q->tls, sendq_it->q_pkt, q->is_client) != ERV_OK))
 			{
-				ERROR_MSG("Failed to send queued packet to the client (0x%08x)", (unsigned int) pthread_self());
+				ERROR_MSG("Failed to send queued packet to the queue (0x%08x)", (unsigned int) pthread_self());
 
-				q->client_state = 0;
+				q->queue_state = 0;
 			}
 
 			/* Release queued packet */
-			eemo_cx_pkt_free(sendq_it->cq_pkt);
+			eemo_cx_pkt_free(sendq_it->q_pkt);
 
 			cleanup = sendq_it;
 			sendq_it = sendq_it->next;
@@ -105,85 +105,86 @@ static void* eemo_cq_int_threadproc(void* params)
 		}
 	}
 
-	if (q->client_state == 0)
+	if (q->queue_state == 0)
 	{
 		ERROR_MSG("Client thread 0x%08x exiting because of an error", (unsigned int) pthread_self());
 	}
 
-	DEBUG_MSG("Leaving client queue thread procedure (0x%08x)", (unsigned int) pthread_self());
+	DEBUG_MSG("Leaving queue queue thread procedure (0x%08x)", (unsigned int) pthread_self());
 
 	return NULL;
 }
 
-/* Create a new client handler */
-client_queue* eemo_cq_new(SSL* tls, const size_t maxlen)
+/* Create a new queue handler */
+mux_queue* eemo_q_new(SSL* tls, const size_t maxlen, const int is_client)
 {
 	assert(tls != NULL);
 
 	pthread_attr_t	ct_attr;
-	client_queue*	new_client	= (client_queue*) malloc(sizeof(client_queue));
+	mux_queue*	new_queue	= (mux_queue*) malloc(sizeof(mux_queue));
 
-	memset(new_client, 0, sizeof(client_queue));
+	memset(new_queue, 0, sizeof(mux_queue));
 
-	new_client->q_maxlen = maxlen;
+	new_queue->q_maxlen = maxlen;
 
-	if (pthread_mutex_init(&new_client->q_mutex, NULL) != 0)
+	if (pthread_mutex_init(&new_queue->q_mutex, NULL) != 0)
 	{
-		ERROR_MSG("Failed to initialise client queue mutex");
+		ERROR_MSG("Failed to initialise queue queue mutex");
 
-		free(new_client);
+		free(new_queue);
 
 		return NULL;
 	}
 
-	if (pthread_cond_init(&new_client->q_signal, NULL) != 0)
+	if (pthread_cond_init(&new_queue->q_signal, NULL) != 0)
 	{
-		ERROR_MSG("Failed to initialise client condition signal");
+		ERROR_MSG("Failed to initialise queue condition signal");
 
-		pthread_mutex_destroy(&new_client->q_mutex);
+		pthread_mutex_destroy(&new_queue->q_mutex);
 
-		free(new_client);
+		free(new_queue);
 
 		return NULL;
 	}
 
-	new_client->client_run = 1;
-	new_client->client_state = 1;
-	new_client->q_overflow = 0;
-	new_client->tls = tls;
+	new_queue->queue_run = 1;
+	new_queue->queue_state = 1;
+	new_queue->q_overflow = 0;
+	new_queue->tls = tls;
+	new_queue->is_client = is_client;
 	
-	/* Launch client thread */
+	/* Launch queue thread */
 	pthread_attr_init(&ct_attr);
 
 	pthread_attr_setdetachstate(&ct_attr, PTHREAD_CREATE_JOINABLE);
 
-	if (pthread_create(&new_client->client_thread, &ct_attr, eemo_cq_int_threadproc, (void*) new_client) != 0)
+	if (pthread_create(&new_queue->queue_thread, &ct_attr, eemo_q_int_threadproc, (void*) new_queue) != 0)
 	{
-		ERROR_MSG("Failed to launch new client thread");
+		ERROR_MSG("Failed to launch new queue thread");
 
 		pthread_attr_destroy(&ct_attr);
-		pthread_cond_destroy(&new_client->q_signal);
-		pthread_mutex_destroy(&new_client->q_mutex);
+		pthread_cond_destroy(&new_queue->q_signal);
+		pthread_mutex_destroy(&new_queue->q_mutex);
 
-		free(new_client);
+		free(new_queue);
 
 		return NULL;
 	}
 
 	pthread_attr_destroy(&ct_attr);
 
-	return new_client;
+	return new_queue;
 }
 
-/* Enqueue a new packet for the client */
-eemo_rv eemo_cq_enqueue(client_queue* q, eemo_mux_pkt* pkt)
+/* Enqueue a new packet for the queue */
+eemo_rv eemo_q_enqueue(mux_queue* q, eemo_mux_pkt* pkt)
 {
 	assert((q != NULL) && (pkt != NULL));
 
-	cq_entry*	new_entry	= NULL;
+	q_entry*	new_entry	= NULL;
 	eemo_rv		rv		= ERV_OK;
 
-	if (!q->client_state)
+	if (!q->queue_state)
 	{
 		return ERV_CLIENT_ERROR;
 	}
@@ -193,7 +194,7 @@ eemo_rv eemo_cq_enqueue(client_queue* q, eemo_mux_pkt* pkt)
 	/* Check if the queue is overflowing */
 	if (q->q_len == q->q_maxlen)
 	{
-		cq_entry*	dequeue	= NULL;
+		q_entry*	dequeue	= NULL;
 
 		if (!q->q_overflow)
 		{
@@ -210,7 +211,7 @@ eemo_rv eemo_cq_enqueue(client_queue* q, eemo_mux_pkt* pkt)
 			q->q_head = q->q_head->next;
 			q->q_head->prev = NULL;
 
-			eemo_cx_pkt_free(dequeue->cq_pkt);
+			eemo_cx_pkt_free(dequeue->q_pkt);
 
 			free(dequeue);
 		}
@@ -231,11 +232,11 @@ eemo_rv eemo_cq_enqueue(client_queue* q, eemo_mux_pkt* pkt)
 	}
 
 	/* Append the entry to the queue */
-	new_entry = (cq_entry*) malloc(sizeof(cq_entry));
+	new_entry = (q_entry*) malloc(sizeof(q_entry));
 
-	memset(new_entry, 0, sizeof(cq_entry));
+	memset(new_entry, 0, sizeof(q_entry));
 
-	new_entry->cq_pkt = eemo_cx_pkt_copy(pkt);
+	new_entry->q_pkt = eemo_cx_pkt_copy(pkt);
 	new_entry->next = NULL;
 	new_entry->prev = NULL;
 
@@ -257,7 +258,7 @@ eemo_rv eemo_cq_enqueue(client_queue* q, eemo_mux_pkt* pkt)
 
 	q->q_len++;
 
-	/* Signal the client thread */
+	/* Signal the queue thread */
 	pthread_cond_signal(&q->q_signal);
 
 	pthread_mutex_unlock(&q->q_mutex);
@@ -265,27 +266,27 @@ eemo_rv eemo_cq_enqueue(client_queue* q, eemo_mux_pkt* pkt)
 	return rv;
 }
 
-/* Finalise the client */
-void eemo_cq_stop(client_queue* q)
+/* Finalise the queue */
+void eemo_q_stop(mux_queue* q)
 {
-	cq_entry*	q_it	= NULL;
-	cq_entry*	q_tmp	= NULL;
+	q_entry*	q_it	= NULL;
+	q_entry*	q_tmp	= NULL;
 
 	assert(q != NULL);
 
-	/* Lock the client queue */
+	/* Lock the queue queue */
 	pthread_mutex_lock(&q->q_mutex);
 
 	/* Tell the thread it should exit */
-	q->client_run = 0;
+	q->queue_run = 0;
 
 	pthread_cond_signal(&q->q_signal);
 
-	/* Unlock the client queue */
+	/* Unlock the queue queue */
 	pthread_mutex_unlock(&q->q_mutex);
 
 	/* Wait for the thread to exit */
-	pthread_join(q->client_thread, NULL);
+	pthread_join(q->queue_thread, NULL);
 
 	/* Clean up */
 	pthread_mutex_destroy(&q->q_mutex);
@@ -297,7 +298,7 @@ void eemo_cq_stop(client_queue* q)
 	{
 		q_tmp = q_it;
 		q_it = q_it->next;
-		eemo_cx_pkt_free(q_tmp->cq_pkt);
+		eemo_cx_pkt_free(q_tmp->q_pkt);
 		free(q_tmp);
 	}
 

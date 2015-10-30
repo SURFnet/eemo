@@ -235,9 +235,9 @@ eemo_rv eemo_cx_send_pkt_sensor(SSL* socket, struct timeval ts, const uint8_t* p
 	return eemo_cx_send_pkt_int(socket, SENSOR_DATA, ts, pkt_data, pkt_len);
 }
 
-eemo_rv eemo_cx_send_pkt_client(SSL* socket, const eemo_mux_pkt* pkt)
+eemo_rv eemo_cx_send_pkt(SSL* socket, const eemo_mux_pkt* pkt, const int is_client)
 {
-	return eemo_cx_send_pkt_int(socket, MUX_CLIENT_DATA, pkt->pkt_ts, pkt->pkt_data, pkt->pkt_len);
+	return eemo_cx_send_pkt_int(socket, is_client ? MUX_CLIENT_DATA : SENSOR_DATA, pkt->pkt_ts, pkt->pkt_data, pkt->pkt_len);
 }
 
 /* Deserialize a captured packet and its metadata */
@@ -261,6 +261,18 @@ eemo_mux_pkt* eemo_cx_deserialize_pkt(eemo_mux_cmd* pkt_cmd)
 	pkt_cmd->cmd_data = NULL;
 
 	return eemo_cx_new_packet(ts, &tofree[2 * sizeof(uint64_t)], pkt_len, tofree);
+}
+
+/* Create a new packet from a captured packet by copy */
+eemo_mux_pkt* eemo_cx_pkt_from_capture(struct timeval ts, const uint8_t* pkt_data, const uint32_t pkt_len)
+{
+	assert((pkt_data != NULL) || (pkt_len == 0));
+
+	uint8_t*	tofree	= (uint8_t*) malloc(pkt_len * sizeof(uint8_t));
+
+	memcpy(tofree, pkt_data, pkt_len);
+
+	return eemo_cx_new_packet(ts, tofree, pkt_len, tofree);
 }
 
 /* Create a shallow copy of a packet (increases the reference counter) */

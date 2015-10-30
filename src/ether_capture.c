@@ -69,9 +69,6 @@ static int log_current_packet = 0;
 /* Capture buffer size in megabytes */
 static int cap_buf_size = 32;
 
-/* Perform immediate capture? */
-static int cap_immediate = 1;
-
 /* PCAP dump headers for packet file, makes for easy reading by e.g. Wireshark */
 #pragma pack(push,1)
 static struct
@@ -182,7 +179,6 @@ eemo_rv eemo_ether_capture_init(const char* interface)
 	eemo_conf_get_int("capture", "stats_interval", &capture_stats_interval, 0);
 	eemo_conf_get_bool("capture", "debug_log_packet", &log_current_packet, 0);
 	eemo_conf_get_int("capture", "bufsize", &cap_buf_size, 32);
-	eemo_conf_get_bool("capture", "immediate_capture", &cap_immediate, 1);
 
 	if (capture_stats_interval > 0)
 	{
@@ -248,23 +244,6 @@ eemo_rv eemo_ether_capture_init(const char* interface)
 		pcap_close(handle);
 
 		return ERV_GENERAL_ERROR;
-	}
-
-	/* Set immediate capture */
-	if (cap_immediate)
-	{
-		if (pcap_set_immediate_mode(handle, 1) != 0)
-		{
-			WARNING_MSG("Failed to activate immediate capture mode");
-		}
-		else
-		{
-			INFO_MSG("Activated immediate capture mode; this may result in a higher CPU load");
-		}
-	}
-	else
-	{
-		INFO_MSG("Performing bufferred capture");
 	}
 
 	/* Set capture buffer size */

@@ -80,10 +80,13 @@ void eemo_cx_cmd_free(eemo_mux_cmd* recv_cmd);
 /* Serialize a captured packet and its metadata and transmit it */
 eemo_rv eemo_cx_send_pkt_sensor(SSL* socket, struct timeval ts, const uint8_t* pkt_data, const uint32_t pkt_len);
 
-eemo_rv eemo_cx_send_pkt_client(SSL* socket, const eemo_mux_pkt* pkt);
+eemo_rv eemo_cx_send_pkt(SSL* socket, const eemo_mux_pkt* pkt, const int is_client);
 
 /* Deserialize a captured packet and its metadata */
 eemo_mux_pkt* eemo_cx_deserialize_pkt(eemo_mux_cmd* pkt_cmd);
+
+/* Create a new packet from a captured packet by copy */
+eemo_mux_pkt* eemo_cx_pkt_from_capture(struct timeval ts, const uint8_t* pkt_data, const uint32_t pkt_len);
 
 /* Create a shallow copy of a packet (increases the reference counter) */
 eemo_mux_pkt* eemo_cx_pkt_copy(eemo_mux_pkt* pkt);

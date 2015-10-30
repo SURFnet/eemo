@@ -89,8 +89,8 @@ eemo_mux_SOURCES =		eemo_mux_main.c \
 				eemo_tlsutil.h \
 				eemo_mux_cmdxfer.c \
 				eemo_mux_cmdxfer.h \
-				eemo_mux_client.c \
-				eemo_mux_client.h \
+				eemo_mux_queue.c \
+				eemo_mux_queue.h \
 				mt_openssl.c \
 				mt_openssl.h \
 				endian_compat.h
@@ -102,6 +102,8 @@ eemo_sensor_CFLAGS =		@LIBCONFIG_CFLAGS@ @OPENSSL_CFLAGS@ @PTHREAD_CFLAGS@
 eemo_sensor_SOURCES =		eemo_sensor_main.c \
 				eemo_sensor_sensor.c \
 				eemo_sensor_sensor.h \
+				eemo_mux_queue.c \
+				eemo_mux_queue.h \
 				eemo_mux_proto.h \
 				eemo_config.c \
 				eemo_config.h \
