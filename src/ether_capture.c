@@ -66,6 +66,9 @@ static time_t last_capture_stats = 0;
 /* Should we log the packet currently being handled to file? */
 static int log_current_packet = 0;
 
+/* Capture buffer size in megabytes */
+static int cap_buf_size = 32;
+
 /* PCAP dump headers for packet file, makes for easy reading by e.g. Wireshark */
 #pragma pack(push,1)
 static struct
@@ -175,6 +178,7 @@ eemo_rv eemo_ether_capture_init(const char* interface)
 	/* Retrieve configuration */
 	eemo_conf_get_int("capture", "stats_interval", &capture_stats_interval, 0);
 	eemo_conf_get_bool("capture", "debug_log_packet", &log_current_packet, 0);
+	eemo_conf_get_int("capture", "bufsize", &cap_buf_size, 32);
 
 	if (capture_stats_interval > 0)
 	{
@@ -208,15 +212,62 @@ eemo_rv eemo_ether_capture_init(const char* interface)
 
 	INFO_MSG("Opening device %s for packet capture", cap_if);
 
-	/* Open the device in promiscuous mode */
-	handle = pcap_open_live(cap_if, SNAPLEN, 1, 1000, errbuf);
-
-	if (handle == NULL)
+	if ((handle = pcap_create(cap_if, errbuf)) == NULL)
 	{
-		/* Failed to open interface for capturing */
-		ERROR_MSG("Failed to open interface %s for capturing", cap_if);
+		ERROR_MSG("Failed to open capture handle");
 
-		return ERV_NO_ACCESS;
+		return ERV_ETH_NOT_EXIST;
+	}
+
+	if (pcap_set_snaplen(handle, 65536) != 0)
+	{
+		ERROR_MSG("Failed to set snap length for capture, giving up");
+
+		pcap_close(handle);
+
+		return ERV_GENERAL_ERROR;
+	}
+
+	if (pcap_set_promisc(handle, 1) != 0)
+	{
+		ERROR_MSG("Failed to set promiscuous mode on network device, giving up");
+
+		pcap_close(handle);
+
+		return ERV_GENERAL_ERROR;
+	}
+
+	if (pcap_set_timeout(handle, 1000) != 0)
+	{
+		ERROR_MSG("Failed to set timeout on capture, giving up");
+
+		pcap_close(handle);
+
+		return ERV_GENERAL_ERROR;
+	}
+
+	/* Set capture buffer size */
+	if (pcap_set_buffer_size(handle, cap_buf_size*1024*1024) != 0)
+	{
+		WARNING_MSG("Failed to change capture buffer size");
+	}
+	else
+	{
+		INFO_MSG("Set capture buffer size to %d bytes", cap_buf_size*1024*1024);
+	}
+
+	/* Activate capture */
+	if (pcap_activate(handle) != 0)
+	{
+		ERROR_MSG("Failed to activate packet capture, giving up");
+
+		pcap_close(handle);
+
+		return ERV_GENERAL_ERROR;
+	}
+	else
+	{
+		INFO_MSG("Activated capture");
 	}
 
 	INFO_MSG("%s configured for capturing", cap_if);

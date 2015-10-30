@@ -77,6 +77,7 @@ static char*	sensor_iface	= NULL;
 
 /* Capture */
 static pcap_t*	pcap_handle	= NULL;
+static int	cap_buf_size	= 32;		/* default to 32MB */
 
 /* Initialise the sensor */
 eemo_rv eemo_sensor_init(void)
@@ -95,6 +96,15 @@ eemo_rv eemo_sensor_init(void)
 		
 		free(mux_hostname);
 		
+		return ERV_CONFIG_ERROR;
+	}
+
+	if ((eemo_conf_get_int("sensor", "bufsize", &cap_buf_size, 32) != ERV_OK) || (cap_buf_size <= 0))
+	{
+		ERROR_MSG("Invalid sensor capture buffer size (%d) configured, giving up", cap_buf_size);
+
+		free(mux_hostname);
+
 		return ERV_CONFIG_ERROR;
 	}
 
@@ -646,11 +656,62 @@ eemo_rv eemo_sensor_capture(void)
 
 	INFO_MSG("Opening device %s for packet capture", pcap_if);
 
-	if ((new_handle = pcap_open_live(pcap_if, 65536, 1, 1000, errbuf)) == NULL)
+	if ((new_handle = pcap_create(pcap_if, errbuf)) == NULL)
 	{
-		ERROR_MSG("Unable to open interface %s for capture (%s)", pcap_if, errbuf);
+		ERROR_MSG("Failed to open capture handle");
 
-		return ERV_NO_ACCESS;
+		return ERV_ETH_NOT_EXIST;
+	}
+
+	if (pcap_set_snaplen(new_handle, 65536) != 0)
+	{
+		ERROR_MSG("Failed to set snap length for capture, giving up");
+
+		pcap_close(new_handle);
+
+		return ERV_GENERAL_ERROR;
+	}
+
+	if (pcap_set_promisc(new_handle, 1) != 0)
+	{
+		ERROR_MSG("Failed to set promiscuous mode on network device, giving up");
+
+		pcap_close(new_handle);
+
+		return ERV_GENERAL_ERROR;
+	}
+
+	if (pcap_set_timeout(new_handle, 1000) != 0)
+	{
+		ERROR_MSG("Failed to set timeout on capture, giving up");
+
+		pcap_close(new_handle);
+
+		return ERV_GENERAL_ERROR;
+	}
+
+	/* Set capture buffer size */
+	if (pcap_set_buffer_size(new_handle, cap_buf_size*1024*1024) != 0)
+	{
+		WARNING_MSG("Failed to change capture buffer size");
+	}
+	else
+	{
+		INFO_MSG("Set capture buffer size to %d bytes", cap_buf_size*1024*1024);
+	}
+
+	/* Activate capture */
+	if (pcap_activate(new_handle) != 0)
+	{
+		ERROR_MSG("Failed to activate packet capture, giving up");
+
+		pcap_close(new_handle);
+
+		return ERV_GENERAL_ERROR;
+	}
+	else
+	{
+		INFO_MSG("Activated capture");
 	}
 
 	if (sensor_filter == NULL)
