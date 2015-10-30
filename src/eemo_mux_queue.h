@@ -62,6 +62,7 @@ typedef struct mux_queue
 	q_entry*	q_tail;		/* The tail of the queue */
 	size_t		q_len;		/* The length of the queue */
 	size_t		q_maxlen;	/* The maximum queue length */
+	size_t		q_flush_th;	/* Queue flush threshold */
 	pthread_mutex_t	q_mutex;	/* Queue access mutex */
 	pthread_cond_t	q_signal;	/* Queue signal */
 	pthread_t	queue_thread;	/* The queue thread */
@@ -73,7 +74,7 @@ typedef struct mux_queue
 mux_queue;
 
 /* Create a new queue handler */
-mux_queue* eemo_q_new(SSL* tls, const size_t maxlen, const int is_client);
+mux_queue* eemo_q_new(SSL* tls, const size_t maxlen, const size_t flush_threshold, const int is_client);
 
 /* Enqueue a new packet for the queue */
 eemo_rv eemo_q_enqueue(mux_queue* q, eemo_mux_pkt* pkt);

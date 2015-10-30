@@ -67,6 +67,7 @@ static SSL*		tls				= NULL;
 static int		mux_socket			= -1;
 static char		mux_ip_str[INET6_ADDRSTRLEN]	= { 0 };
 static int 		max_qlen			= 100000;
+static int		q_flush_threshold		= 1000;
 static mux_queue*	mux_q				= NULL;
 
 /* Sensor state */
@@ -118,6 +119,19 @@ eemo_rv eemo_sensor_init(void)
 		free(mux_hostname);
 
 		return ERV_CONFIG_ERROR;
+	}
+
+	if ((eemo_conf_get_int("sensor", "flush_threshold", &q_flush_threshold, 1000) != ERV_OK) || (q_flush_threshold <= 0))
+	{
+		ERROR_MSG("Invalid queue flush threshold (%d)", q_flush_threshold);
+
+		free(mux_hostname);
+
+		return ERV_CONFIG_ERROR;
+	}
+	else
+	{
+		INFO_MSG("Queue flush threshold set to %d", q_flush_threshold);
 	}
 
 	if ((eemo_conf_get_string("sensor", "sensor_guid", &sensor_guid, NULL) != ERV_OK) || (sensor_guid == NULL))
@@ -537,7 +551,7 @@ int eemo_sensor_connect_mux(void)
 
 		eemo_cx_cmd_free(&cmd);
 
-		mux_q = eemo_q_new(tls, max_qlen, 0);
+		mux_q = eemo_q_new(tls, max_qlen, q_flush_threshold, 0);
 
 		assert(mux_q != NULL);
 		

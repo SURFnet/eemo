@@ -116,7 +116,7 @@ static void* eemo_q_int_threadproc(void* params)
 }
 
 /* Create a new queue handler */
-mux_queue* eemo_q_new(SSL* tls, const size_t maxlen, const int is_client)
+mux_queue* eemo_q_new(SSL* tls, const size_t maxlen, const size_t flush_threshold, const int is_client)
 {
 	assert(tls != NULL);
 
@@ -126,6 +126,7 @@ mux_queue* eemo_q_new(SSL* tls, const size_t maxlen, const int is_client)
 	memset(new_queue, 0, sizeof(mux_queue));
 
 	new_queue->q_maxlen = maxlen;
+	new_queue->q_flush_th = flush_threshold;
 
 	if (pthread_mutex_init(&new_queue->q_mutex, NULL) != 0)
 	{
@@ -258,8 +259,11 @@ eemo_rv eemo_q_enqueue(mux_queue* q, eemo_mux_pkt* pkt)
 
 	q->q_len++;
 
-	/* Signal the queue thread */
-	pthread_cond_signal(&q->q_signal);
+	if (q->q_len >= q->q_flush_th)
+	{
+		/* Signal the queue thread */
+		pthread_cond_signal(&q->q_signal);
+	}
 
 	pthread_mutex_unlock(&q->q_mutex);
 
