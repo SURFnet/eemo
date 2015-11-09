@@ -207,6 +207,7 @@ void eemo_cx_int_buf_append_uint64(const uint64_t value, uint8_t* buf, size_t* b
 void eemo_cx_int_buf_append_bytes(const uint8_t* bytes, const size_t len, uint8_t* buf, size_t* bufptr)
 {
 	memcpy(&buf[*bufptr], bytes, len);
+	*bufptr += len;
 }
 
 /* Serialize a captured packet and its metadata and transmit it */
@@ -231,7 +232,7 @@ eemo_rv eemo_cx_send_pkt(SSL* socket, const eemo_mux_pkt* pkt, const int is_clie
 		/* Send off the current buffer content and clear the buffer */
 		if ((rv = tls_sock_write_bytes(socket, sndbuf, *sndbuf_ptr)) != ERV_OK)
 		{
-			DBGCMD("tls_sock_write_bytes failed (0x%08x)", rv);
+			DEBUG_MSG("tls_sock_write_bytes failed (0x%08x)", rv);
 
 			return rv;
 		}
@@ -261,7 +262,7 @@ eemo_rv eemo_cx_send_pkt(SSL* socket, const eemo_mux_pkt* pkt, const int is_clie
 	{
 		if ((rv = tls_sock_write_bytes(socket, sndbuf, *sndbuf_ptr)) != ERV_OK)
 		{
-			DBGCMD("tls_sock_write_bytes failed (0x%08x)", rv);
+			DEBUG_MSG("tls_sock_write_bytes failed (0x%08x)", rv);
 
 			return rv;
 		}

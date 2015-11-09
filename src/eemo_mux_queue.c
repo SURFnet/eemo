@@ -85,6 +85,7 @@ static void* eemo_q_int_threadproc(void* params)
 
 		/* Now try to send the items in the queue */
 		sendq_it = sendq;
+		sndbuf_ptr = 0;
 
 		while (sendq_it != NULL)
 		{
@@ -266,6 +267,8 @@ eemo_rv eemo_q_enqueue(mux_queue* q, eemo_mux_pkt* pkt)
 
 	if (q->q_len >= q->q_flush_th)
 	{
+		DEBUG_MSG("Queue flush threshold reached");
+
 		/* Signal the queue thread */
 		pthread_cond_signal(&q->q_signal);
 	}
