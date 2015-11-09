@@ -180,64 +180,96 @@ eemo_mux_pkt* eemo_cx_new_packet(const struct timeval ts, uint8_t* data, const u
 	return new_pkt;
 }
 
-static eemo_rv eemo_cx_send_pkt_int(SSL* socket, const uint16_t cmd_id, struct timeval ts, const uint8_t* pkt_data, const uint32_t pkt_len)
+void eemo_cx_int_buf_append_ushort(const uint16_t value, uint8_t* buf, size_t* bufptr)
 {
-	assert((pkt_len == 0) || (pkt_data != NULL));
+	uint16_t	netval	= htons(value);
 
-	/* Convert timestamp to network byte order */
-	uint64_t	ts_sec	= htobe64(ts.tv_sec);
-	uint64_t	ts_usec	= htobe64(ts.tv_usec);
-	uint32_t	cmd_len	= (2 * sizeof(uint64_t)) + pkt_len;
-	eemo_rv		rv	= ERV_OK;
+	memcpy(&buf[*bufptr], &netval, sizeof(uint16_t));
+	*bufptr += sizeof(uint16_t);
+}
 
-	if ((rv = tls_sock_write_ushort(socket, cmd_id)) != ERV_OK)
+void eemo_cx_int_buf_append_uint(const uint32_t value, uint8_t* buf, size_t* bufptr)
+{
+	uint32_t	netval	= htonl(value);
+
+	memcpy(&buf[*bufptr], &netval, sizeof(uint32_t));
+	*bufptr += sizeof(uint32_t);
+}
+
+void eemo_cx_int_buf_append_uint64(const uint64_t value, uint8_t* buf, size_t* bufptr)
+{
+	uint64_t	netval	= htobe64(value);
+
+	memcpy(&buf[*bufptr], &netval, sizeof(uint64_t));
+	*bufptr += sizeof(uint64_t);
+}
+
+void eemo_cx_int_buf_append_bytes(const uint8_t* bytes, const size_t len, uint8_t* buf, size_t* bufptr)
+{
+	memcpy(&buf[*bufptr], bytes, len);
+}
+
+/* Serialize a captured packet and its metadata and transmit it */
+eemo_rv eemo_cx_send_pkt(SSL* socket, const eemo_mux_pkt* pkt, const int is_client, uint8_t* sndbuf, const size_t sndbuf_sz, size_t* sndbuf_ptr, const int is_last)
+{
+	assert(socket != NULL);
+	assert(pkt != NULL);
+	assert(sndbuf != NULL);
+	assert(sndbuf_ptr != NULL);
+	assert(sndbuf_sz > 0);
+
+	size_t		buf_req_sz	= 2 +				/* command ID */
+					  4 +				/* command length */
+					  2 * sizeof(uint64_t) +	/* timestamp */
+					  pkt->pkt_len;			/* datagram */
+	eemo_rv		rv		= ERV_OK;
+	uint32_t	cmd_len		= (2 * sizeof(uint64_t)) + pkt->pkt_len;
+
+	/* Check if it will fit in the buffer */
+	if ((*sndbuf_ptr + buf_req_sz) > sndbuf_sz)
 	{
-		DBGCMD("tls_sock_write_ushort failed (0x%08x)", rv);
-
-		return rv;
-	}
-
-	if ((rv = tls_sock_write_uint(socket, cmd_len)) != ERV_OK)
-	{
-		DBGCMD("tls_sock_write_uint failed (0x%08x)", rv);
-
-		return rv;
-	}
-
-	/* Transmit timestamp */
-	if (((rv = tls_sock_write_bytes(socket, (const uint8_t*) &ts_sec, sizeof(uint64_t))) != ERV_OK) ||
-	    ((rv = tls_sock_write_bytes(socket, (const uint8_t*) &ts_usec, sizeof(uint64_t))) != ERV_OK))
-	{
-		DBGCMD("tls_sock_write_bytes failed (0x%08x)", rv);
-
-		return rv;
-	}
-
-	/* Transmit data if applicable */
-	if (pkt_len > 0)
-	{
-		if ((rv = tls_sock_write_bytes(socket, pkt_data, pkt_len)) != ERV_OK)
+		/* Send off the current buffer content and clear the buffer */
+		if ((rv = tls_sock_write_bytes(socket, sndbuf, *sndbuf_ptr)) != ERV_OK)
 		{
 			DBGCMD("tls_sock_write_bytes failed (0x%08x)", rv);
 
 			return rv;
 		}
+
+		*sndbuf_ptr = 0;
+
+		assert(sndbuf_sz >= buf_req_sz);
 	}
 
-	DBGCMD("tx cmd=%u len=%u", cmd_id, pkt_len + (2 * sizeof(uint64_t)));
+	/* Append the packet to the send buffer */
+
+	/* Command ID */
+	eemo_cx_int_buf_append_ushort(is_client ? MUX_CLIENT_DATA : SENSOR_DATA, sndbuf, sndbuf_ptr);
+
+	/* Command length */
+	eemo_cx_int_buf_append_uint(cmd_len, sndbuf, sndbuf_ptr);
+
+	/* Packet timestamp */
+	eemo_cx_int_buf_append_uint64(pkt->pkt_ts.tv_sec, sndbuf, sndbuf_ptr);
+	eemo_cx_int_buf_append_uint64(pkt->pkt_ts.tv_usec, sndbuf, sndbuf_ptr);
+
+	/* Packet data */
+	eemo_cx_int_buf_append_bytes(pkt->pkt_data, pkt->pkt_len, sndbuf, sndbuf_ptr);
+
+	/* If this is the last packet, flush the send buffer */
+	if (is_last)
+	{
+		if ((rv = tls_sock_write_bytes(socket, sndbuf, *sndbuf_ptr)) != ERV_OK)
+		{
+			DBGCMD("tls_sock_write_bytes failed (0x%08x)", rv);
+
+			return rv;
+		}
+
+		*sndbuf_ptr = 0;
+	}
 
 	return ERV_OK;
-}
-
-/* Serialize a captured packet and its metadata and transmit it */
-eemo_rv eemo_cx_send_pkt_sensor(SSL* socket, struct timeval ts, const uint8_t* pkt_data, const uint32_t pkt_len)
-{
-	return eemo_cx_send_pkt_int(socket, SENSOR_DATA, ts, pkt_data, pkt_len);
-}
-
-eemo_rv eemo_cx_send_pkt(SSL* socket, const eemo_mux_pkt* pkt, const int is_client)
-{
-	return eemo_cx_send_pkt_int(socket, is_client ? MUX_CLIENT_DATA : SENSOR_DATA, pkt->pkt_ts, pkt->pkt_data, pkt->pkt_len);
 }
 
 /* Deserialize a captured packet and its metadata */

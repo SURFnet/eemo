@@ -114,7 +114,7 @@ static int		current_id	= 1;
 
 /* Queue configuration */
 static int		max_queue_len	= 0;
-static int		q_flush_th	= 1;
+static int		q_flush_th	= 1000;
 
 /* Signal handler for exit signal */
 static void stop_signal_handler(int signum)
@@ -445,7 +445,7 @@ static void eemo_mux_new_client(const int client_socket)
 	new_client->byte_count = 0;
 
 	/* Start new client queue */
-	new_client->q = eemo_q_new(new_client->tls, max_queue_len, q_flush_th, 1);
+	new_client->q = eemo_q_new(new_client->tls, max_queue_len, q_flush_th, 1000);
 
 	if (new_client->q == NULL)
 	{
@@ -1562,12 +1562,16 @@ void eemo_mux_run_multiplexer(void)
 		return;
 	}
 
-	if ((eemo_conf_get_int("clients", "flush_threshold", &q_flush_th, 1) != ERV_OK) || (q_flush_th <= 0))
+	INFO_MSG("Multiplexer maximum client queue length set to %d", max_queue_len);
+
+	if ((eemo_conf_get_int("clients", "flush_threshold", &q_flush_th, 1000) != ERV_OK) || (q_flush_th <= 0))
 	{
 		ERROR_MSG("Invalid queue flush threshold (%d)", q_flush_th);
 
 		return;
 	}
+
+	INFO_MSG("Multiplexer queue flush threshold set to %d packets", q_flush_th);
 	
 	eemo_mux_comm_loop();
 

@@ -112,6 +112,8 @@ eemo_rv eemo_sensor_init(void)
 		return ERV_CONFIG_ERROR;
 	}
 
+	INFO_MSG("Sensor capture buffer size set to %dMB", cap_buf_size);
+
 	if ((eemo_conf_get_int("sensor", "max_queue_len", &max_qlen, 100000) != ERV_OK) || (max_qlen <= 0))
 	{
 		ERROR_MSG("Invalid maximum transmission queue length (%d) configured, giving up", max_qlen);
@@ -120,6 +122,8 @@ eemo_rv eemo_sensor_init(void)
 
 		return ERV_CONFIG_ERROR;
 	}
+
+	INFO_MSG("Sensor maximum outgoing queue length set to %d", max_qlen);
 
 	if ((eemo_conf_get_int("sensor", "flush_threshold", &q_flush_threshold, 1000) != ERV_OK) || (q_flush_threshold <= 0))
 	{
@@ -143,6 +147,8 @@ eemo_rv eemo_sensor_init(void)
 		return ERV_CONFIG_ERROR;
 	}
 
+	INFO_MSG("Sensor GUID set to %s", sensor_guid);
+
 	if (eemo_conf_get_string("sensor", "sensor_description", &sensor_desc, "no description provided") != ERV_OK)
 	{
 		ERROR_MSG("Failed to retrieve the sensor description from the configuration");
@@ -152,6 +158,8 @@ eemo_rv eemo_sensor_init(void)
 
 		return ERV_CONFIG_ERROR;
 	}
+
+	INFO_MSG("Sensor description set to '%s'", sensor_desc);
 
 	if (eemo_conf_get_string("sensor", "sensor_filter", &sensor_filter, NULL) != ERV_OK)
 	{

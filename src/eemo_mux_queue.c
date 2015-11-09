@@ -43,6 +43,8 @@
 #include <openssl/ssl.h>
 #include <assert.h>
 
+#define AVG_DGRAM_SIZE		1750
+
 /* Client thread procedure */
 static void* eemo_q_int_threadproc(void* params)
 {
@@ -52,6 +54,7 @@ static void* eemo_q_int_threadproc(void* params)
 	q_entry*	sendq		= NULL;
 	q_entry*	sendq_it	= NULL;
 	q_entry*	cleanup		= NULL;
+	size_t		sndbuf_ptr	= 0;
 
 	DEBUG_MSG("Entering queue queue thread procedure (0x%08x)", (unsigned int) pthread_self());
 
@@ -61,11 +64,7 @@ static void* eemo_q_int_threadproc(void* params)
 
 		/* Wait for new data to send to the queue */
 		pthread_mutex_lock(&q->q_mutex);
-
-		while((q->q_len == 0) && (q->queue_run))
-		{
-			pthread_cond_wait(&q->q_signal, &q->q_mutex);
-		}
+		pthread_cond_wait(&q->q_signal, &q->q_mutex);
 
 		/* First, check if we should exit */
 		if (!q->queue_run)
@@ -89,7 +88,7 @@ static void* eemo_q_int_threadproc(void* params)
 
 		while (sendq_it != NULL)
 		{
-			if (q->queue_state && (eemo_cx_send_pkt(q->tls, sendq_it->q_pkt, q->is_client) != ERV_OK))
+			if (q->queue_state && (eemo_cx_send_pkt(q->tls, sendq_it->q_pkt, q->is_client, q->q_sendbuf, q->q_sendbuf_sz, &sndbuf_ptr, (sendq_it->next == NULL) ? 1 : 0) != ERV_OK))
 			{
 				ERROR_MSG("Failed to send queued packet to the queue (0x%08x)", (unsigned int) pthread_self());
 
@@ -153,6 +152,12 @@ mux_queue* eemo_q_new(SSL* tls, const size_t maxlen, const size_t flush_threshol
 	new_queue->q_overflow = 0;
 	new_queue->tls = tls;
 	new_queue->is_client = is_client;
+
+	new_queue->q_sendbuf_sz = AVG_DGRAM_SIZE * new_queue->q_flush_th * 10;	/* overdimension */
+	if (new_queue->q_sendbuf_sz < 70000) new_queue->q_sendbuf_sz = 70000;	/* set a sensible default that will
+										   at least accommodate one completely
+										   full datagram */
+	new_queue->q_sendbuf = (uint8_t*) malloc(new_queue->q_sendbuf_sz * sizeof(uint8_t));
 	
 	/* Launch queue thread */
 	pthread_attr_init(&ct_attr);
@@ -306,6 +311,7 @@ void eemo_q_stop(mux_queue* q)
 		free(q_tmp);
 	}
 
+	free(q->q_sendbuf);
 	free(q);
 }
 

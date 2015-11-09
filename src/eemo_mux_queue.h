@@ -1,7 +1,6 @@
-/* $Id$ */
-
 /*
- * Copyright (c) 2010-2014 SURFnet bv
+ * Copyright (c) 2010-2015 SURFnet bv
+ * Copyright (c) 2015 Roland van Rijswijk-Deij
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -63,6 +62,9 @@ typedef struct mux_queue
 	size_t		q_len;		/* The length of the queue */
 	size_t		q_maxlen;	/* The maximum queue length */
 	size_t		q_flush_th;	/* Queue flush threshold */
+	uint8_t*	q_sendbuf;	/* Queue send buffer */
+	size_t		q_sendbuf_sz;	/* Queue send buffer size */
+	size_t		q_sendsize;	/* Accumulated size of data to send */
 	pthread_mutex_t	q_mutex;	/* Queue access mutex */
 	pthread_cond_t	q_signal;	/* Queue signal */
 	pthread_t	queue_thread;	/* The queue thread */
