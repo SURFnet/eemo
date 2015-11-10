@@ -98,6 +98,7 @@ eemo_rv eemo_auth_vs_client_dns_handler(eemo_ip_packet_info ip_info, int is_tcp,
 			}
 
 			fprintf(out, "%u;%s;%s;%s\n", (unsigned int) ip_info.ts.tv_sec, ip_info.ip_src, ip_info.ip_dst, q_it->qname);
+			fflush(out);
 		}
 	}
 
