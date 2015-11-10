@@ -72,6 +72,11 @@ define([EEMO_NAMEX_CURRENT], [1])
 define([EEMO_NAMEX_REVISION], [0])
 define([EEMO_NAMEX_AGE], [0])
 
+# Monitor queries for a specific name
+define([EEMO_AUTH_VS_CLIENT_CURRENT], [1])
+define([EEMO_AUTH_VS_CLIENT_REVISION], [0])
+define([EEMO_AUTH_VS_CLIENT_AGE], [0])
+
 ################################################################################
 # Configuration functions                                                      #
 ################################################################################
@@ -108,6 +113,8 @@ EEMO_DNSKEYEX_VERSION_INFO="EEMO_DNSKEYEX_CURRENT:EEMO_DNSKEYEX_REVISION:EEMO_DN
 AC_SUBST(EEMO_DNSKEYEX_VERSION_INFO)
 EEMO_NAMEX_VERSION_INFO="EEMO_NAMEX_CURRENT:EEMO_NAMEX_REVISION:EEMO_NAMEX_AGE"
 AC_SUBST(EEMO_NAMEX_VERSION_INFO)
+EEMO_AUTH_VS_CLIENT_VERSION_INFO="EEMO_AUTH_VS_CLIENT_CURRENT:EEMO_AUTH_VS_CLIENT_REVISION:EEMO_AUTH_VS_CLIENT_AGE"
+AC_SUBST(EEMO_AUTH_VS_CLIENT_VERSION_INFO)
 
 # Checks for compilers and other programs
 AC_PROG_CC_C99
@@ -240,6 +247,7 @@ AC_CONFIG_FILES([
 	src/plugins/dumppcap/Makefile
 	src/plugins/dnskeyex/Makefile
 	src/plugins/namex/Makefile
+	src/plugins/auth_vs_client/Makefile
 	config/Makefile
 	scripts/Makefile
 ])
