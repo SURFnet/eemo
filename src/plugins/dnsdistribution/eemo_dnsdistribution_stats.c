@@ -419,7 +419,7 @@ void write_stats(void)
 
 		HASH_ITER(hh, qname_table, s, tmp)
 		{
-			//fprintf(stat_fp_qnamepop_cl, "%u\t%u\t%s\n", ln, s->value, s->name);
+			fprintf(stat_fp_qnamepop_cl, "%u\t%u\t%s\n", ln, s->value, s->name);
 			ln++;
 		}
 		fprintf(stat_fp_qnamepop_cl, "\n\n");
@@ -439,7 +439,7 @@ void write_stats(void)
 
 		HASH_ITER(hh, qname_table_q_ns, s, tmp)
 		{
-			//fprintf(stat_fp_qnamepop_q_ns, "%u\t%u\t%s\n", ln, s->value, s->name);
+			fprintf(stat_fp_qnamepop_q_ns, "%u\t%u\t%s\n", ln, s->value, s->name);
 			ln++;
 		}
 		fprintf(stat_fp_qnamepop_q_ns, "\n\n");
@@ -459,7 +459,7 @@ void write_stats(void)
 
 		HASH_ITER(hh, qname_table_r_ns, s, tmp)
 		{
-			//fprintf(stat_fp_qnamepop_r_ns, "%u\t%u\t%s\n", ln, s->value, s->name);
+			fprintf(stat_fp_qnamepop_r_ns, "%u\t%u\t%s\n", ln, s->value, s->name);
 			ln++;
 		}
 		fprintf(stat_fp_qnamepop_r_ns, "\n\n");
