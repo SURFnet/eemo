@@ -188,7 +188,7 @@ eemo_rv eemo_demo_init(eemo_export_fn_table_ptr eemo_fn, const char* conf_base_p
 		return ERV_GENERAL_ERROR;
 	}
 
-	if ((eemo_fn->cm_add_block)("2001:4860:4860::/40", "Google Public DNS v6 /40") != ERV_OK)
+	if ((eemo_fn->cm_add_block)("2001:4860:4860::/48", "Google Public DNS v6 /48") != ERV_OK)
 	{
 		ERROR_MSG("Failed to add CIDR block");
 
