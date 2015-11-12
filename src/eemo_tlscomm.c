@@ -121,17 +121,26 @@ int tls_sock_write_bytes(SSL* tls, const uint8_t* data, const size_t len)
 
 		if (num_written <= 0)
 		{
-			if (SSL_get_error(tls, num_written) == SSL_ERROR_ZERO_RETURN)
+			unsigned long ossl_err = SSL_get_error(tls, num_written);
+
+			if (ossl_err == SSL_ERROR_ZERO_RETURN)
 			{
 				return 1;
 			}
 		
 			/* Re-negotiation? */
-			if ((SSL_get_error(tls, num_written) == SSL_ERROR_WANT_READ) ||
-			    (SSL_get_error(tls, num_written) == SSL_ERROR_WANT_WRITE))
+			if ((ossl_err == SSL_ERROR_WANT_READ) ||
+			    (ossl_err == SSL_ERROR_WANT_WRITE))
 			{
 				usleep(1000);
 				continue;
+			}
+
+			ERROR_MSG("Outputting OpenSSL errors for 0x%08x", ossl_err);
+
+			while ((ossl_err = ERR_get_error()) != 0)
+			{
+				ERROR_MSG("OpenSSL error: %s", ERR_error_string(ossl_err, NULL));
 			}
 			
 			return -1;

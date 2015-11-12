@@ -64,6 +64,7 @@ typedef struct
 	uint32_t	pkt_len;
 	int32_t		pkt_refctr;
 	pthread_mutex_t	pkt_refmutex;
+	uint8_t*	pkt_tofree;
 }
 eemo_mux_pkt;
 
@@ -77,18 +78,16 @@ eemo_rv eemo_cx_send(SSL* socket, const uint16_t cmd_id, const uint32_t cmd_len,
 void eemo_cx_cmd_free(eemo_mux_cmd* recv_cmd);
 
 /* Serialize a captured packet and its metadata and transmit it */
-eemo_rv eemo_cx_send_pkt_sensor(SSL* socket, struct timeval ts, const uint8_t* pkt_data, const uint32_t pkt_len);
-
-eemo_rv eemo_cx_send_pkt_client(SSL* socket, const eemo_mux_pkt* pkt);
+eemo_rv eemo_cx_send_pkt(SSL* socket, const eemo_mux_pkt* pkt, const int is_client, uint8_t* sndbuf, const size_t sndbuf_sz, size_t* sndbuf_ptr, const int is_last);
 
 /* Deserialize a captured packet and its metadata */
 eemo_mux_pkt* eemo_cx_deserialize_pkt(eemo_mux_cmd* pkt_cmd);
 
+/* Create a new packet from a captured packet by copy */
+eemo_mux_pkt* eemo_cx_pkt_from_capture(struct timeval ts, const uint8_t* pkt_data, const uint32_t pkt_len);
+
 /* Create a shallow copy of a packet (increases the reference counter) */
 eemo_mux_pkt* eemo_cx_pkt_copy(eemo_mux_pkt* pkt);
-
-/* Clone a packet (creates a deep copy) */
-eemo_mux_pkt* eemo_cx_pkt_clone(const eemo_mux_pkt* pkt);
 
 /* Release the reference to a packet (frees storage when the reference counter reaches zero) */
 void eemo_cx_pkt_free(eemo_mux_pkt* pkt);

@@ -31,7 +31,7 @@
 
 /*
  * The Extensible Ethernet Monitor (EEMO)
- * EDNS0 client subnet monitoring plugin
+ * DNSKEY extraction plugin
  */
 
 #include "config.h"
@@ -43,20 +43,21 @@
 #include <pthread.h>
 #include <unistd.h>
 #include <string.h>
+#include "utlist.h"
 #include "eemo.h"
 #include "eemo_api.h"
 #include "eemo_plugin_log.h"
 #include "dns_handler.h"
 #include "dns_parser.h"
 
-const static char* plugin_description = "EEMO EDNS0 client subnet monitoring plugin " PACKAGE_VERSION;
+const static char* plugin_description = "EEMO DNSKEY extraction plugin " PACKAGE_VERSION;
 
 /* DNS handler handles */
 static unsigned long	dns_handler_handle	= 0;
 
 /* Output file */
-static char*		edns0_mon_file_base	= NULL;
-static FILE*		edns0_mon_file		= NULL;
+static char*		dnskeyex_file_base	= NULL;
+static FILE*		dnskeyex_file		= NULL;
 static char*		on_day_changed_cmd	= NULL;
 static char		day_file_name[1024]	= { 0 };
 
@@ -68,10 +69,10 @@ static struct
 	int	year;
 	time_t	next_epoch_day_utc;
 }
-ecsmon_today = { 0, 0, 0, 0 };
+dnskeyex_today = { 0, 0, 0, 0 };
 
 /* Thread that processes files on day change */
-void* eemo_ecsmonitor_int_on_day_changed_threadproc(void* param)
+void* eemo_dnskeyex_int_on_day_changed_threadproc(void* param)
 {
 	assert(param != NULL);
 
@@ -131,24 +132,24 @@ void* eemo_ecsmonitor_int_on_day_changed_threadproc(void* param)
 }
 
 /* Open file for the current day */
-static int eemo_ecsmonitor_int_open_day_file(time_t ts)
+static int eemo_dnskeyex_int_open_day_file(time_t ts)
 {
 	struct tm	utc_time;
 	char*		tzone		= NULL;
 
-	if (edns0_mon_file != NULL)
+	if (dnskeyex_file != NULL)
 	{
 		char*	file_to_process	= NULL;
 
 		/* The file is already open, check if we have passed to the next day */
-		if (ts < ecsmon_today.next_epoch_day_utc)
+		if (ts < dnskeyex_today.next_epoch_day_utc)
 		{
 			return 0;
 		}
 
 		/* We have progressed to the next day */
-		fclose(edns0_mon_file);
-		edns0_mon_file = NULL;
+		fclose(dnskeyex_file);
+		dnskeyex_file = NULL;
 
 		/* Start an "on day changed" thread */
 		if (on_day_changed_cmd != NULL)
@@ -157,7 +158,7 @@ static int eemo_ecsmonitor_int_open_day_file(time_t ts)
 
 			file_to_process = strdup(day_file_name);
 
-			if (pthread_create(&on_day_changed_tid, NULL, eemo_ecsmonitor_int_on_day_changed_threadproc, (void*) file_to_process) != 0)
+			if (pthread_create(&on_day_changed_tid, NULL, eemo_dnskeyex_int_on_day_changed_threadproc, (void*) file_to_process) != 0)
 			{
 				ERROR_MSG("Failed to launch thread in which to execute %s", on_day_changed_cmd);
 
@@ -169,9 +170,9 @@ static int eemo_ecsmonitor_int_open_day_file(time_t ts)
 	/* Determine the current day and the next epoch day */
 	gmtime_r((const time_t*) &ts, &utc_time);
 
-	ecsmon_today.day	= utc_time.tm_mday;
-	ecsmon_today.month	= utc_time.tm_mon + 1;
-	ecsmon_today.year	= utc_time.tm_year + 1900;
+	dnskeyex_today.day	= utc_time.tm_mday;
+	dnskeyex_today.month	= utc_time.tm_mon + 1;
+	dnskeyex_today.year	= utc_time.tm_year + 1900;
 
 	/* Now compute the next UTC day epoch time */
 	utc_time.tm_hour = utc_time.tm_min = utc_time.tm_sec = 0;
@@ -184,7 +185,7 @@ static int eemo_ecsmonitor_int_open_day_file(time_t ts)
 
 	tzset();
 
-	ecsmon_today.next_epoch_day_utc = mktime(&utc_time);
+	dnskeyex_today.next_epoch_day_utc = mktime(&utc_time);
 
 	if (tzone != NULL)
 	{
@@ -199,16 +200,16 @@ static int eemo_ecsmonitor_int_open_day_file(time_t ts)
 	tzset();
 
 	/* Who cares about leap seconds :-) */
-	ecsmon_today.next_epoch_day_utc += 86400;
+	dnskeyex_today.next_epoch_day_utc += 86400;
 
-	DEBUG_MSG("Next epoch day at %zd", ecsmon_today.next_epoch_day_utc);
+	DEBUG_MSG("Next epoch day at %zd", dnskeyex_today.next_epoch_day_utc);
 
 	/* Open the new output CSV file */
-	snprintf(day_file_name, 1024, "%s.%04d%02d%02d", edns0_mon_file_base, ecsmon_today.year, ecsmon_today.month, ecsmon_today.day);
+	snprintf(day_file_name, 1024, "%s.%04d%02d%02d", dnskeyex_file_base, dnskeyex_today.year, dnskeyex_today.month, dnskeyex_today.day);
 
-	edns0_mon_file = fopen(day_file_name, "a");
+	dnskeyex_file = fopen(day_file_name, "a");
 
-	if (edns0_mon_file == NULL)
+	if (dnskeyex_file == NULL)
 	{
 		ERROR_MSG("Failed to open %s for writing", day_file_name);
 
@@ -216,69 +217,142 @@ static int eemo_ecsmonitor_int_open_day_file(time_t ts)
 	}
 
 	/* Write CSV header */
-	if (ftell(edns0_mon_file) == 0)
+	if (ftell(dnskeyex_file) == 0)
 	{
-		fprintf(edns0_mon_file, "timestamp;qtype;q_src;ecs_ip;ecs_scope;q_as;q_geoip;ecs_ip_as;ecs_ip_geoip;qname\n");
+		fprintf(dnskeyex_file, "fqdn;flags;protocol;algorithm;bitsize;n;e\n");
 	}
 
-	INFO_MSG("Started new file on %04d-%02d-%02d (%s)", ecsmon_today.year, ecsmon_today.month, ecsmon_today.day, day_file_name);
+	INFO_MSG("Started new file on %04d-%02d-%02d (%s)", dnskeyex_today.year, dnskeyex_today.month, dnskeyex_today.day, day_file_name);
 
 	return 0;
 }
 
 /* DNS handler */
-eemo_rv eemo_ecsmonitor_dns_handler(eemo_ip_packet_info ip_info, int is_tcp, const eemo_dns_packet* pkt)
+eemo_rv eemo_dnskeyex_dns_handler(eemo_ip_packet_info ip_info, int is_tcp, const eemo_dns_packet* pkt)
 {
-	/* Skip responses immediately */
-	if (pkt->qr_flag) return ERV_SKIPPED;
+	eemo_dns_rr*	rr_it	= NULL;
 
-	/* Check if this query has EDNS0 client subnet information */
-	if (pkt->has_edns0 && pkt->has_edns0_client_subnet && (pkt->questions != NULL))
+	/* Skip queries immediately */
+	if (!pkt->qr_flag) return ERV_SKIPPED;
+
+	/* Skip non-authoritative answers */
+	if (!pkt->aa_flag) return ERV_SKIPPED;
+
+	/* Only look at DNSKEY responses with RCODE NOERROR and more than one answer in the answer section */
+	if ((pkt->questions == NULL) || (pkt->questions->qtype != DNS_QTYPE_DNSKEY) || (pkt->rcode != DNS_RCODE_NOERROR) || (pkt->ans_count == 0)) return ERV_SKIPPED;
+
+	if (eemo_dnskeyex_int_open_day_file(ip_info.ts.tv_sec) != 0)
 	{
-		if (eemo_ecsmonitor_int_open_day_file(ip_info.ts.tv_sec) != 0)
-		{
-			ERROR_MSG("Failed to open (new) output CSV");
+		ERROR_MSG("Failed to open (new) output CSV");
 
-			return ERV_SKIPPED;
-		}
-
-		fprintf(edns0_mon_file, "%u;%u;%s;%s;%u;%s;%s;%s;%s",
-			(unsigned int) ip_info.ts.tv_sec,
-			pkt->questions->qtype,
-			ip_info.ip_src,
-			pkt->edns0_client_subnet_ip,
-			pkt->edns0_client_subnet_src_scope,
-			ip_info.src_as_short,
-			ip_info.src_geo_ip,
-			pkt->edns0_client_subnet_as_short,
-			pkt->edns0_client_subnet_geo_ip);
-
-		if (pkt->questions->qname != NULL)
-		{
-			fprintf(edns0_mon_file, ";%s\n", pkt->questions->qname);
-		}
-		else
-		{
-			fprintf(edns0_mon_file, ";(NULL)\n");
-		}
-
-		return ERV_HANDLED;
-	}
-	else
-	{
 		return ERV_SKIPPED;
 	}
+
+	/* Iterate over the answers and extract the DNSKEY records */
+	LL_FOREACH(pkt->answers, rr_it)
+	{
+		if (rr_it->type == DNS_QTYPE_DNSKEY)
+		{
+			unsigned char*	rdata_buf	= (unsigned char*) rr_it->rdata;
+			int		rdata_ofs	= 0;
+			unsigned short	flags		= 0;
+			unsigned char	protocol	= 0;
+			unsigned char	algorithm	= 0;
+			int		e_len		= 0;
+			int		n_len		= 0;
+			int		rsa_bitsize	= 0;
+			int		i		= 0;
+
+			if (rr_it->rdata_len < 5)
+			{
+				/* Malformed DNSKEY record */
+				ERROR_MSG("Malformed DNSKEY record for %s from %s (insufficient RDATA)", rr_it->name, ip_info.ip_src);
+
+				continue;
+			}
+
+			/* Extract flags, protocol and algorithm */
+			flags		= ntohs(*((unsigned short*) &rdata_buf[rdata_ofs]));
+			rdata_ofs	+= 2;
+			protocol	= rdata_buf[rdata_ofs];
+			rdata_ofs	+= 1;
+			algorithm	= rdata_buf[rdata_ofs];
+			rdata_ofs	+= 1;
+
+			/* We are only interested in RSA keys */
+			switch(algorithm)
+			{
+			case 1:			/* RSAMD5 */
+			case 5:			/* RSASHA1 */
+			case 7:			/* RSASHA1-NSEC3-SHA1 */
+			case 8:			/* RSASHA256 */
+			case 10:		/* RSASHA512 */
+				break;		/* This is an RSA key */
+			default:
+				continue;	/* Not an RSA key */
+			}
+
+			e_len		= rdata_buf[rdata_ofs];
+			rdata_ofs	+= 1;
+
+			if (e_len == 0)
+			{
+				/* |e| is represented using 3 octets */
+				if ((rr_it->rdata_len - rdata_ofs) < 2)
+				{
+					ERROR_MSG("Malformed DNSKEY record for %s from %s (insufficient remaining RDATA)", rr_it->name, ip_info.ip_src);
+
+					continue;
+				}
+
+				e_len		= ntohs(*((unsigned short*) &rdata_buf[rdata_ofs]));
+				rdata_ofs	+= 2;
+			}
+
+			n_len = rr_it->rdata_len - rdata_ofs - e_len;
+
+			if (n_len <= 0)
+			{
+				ERROR_MSG("Malformed DNSKEY record for %s from %s (insufficient public key data)", rr_it->name, ip_info.ip_src);
+
+				continue;
+			}
+
+			rsa_bitsize = (n_len << 3);
+
+			/* Output the key */
+			fprintf(dnskeyex_file, "%s;%u;%u;%u;%d;", rr_it->name, flags, protocol, algorithm, rsa_bitsize);
+
+			for (i = 0; i < e_len; i++)
+			{
+				fprintf(dnskeyex_file, "%02x", rdata_buf[rdata_ofs + i]);
+			}
+
+			rdata_ofs += e_len;
+
+			fprintf(dnskeyex_file, ";");
+
+			for (i = 0; i < n_len; i++)
+			{
+				fprintf(dnskeyex_file, "%02x", rdata_buf[rdata_ofs + i]);
+			}
+
+			fprintf(dnskeyex_file, "\n");
+		}
+	}
+
+	return ERV_HANDLED;
 }
 
 /* Plugin initialisation */
-eemo_rv eemo_ecsmonitor_init(eemo_export_fn_table_ptr eemo_fn, const char* conf_base_path)
+eemo_rv eemo_dnskeyex_init(eemo_export_fn_table_ptr eemo_fn, const char* conf_base_path)
 {
 	/* Initialise logging for the plugin */
 	eemo_init_plugin_log(eemo_fn->log);
 
-	INFO_MSG("Initialising ecsmonitor plugin");
+	INFO_MSG("Initialising DNSKEY extraction plugin");
 
-	if (((eemo_fn->conf_get_string)(conf_base_path, "out_file", &edns0_mon_file_base, NULL) != ERV_OK) || (edns0_mon_file_base == NULL))
+	if (((eemo_fn->conf_get_string)(conf_base_path, "out_file", &dnskeyex_file_base, NULL) != ERV_OK) || (dnskeyex_file_base == NULL))
 	{
 		ERROR_MSG("Could not get output file for EDNS0 client subnet monitoring plugin from the configuration");
 
@@ -293,64 +367,64 @@ eemo_rv eemo_ecsmonitor_init(eemo_export_fn_table_ptr eemo_fn, const char* conf_
 	}
 
 	/* Register DNS handler */
-	if ((eemo_fn->reg_dns_handler)(&eemo_ecsmonitor_dns_handler, PARSE_QUERY, &dns_handler_handle) != ERV_OK)
+	if ((eemo_fn->reg_dns_handler)(&eemo_dnskeyex_dns_handler, PARSE_QUERY|PARSE_RESPONSE, &dns_handler_handle) != ERV_OK)
 	{
-		ERROR_MSG("Failed to register ecsmonitor DNS handler");
+		ERROR_MSG("Failed to register dnskeyex DNS handler");
 
 		(eemo_fn->unreg_dns_handler)(dns_handler_handle);
 
 		return ERV_GENERAL_ERROR;
 	}
 
-	INFO_MSG("Demo plugin initialisation complete");
+	INFO_MSG("DNSKEY extraction plugin initialisation complete");
 
 	return ERV_OK;
 }
 
 /* Plugin uninitialisation */
-eemo_rv eemo_ecsmonitor_uninit(eemo_export_fn_table_ptr eemo_fn)
+eemo_rv eemo_dnskeyex_uninit(eemo_export_fn_table_ptr eemo_fn)
 {
-	INFO_MSG("Uninitialising ecsmonitor plugin");
+	INFO_MSG("Uninitialising dnskeyex plugin");
 
 	/* Unregister DNS handler */
 	if ((eemo_fn->unreg_dns_handler)(dns_handler_handle) != ERV_OK)
 	{
-		ERROR_MSG("Failed to unregister ecsmonitor DNS handler");
+		ERROR_MSG("Failed to unregister dnskeyex DNS handler");
 	}
 
-	if (edns0_mon_file != NULL)
+	if (dnskeyex_file != NULL)
 	{
-		fclose(edns0_mon_file);
+		fclose(dnskeyex_file);
 	}
 
-	free(edns0_mon_file_base);
+	free(dnskeyex_file_base);
 	free(on_day_changed_cmd);
 
-	INFO_MSG("Finished uninitialising ecsmonitor plugin");
+	INFO_MSG("Finished uninitialising dnskeyex plugin");
 
 	return ERV_OK;
 }
 
 /* Retrieve plugin description */
-const char* eemo_ecsmonitor_getdescription(void)
+const char* eemo_dnskeyex_getdescription(void)
 {
 	return plugin_description;
 }
 
 /* Retrieve plugin status */
-eemo_rv eemo_ecsmonitor_status(void)
+eemo_rv eemo_dnskeyex_status(void)
 {
 	return ERV_OK;
 }
 
 /* Plugin function table */
-static eemo_plugin_fn_table ecsmonitor_fn_table =
+static eemo_plugin_fn_table dnskeyex_fn_table =
 {
 	EEMO_PLUGIN_FN_VERSION,
-	&eemo_ecsmonitor_init,
-	&eemo_ecsmonitor_uninit,
-	&eemo_ecsmonitor_getdescription,
-	&eemo_ecsmonitor_status
+	&eemo_dnskeyex_init,
+	&eemo_dnskeyex_uninit,
+	&eemo_dnskeyex_getdescription,
+	&eemo_dnskeyex_status
 };
 
 /* Entry point for retrieving plugin function table */
@@ -361,7 +435,7 @@ eemo_rv eemo_plugin_get_fn_table(eemo_plugin_fn_table_ptrptr fn_table)
 		return ERV_PARAM_INVALID;
 	}
 
-	*fn_table = &ecsmonitor_fn_table;
+	*fn_table = &dnskeyex_fn_table;
 
 	return ERV_OK;
 }

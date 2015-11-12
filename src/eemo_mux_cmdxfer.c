@@ -141,13 +141,13 @@ void eemo_cx_cmd_free(eemo_mux_cmd* recv_cmd)
 {
 	assert(recv_cmd != NULL);
 
-	free(recv_cmd->cmd_data);
+	if (recv_cmd->cmd_data != NULL) free(recv_cmd->cmd_data);
 	recv_cmd->cmd_len = 0;
 	recv_cmd->cmd_data = NULL;
 }
 
 /* Create a new packet */
-eemo_mux_pkt* eemo_cx_new_packet(const struct timeval ts, const uint8_t* data, const uint32_t len)
+eemo_mux_pkt* eemo_cx_new_packet(const struct timeval ts, uint8_t* data, const uint32_t len, uint8_t* tofree)
 {
 	pthread_mutexattr_t	pkt_mutex_attr;
 	eemo_mux_pkt*		new_pkt	= (eemo_mux_pkt*) malloc(sizeof(eemo_mux_pkt));
@@ -171,73 +171,106 @@ eemo_mux_pkt* eemo_cx_new_packet(const struct timeval ts, const uint8_t* data, c
 
 	memcpy(&new_pkt->pkt_ts, &ts, sizeof(struct timeval));
 
-	new_pkt->pkt_len = len;
-	new_pkt->pkt_data = (uint8_t*) malloc(len * sizeof(uint8_t));
-	memcpy(new_pkt->pkt_data, data, len);
+	new_pkt->pkt_len 	= len;
+	new_pkt->pkt_data 	= data;
+	new_pkt->pkt_tofree	= tofree;
 
 	new_pkt->pkt_refctr = 1;
 
 	return new_pkt;
 }
 
-static eemo_rv eemo_cx_send_pkt_int(SSL* socket, const uint16_t cmd_id, struct timeval ts, const uint8_t* pkt_data, const uint32_t pkt_len)
+void eemo_cx_int_buf_append_ushort(const uint16_t value, uint8_t* buf, size_t* bufptr)
 {
-	assert((pkt_len == 0) || (pkt_data != NULL));
+	uint16_t	netval	= htons(value);
 
-	/* Convert timestamp to network byte order */
-	uint64_t	ts_sec	= htobe64(ts.tv_sec);
-	uint64_t	ts_usec	= htobe64(ts.tv_usec);
-	uint32_t	cmd_len	= (2 * sizeof(uint64_t)) + pkt_len;
-	eemo_rv		rv	= ERV_OK;
+	memcpy(&buf[*bufptr], &netval, sizeof(uint16_t));
+	*bufptr += sizeof(uint16_t);
+}
 
-	if ((rv = tls_sock_write_ushort(socket, cmd_id)) != ERV_OK)
-	{
-		DBGCMD("tls_sock_write_ushort failed (0x%08x)", rv);
+void eemo_cx_int_buf_append_uint(const uint32_t value, uint8_t* buf, size_t* bufptr)
+{
+	uint32_t	netval	= htonl(value);
 
-		return rv;
-	}
+	memcpy(&buf[*bufptr], &netval, sizeof(uint32_t));
+	*bufptr += sizeof(uint32_t);
+}
 
-	if ((rv = tls_sock_write_uint(socket, cmd_len)) != ERV_OK)
-	{
-		DBGCMD("tls_sock_write_uint failed (0x%08x)", rv);
+void eemo_cx_int_buf_append_uint64(const uint64_t value, uint8_t* buf, size_t* bufptr)
+{
+	uint64_t	netval	= htobe64(value);
 
-		return rv;
-	}
+	memcpy(&buf[*bufptr], &netval, sizeof(uint64_t));
+	*bufptr += sizeof(uint64_t);
+}
 
-	/* Transmit timestamp */
-	if (((rv = tls_sock_write_bytes(socket, (const uint8_t*) &ts_sec, sizeof(uint64_t))) != ERV_OK) ||
-	    ((rv = tls_sock_write_bytes(socket, (const uint8_t*) &ts_usec, sizeof(uint64_t))) != ERV_OK))
-	{
-		DBGCMD("tls_sock_write_bytes failed (0x%08x)", rv);
-
-		return rv;
-	}
-
-	/* Transmit data if applicable */
-	if (pkt_len > 0)
-	{
-		if ((rv = tls_sock_write_bytes(socket, pkt_data, pkt_len)) != ERV_OK)
-		{
-			DBGCMD("tls_sock_write_bytes failed (0x%08x)", rv);
-
-			return rv;
-		}
-	}
-
-	DBGCMD("tx cmd=%u len=%u", cmd_id, pkt_len + (2 * sizeof(uint64_t)));
-
-	return ERV_OK;
+void eemo_cx_int_buf_append_bytes(const uint8_t* bytes, const size_t len, uint8_t* buf, size_t* bufptr)
+{
+	memcpy(&buf[*bufptr], bytes, len);
+	*bufptr += len;
 }
 
 /* Serialize a captured packet and its metadata and transmit it */
-eemo_rv eemo_cx_send_pkt_sensor(SSL* socket, struct timeval ts, const uint8_t* pkt_data, const uint32_t pkt_len)
+eemo_rv eemo_cx_send_pkt(SSL* socket, const eemo_mux_pkt* pkt, const int is_client, uint8_t* sndbuf, const size_t sndbuf_sz, size_t* sndbuf_ptr, const int is_last)
 {
-	return eemo_cx_send_pkt_int(socket, SENSOR_DATA, ts, pkt_data, pkt_len);
-}
+	assert(socket != NULL);
+	assert(pkt != NULL);
+	assert(sndbuf != NULL);
+	assert(sndbuf_ptr != NULL);
+	assert(sndbuf_sz > 0);
 
-eemo_rv eemo_cx_send_pkt_client(SSL* socket, const eemo_mux_pkt* pkt)
-{
-	return eemo_cx_send_pkt_int(socket, MUX_CLIENT_DATA, pkt->pkt_ts, pkt->pkt_data, pkt->pkt_len);
+	size_t		buf_req_sz	= 2 +				/* command ID */
+					  4 +				/* command length */
+					  2 * sizeof(uint64_t) +	/* timestamp */
+					  pkt->pkt_len;			/* datagram */
+	eemo_rv		rv		= ERV_OK;
+	uint32_t	cmd_len		= (2 * sizeof(uint64_t)) + pkt->pkt_len;
+
+	/* Check if it will fit in the buffer */
+	if ((*sndbuf_ptr + buf_req_sz) > sndbuf_sz)
+	{
+		/* Send off the current buffer content and clear the buffer */
+		if ((rv = tls_sock_write_bytes(socket, sndbuf, *sndbuf_ptr)) != ERV_OK)
+		{
+			DEBUG_MSG("tls_sock_write_bytes failed (0x%08x)", rv);
+
+			return rv;
+		}
+
+		*sndbuf_ptr = 0;
+
+		assert(sndbuf_sz >= buf_req_sz);
+	}
+
+	/* Append the packet to the send buffer */
+
+	/* Command ID */
+	eemo_cx_int_buf_append_ushort(is_client ? MUX_CLIENT_DATA : SENSOR_DATA, sndbuf, sndbuf_ptr);
+
+	/* Command length */
+	eemo_cx_int_buf_append_uint(cmd_len, sndbuf, sndbuf_ptr);
+
+	/* Packet timestamp */
+	eemo_cx_int_buf_append_uint64(pkt->pkt_ts.tv_sec, sndbuf, sndbuf_ptr);
+	eemo_cx_int_buf_append_uint64(pkt->pkt_ts.tv_usec, sndbuf, sndbuf_ptr);
+
+	/* Packet data */
+	eemo_cx_int_buf_append_bytes(pkt->pkt_data, pkt->pkt_len, sndbuf, sndbuf_ptr);
+
+	/* If this is the last packet, flush the send buffer */
+	if (is_last)
+	{
+		if ((rv = tls_sock_write_bytes(socket, sndbuf, *sndbuf_ptr)) != ERV_OK)
+		{
+			DEBUG_MSG("tls_sock_write_bytes failed (0x%08x)", rv);
+
+			return rv;
+		}
+
+		*sndbuf_ptr = 0;
+	}
+
+	return ERV_OK;
 }
 
 /* Deserialize a captured packet and its metadata */
@@ -247,6 +280,7 @@ eemo_mux_pkt* eemo_cx_deserialize_pkt(eemo_mux_cmd* pkt_cmd)
 
 	struct timeval	ts	= { 0, 0 };
 	uint32_t	pkt_len	= pkt_cmd->cmd_len - (2 * sizeof(uint64_t));
+	uint8_t*	tofree	= pkt_cmd->cmd_data;
 
 	if (pkt_cmd->cmd_len < (2 * sizeof(uint64_t)))
 	{
@@ -257,7 +291,21 @@ eemo_mux_pkt* eemo_cx_deserialize_pkt(eemo_mux_cmd* pkt_cmd)
 	ts.tv_sec	= (time_t) 	be64toh(*((uint64_t*) &pkt_cmd->cmd_data[0]));
 	ts.tv_usec	= (suseconds_t)	be64toh(*((uint64_t*) &pkt_cmd->cmd_data[sizeof(uint64_t)]));
 
-	return eemo_cx_new_packet(ts, &pkt_cmd->cmd_data[2 * sizeof(uint64_t)], pkt_len);
+	pkt_cmd->cmd_data = NULL;
+
+	return eemo_cx_new_packet(ts, &tofree[2 * sizeof(uint64_t)], pkt_len, tofree);
+}
+
+/* Create a new packet from a captured packet by copy */
+eemo_mux_pkt* eemo_cx_pkt_from_capture(struct timeval ts, const uint8_t* pkt_data, const uint32_t pkt_len)
+{
+	assert((pkt_data != NULL) || (pkt_len == 0));
+
+	uint8_t*	tofree	= (uint8_t*) malloc(pkt_len * sizeof(uint8_t));
+
+	memcpy(tofree, pkt_data, pkt_len);
+
+	return eemo_cx_new_packet(ts, tofree, pkt_len, tofree);
 }
 
 /* Create a shallow copy of a packet (increases the reference counter) */
@@ -265,28 +313,14 @@ eemo_mux_pkt* eemo_cx_pkt_copy(eemo_mux_pkt* pkt)
 {
 	if (pkt != NULL)
 	{
+		pthread_mutex_lock(&pkt->pkt_refmutex);
+
 		pkt->pkt_refctr++;
+
+		pthread_mutex_unlock(&pkt->pkt_refmutex);
 	}
 
 	return pkt;
-}
-
-/* Clone a packet (creates a deep copy) */
-eemo_mux_pkt* eemo_cx_pkt_clone(const eemo_mux_pkt* pkt)
-{
-	eemo_mux_pkt*	clone	= (eemo_mux_pkt*) malloc(sizeof(eemo_mux_pkt));
-
-	memset(clone, 0, sizeof(eemo_mux_pkt));
-
-	memcpy(&clone->pkt_ts, &pkt->pkt_ts, sizeof(struct timeval));
-
-	clone->pkt_len = pkt->pkt_len;
-	clone->pkt_data = (uint8_t*) malloc(clone->pkt_len * sizeof(uint8_t));
-	memcpy(clone->pkt_data, pkt->pkt_data, pkt->pkt_len);
-
-	clone->pkt_refctr = 1;
-
-	return clone;
 }
 
 /* Release the reference to a packet (frees storage when the reference counter reaches zero) */
@@ -301,11 +335,15 @@ void eemo_cx_pkt_free(eemo_mux_pkt* pkt)
 
 	if (--pkt->pkt_refctr == 0)
 	{
-		pthread_mutex_unlock(&pkt->pkt_refmutex);
-		pthread_mutex_destroy(&pkt->pkt_refmutex);
+		pthread_mutex_t	dest_mutex;
 
-		free(pkt->pkt_data);
+		memcpy(&dest_mutex, &pkt->pkt_refmutex, sizeof(pthread_mutex_t));
+
+		free(pkt->pkt_tofree);
 		free(pkt);
+
+		pthread_mutex_unlock(&dest_mutex);
+		pthread_mutex_destroy(&dest_mutex);
 	}
 	else
 	{

@@ -42,7 +42,7 @@
 #include "eemo_tlsutil.h"
 #include "eemo_tlscomm.h"
 #include "eemo_mux_cmdxfer.h"
-#include "eemo_mux_client.h"
+#include "eemo_mux_queue.h"
 #include "utlist.h"
 #include <unistd.h>
 #include <errno.h>
@@ -91,7 +91,7 @@ typedef struct client_spec
 	SSL*			tls;				/* TLS context */
 	int 			socket;				/* data socket */
 	client_subs*		subscriptions;			/* subscriptions to feeds from sensors */
-	client_queue*		q;				/* client queue */
+	mux_queue*		q;				/* client queue */
 	unsigned long long	pkt_count;			/* number of packets sent to client */
 	unsigned long long	byte_count;			/* number of bytes sent to client */
 	char			ip_str[INET6_ADDRSTRLEN];	/* IP address of the client */
@@ -114,6 +114,7 @@ static int		current_id	= 1;
 
 /* Queue configuration */
 static int		max_queue_len	= 0;
+static int		q_flush_th	= 1000;
 
 /* Signal handler for exit signal */
 static void stop_signal_handler(int signum)
@@ -444,7 +445,7 @@ static void eemo_mux_new_client(const int client_socket)
 	new_client->byte_count = 0;
 
 	/* Start new client queue */
-	new_client->q = eemo_cq_new(new_client->tls, max_queue_len);
+	new_client->q = eemo_q_new(new_client->tls, max_queue_len, q_flush_th, 1000);
 
 	if (new_client->q == NULL)
 	{
@@ -472,7 +473,7 @@ static void eemo_mux_shutdown_client(client_spec* client, const int is_graceful)
 	/* Stop and clean up the client queue */
 	if (client->q != NULL)
 	{
-		eemo_cq_stop(client->q);
+		eemo_q_stop(client->q);
 		client->q = NULL;
 	}
 
@@ -710,7 +711,7 @@ static eemo_rv eemo_mux_handle_sensor_packet(const int socket)
 				{
 					if (subs_it->id == sensor_it->id)
 					{
-						if ((rv = eemo_cq_enqueue(client_it->q, pkt)) != ERV_OK)
+						if ((rv = eemo_q_enqueue(client_it->q, pkt)) != ERV_OK)
 						{
 							if (rv == ERV_QUEUE_OVERFLOW)
 							{
@@ -1560,6 +1561,17 @@ void eemo_mux_run_multiplexer(void)
 
 		return;
 	}
+
+	INFO_MSG("Multiplexer maximum client queue length set to %d", max_queue_len);
+
+	if ((eemo_conf_get_int("clients", "flush_threshold", &q_flush_th, 1000) != ERV_OK) || (q_flush_th <= 0))
+	{
+		ERROR_MSG("Invalid queue flush threshold (%d)", q_flush_th);
+
+		return;
+	}
+
+	INFO_MSG("Multiplexer queue flush threshold set to %d packets", q_flush_th);
 	
 	eemo_mux_comm_loop();
 

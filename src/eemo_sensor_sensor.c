@@ -42,6 +42,7 @@
 #include "eemo_tlscomm.h"
 #include "eemo_mux_cmdxfer.h"
 #include "eemo_mux_proto.h"
+#include "eemo_mux_queue.h"
 #include <unistd.h>
 #include <errno.h>
 #include <sys/socket.h>
@@ -57,14 +58,17 @@
 #include <pcap.h>
 
 /* Server configuration */
-static char*			mux_hostname	= NULL;	
-static int			mux_port	= -1;
+static char*	mux_hostname	= NULL;	
+static int	mux_port	= -1;
 
 /* Connection to the multiplexer */
-static SSL_CTX*	tls_ctx				= NULL;
-static SSL*	tls				= NULL;
-static int	mux_socket			= -1;
-static char	mux_ip_str[INET6_ADDRSTRLEN]	= { 0 };
+static SSL_CTX*		tls_ctx				= NULL;
+static SSL*		tls				= NULL;
+static int		mux_socket			= -1;
+static char		mux_ip_str[INET6_ADDRSTRLEN]	= { 0 };
+static int 		max_qlen			= 100000;
+static int		q_flush_threshold		= 1000;
+static mux_queue*	mux_q				= NULL;
 
 /* Sensor state */
 static int	sensor_exit	= 0;
@@ -77,6 +81,7 @@ static char*	sensor_iface	= NULL;
 
 /* Capture */
 static pcap_t*	pcap_handle	= NULL;
+static int	cap_buf_size	= 32;		/* default to 32MB */
 
 /* Initialise the sensor */
 eemo_rv eemo_sensor_init(void)
@@ -98,6 +103,41 @@ eemo_rv eemo_sensor_init(void)
 		return ERV_CONFIG_ERROR;
 	}
 
+	if ((eemo_conf_get_int("sensor", "bufsize", &cap_buf_size, 32) != ERV_OK) || (cap_buf_size <= 0))
+	{
+		ERROR_MSG("Invalid sensor capture buffer size (%d) configured, giving up", cap_buf_size);
+
+		free(mux_hostname);
+
+		return ERV_CONFIG_ERROR;
+	}
+
+	INFO_MSG("Sensor capture buffer size set to %dMB", cap_buf_size);
+
+	if ((eemo_conf_get_int("sensor", "max_queue_len", &max_qlen, 100000) != ERV_OK) || (max_qlen <= 0))
+	{
+		ERROR_MSG("Invalid maximum transmission queue length (%d) configured, giving up", max_qlen);
+
+		free(mux_hostname);
+
+		return ERV_CONFIG_ERROR;
+	}
+
+	INFO_MSG("Sensor maximum outgoing queue length set to %d", max_qlen);
+
+	if ((eemo_conf_get_int("sensor", "flush_threshold", &q_flush_threshold, 1000) != ERV_OK) || (q_flush_threshold <= 0))
+	{
+		ERROR_MSG("Invalid queue flush threshold (%d)", q_flush_threshold);
+
+		free(mux_hostname);
+
+		return ERV_CONFIG_ERROR;
+	}
+	else
+	{
+		INFO_MSG("Queue flush threshold set to %d", q_flush_threshold);
+	}
+
 	if ((eemo_conf_get_string("sensor", "sensor_guid", &sensor_guid, NULL) != ERV_OK) || (sensor_guid == NULL))
 	{
 		ERROR_MSG("Failed to retrieve the sensor GUID from the configuration");
@@ -106,6 +146,8 @@ eemo_rv eemo_sensor_init(void)
 		
 		return ERV_CONFIG_ERROR;
 	}
+
+	INFO_MSG("Sensor GUID set to %s", sensor_guid);
 
 	if (eemo_conf_get_string("sensor", "sensor_description", &sensor_desc, "no description provided") != ERV_OK)
 	{
@@ -116,6 +158,8 @@ eemo_rv eemo_sensor_init(void)
 
 		return ERV_CONFIG_ERROR;
 	}
+
+	INFO_MSG("Sensor description set to '%s'", sensor_desc);
 
 	if (eemo_conf_get_string("sensor", "sensor_filter", &sensor_filter, NULL) != ERV_OK)
 	{
@@ -514,6 +558,10 @@ int eemo_sensor_connect_mux(void)
 		}
 
 		eemo_cx_cmd_free(&cmd);
+
+		mux_q = eemo_q_new(tls, max_qlen, q_flush_threshold, 0);
+
+		assert(mux_q != NULL);
 		
 		return 0;
 
@@ -542,6 +590,12 @@ errorcond:
 void eemo_sensor_disconnect_mux(void)
 {
 	eemo_mux_cmd	cmd	= { 0, 0, NULL };
+
+	if (mux_q != NULL)
+	{
+		eemo_q_stop(mux_q);
+		mux_q = NULL;
+	}
 
 	if ((tls == NULL) || (tls_ctx == NULL) || (mux_socket < 0))
 	{
@@ -610,18 +664,63 @@ shutdown:
 /* PCAP callback handler */
 void eemo_sensor_pcap_cb(u_char* user_ptr, const struct pcap_pkthdr* hdr, const u_char* data)
 {
+	eemo_rv		rv	= ERV_OK;
+	eemo_mux_pkt*	pkt	= NULL;
+
 	if (sensor_exit)
 	{
 		pcap_breakloop(pcap_handle);
 	}
 
-	/* Send the captured packet to the multiplexer */
-	if (eemo_cx_send_pkt_sensor(tls, hdr->ts, data, hdr->len) != ERV_OK)
+	if (mux_q == NULL)
 	{
-		ERROR_MSG("Failed to transmit captured packet to mux server, stopping capture");
+		ERROR_MSG("No active multiplexer queue, should not happen!");
 
 		pcap_breakloop(pcap_handle);
+
+		return;
 	}
+
+	if (!mux_q->queue_state)
+	{
+		WARNING_MSG("Multiplexer queue state changed to invalid, stopping capture");
+
+		pcap_breakloop(pcap_handle);
+
+		return;
+	}
+
+	/* Send the captured packet to the multiplexer */
+	pkt = eemo_cx_pkt_from_capture(hdr->ts, data, hdr->len);
+
+	if (pkt == NULL)
+	{
+		ERROR_MSG("Failed to construct packet to send, giving up on capture");
+
+		pcap_breakloop(pcap_handle);
+
+		return;
+	}
+
+	if ((rv = eemo_q_enqueue(mux_q, pkt)) != ERV_OK)
+	{
+		if (rv == ERV_QUEUE_OVERFLOW)
+		{
+			WARNING_MSG("Send queue to multiplexer overflowing");
+		}
+		else if (rv == ERV_QUEUE_OK)
+		{
+			INFO_MSG("Send queue to multiplexer no longer overflowing");
+		}
+		else
+		{
+			ERROR_MSG("Error enqueueing packet to send to multiplexer");
+
+			pcap_breakloop(pcap_handle);
+		}
+	}
+
+	eemo_cx_pkt_free(pkt);
 }
 
 /* Start and run capture */
@@ -646,11 +745,62 @@ eemo_rv eemo_sensor_capture(void)
 
 	INFO_MSG("Opening device %s for packet capture", pcap_if);
 
-	if ((new_handle = pcap_open_live(pcap_if, 65536, 1, 1000, errbuf)) == NULL)
+	if ((new_handle = pcap_create(pcap_if, errbuf)) == NULL)
 	{
-		ERROR_MSG("Unable to open interface %s for capture (%s)", pcap_if, errbuf);
+		ERROR_MSG("Failed to open capture handle");
 
-		return ERV_NO_ACCESS;
+		return ERV_ETH_NOT_EXIST;
+	}
+
+	if (pcap_set_snaplen(new_handle, 65536) != 0)
+	{
+		ERROR_MSG("Failed to set snap length for capture, giving up");
+
+		pcap_close(new_handle);
+
+		return ERV_GENERAL_ERROR;
+	}
+
+	if (pcap_set_promisc(new_handle, 1) != 0)
+	{
+		ERROR_MSG("Failed to set promiscuous mode on network device, giving up");
+
+		pcap_close(new_handle);
+
+		return ERV_GENERAL_ERROR;
+	}
+
+	if (pcap_set_timeout(new_handle, 1000) != 0)
+	{
+		ERROR_MSG("Failed to set timeout on capture, giving up");
+
+		pcap_close(new_handle);
+
+		return ERV_GENERAL_ERROR;
+	}
+
+	/* Set capture buffer size */
+	if (pcap_set_buffer_size(new_handle, cap_buf_size*1024*1024) != 0)
+	{
+		WARNING_MSG("Failed to change capture buffer size");
+	}
+	else
+	{
+		INFO_MSG("Set capture buffer size to %d bytes", cap_buf_size*1024*1024);
+	}
+
+	/* Activate capture */
+	if (pcap_activate(new_handle) != 0)
+	{
+		ERROR_MSG("Failed to activate packet capture, giving up");
+
+		pcap_close(new_handle);
+
+		return ERV_GENERAL_ERROR;
+	}
+	else
+	{
+		INFO_MSG("Activated capture");
 	}
 
 	if (sensor_filter == NULL)

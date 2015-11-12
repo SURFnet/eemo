@@ -1,7 +1,6 @@
-/* $Id$ */
-
 /*
- * Copyright (c) 2010-2014 SURFnet bv
+ * Copyright (c) 2010-2015 SURFnet bv
+ * Copyright (c) 2015 Roland van Rijswijk-Deij
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -35,8 +34,8 @@
  * Client handling and queueing
  */
 
-#ifndef _EEMO_MUX_CLIENT_H
-#define _EEMO_MUX_CLIENT_H
+#ifndef _EEMO_MUX_QUEUE_H
+#define _EEMO_MUX_QUEUE_H
 
 #include "config.h"
 #include "eemo.h"
@@ -46,39 +45,44 @@
 #include <openssl/ssl.h>
 
 /* Queue item */
-typedef struct cq_entry
+typedef struct q_entry
 {
-	eemo_mux_pkt*		cq_pkt;
-	struct cq_entry*	next;
-	struct cq_entry*	prev;
+	eemo_mux_pkt*	q_pkt;
+	struct q_entry*	next;
+	struct q_entry*	prev;
 }
-cq_entry;
+q_entry;
 
 /* Client queue */
-typedef struct client_queue
+typedef struct mux_queue
 {
 	SSL*		tls;		/* TLS connection */
-	cq_entry*	q_head;		/* The head of the queue */
-	cq_entry*	q_tail;		/* The tail of the queue */
+	q_entry*	q_head;		/* The head of the queue */
+	q_entry*	q_tail;		/* The tail of the queue */
 	size_t		q_len;		/* The length of the queue */
 	size_t		q_maxlen;	/* The maximum queue length */
+	size_t		q_flush_th;	/* Queue flush threshold */
+	uint8_t*	q_sendbuf;	/* Queue send buffer */
+	size_t		q_sendbuf_sz;	/* Queue send buffer size */
+	size_t		q_sendsize;	/* Accumulated size of data to send */
 	pthread_mutex_t	q_mutex;	/* Queue access mutex */
 	pthread_cond_t	q_signal;	/* Queue signal */
-	pthread_t	client_thread;	/* The client thread */
-	int		client_run;	/* Should the client thread be running? */
-	int		client_state;	/* Is the client connection OK? */
+	pthread_t	queue_thread;	/* The queue thread */
+	int		queue_run;	/* Should the queue thread be running? */
+	int		queue_state;	/* Is the queue connection OK? */
 	int		q_overflow;	/* Is the packet queue overflowing? */
+	int		is_client;	/* Is this a queue queue? */
 }
-client_queue;
+mux_queue;
 
-/* Create a new client handler */
-client_queue* eemo_cq_new(SSL* tls, const size_t maxlen);
+/* Create a new queue handler */
+mux_queue* eemo_q_new(SSL* tls, const size_t maxlen, const size_t flush_threshold, const int is_client);
 
-/* Enqueue a new packet for the client */
-eemo_rv eemo_cq_enqueue(client_queue* q, eemo_mux_pkt* pkt);
+/* Enqueue a new packet for the queue */
+eemo_rv eemo_q_enqueue(mux_queue* q, eemo_mux_pkt* pkt);
 
-/* Finalise the client */
-void eemo_cq_stop(client_queue* q);
+/* Finalise the queue */
+void eemo_q_stop(mux_queue* q);
 
-#endif /* !_EEMO_MUX_CLIENT_H */
+#endif /* !_EEMO_MUX_QUEUE_H */
 

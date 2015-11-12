@@ -61,6 +61,8 @@ eemo_export_fn_table eemo_function_table =
 	&eemo_conf_get_string,
 	&eemo_conf_get_string_array,
 	&eemo_conf_free_string_array,
+	&eemo_reg_raw_handler,
+	&eemo_unreg_raw_handler,
 	&eemo_reg_ether_handler,
 	&eemo_unreg_ether_handler,
 	&eemo_reg_ip_handler,

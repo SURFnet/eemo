@@ -40,6 +40,7 @@
 #include "config.h"
 #include "eemo.h"
 #include "eemo_log.h"
+#include "raw_handler.h"
 #include "dns_handler.h"
 #include "ether_handler.h"
 #include "ip_handler.h"
@@ -49,7 +50,7 @@
 #include "ip_metadata.h"
 
 /* Function table exported by EEMO; always check version before using */
-#define EEMO_EXPORT_FN_VERSION		3
+#define EEMO_EXPORT_FN_VERSION		4
 
 /* Configuration functions need to be defined here, otherwise we get cross-referencing headers */
 typedef eemo_rv (*eemo_conf_get_int_fn)(const char*, const char*, int*, int);
@@ -72,6 +73,10 @@ typedef struct
 	eemo_conf_get_string_fn		conf_get_string;
 	eemo_conf_get_string_array_fn	conf_get_string_array;
 	eemo_conf_free_string_array_fn	conf_free_string_array;
+
+	/* Raw packet handler administration */
+	eemo_reg_raw_handler_fn		reg_raw_handler;
+	eemo_unreg_raw_handler_fn	unreg_raw_handler;
 	
 	/* Ethernet handler administration */
 	eemo_reg_ether_handler_fn	reg_ether_handler;
