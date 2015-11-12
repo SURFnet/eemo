@@ -102,6 +102,8 @@ static struct chr_table
 static struct rcodes_table
 {
 	unsigned int NOERROR;
+	unsigned int NODATA;
+	unsigned int REFERRAL;
 	unsigned int FORMERR;
 	unsigned int SERVFAIL;
 	unsigned int NXDOMAIN;
@@ -271,6 +273,8 @@ void init_var(void)
 
 	/* Initialize RCODES statistics */
 	rcodes.NOERROR		= 0;
+	rcodes.NODATA		= 0;
+	rcodes.REFERRAL		= 0;
 	rcodes.FORMERR		= 0;
 	rcodes.SERVFAIL		= 0;
 	rcodes.NXDOMAIN		= 0;
@@ -538,7 +542,7 @@ void write_stats(void)
 	if (stat_fp_rcodes != NULL)
 	{
 		//INFO_MSG("- RCODE..");
-		fprintf(stat_fp_rcodes, "%d\t%d\t%d\t%d\t%d\t%d\n", rcodes.NOERROR, rcodes.FORMERR, rcodes.SERVFAIL, rcodes.NXDOMAIN, rcodes.NOTIMPL, rcodes.REFUSED);	
+		fprintf(stat_fp_rcodes, "%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\n", rcodes.NOERROR, rcodes.NODATA, rcodes.REFERRAL, rcodes.FORMERR, rcodes.SERVFAIL, rcodes.NXDOMAIN, rcodes.NOTIMPL, rcodes.REFUSED);	
 		
 		fclose(stat_fp_rcodes);
 	}	
@@ -618,7 +622,7 @@ void eemo_dnsdistribution_stats_init(char* stats_file_general, char* stats_file_
 	fclose(stat_fp_sigs_per_resp);
 
 	stat_fp_rcodes  = fopen(stat_file_rcodes, "w");
-	if (stat_fp_rcodes != NULL) fprintf(stat_fp_rcodes, "NOERROR\tFORMERR\tSERVFAIL\tNXDOMAIN\tNOTIMPL\tREFUSED\n");
+	if (stat_fp_rcodes != NULL) fprintf(stat_fp_rcodes, "NOERROR\tNODATA\tREFERRAL\tFORMERR\tSERVFAIL\tNXDOMAIN\tNOTIMPL\tREFUSED\n");
 	fclose(stat_fp_rcodes);
 	
 	LL_FOREACH(ttl_tables, ttl_table)
@@ -971,11 +975,13 @@ eemo_rv eemo_dnsdistribution_stats_handleqr(eemo_ip_packet_info ip_info, int is_
 		   Only consider messsages towards the selected resolver */
 		for (i = 0; i < ips_count; i++)
 		{
-//			if ((!strcmp(ip_info.ip_dst, ips_resolver[i]) || !strcmp(ip_info.ip_dst, IP_ANY)) && dns_packet->srcport == 53 && dns_packet->dstport != 53 && dns_packet->aa_flag == 1)
 			if ((!strcmp(ip_info.ip_dst, ips_resolver[i]) || !strcmp(ip_info.ip_dst, IP_ANY)) && dns_packet->srcport == 53 && dns_packet->dstport != 53)
 			{
 				struct hashentry_ii *search_entry = NULL;
 				char* qname = "";
+				int has_soa_in_auth = 0;
+				int has_ns_in_auth  = 0;
+
 				nr_resp++;
 			
 				/* Count number of fragmented responses */	
@@ -1024,6 +1030,14 @@ eemo_rv eemo_dnsdistribution_stats_handleqr(eemo_ip_packet_info ip_info, int is_
 				LL_FOREACH(dns_packet->authorities, rr_it)
 				{
 					sigs_in_resp +=	analyse_rr(rr_it, AUTHORITY, dns_packet->aa_flag);
+					if (rr_it->type == DNS_QTYPE_SOA)
+					{
+						has_soa_in_auth = 1;
+					} 
+					else if (rr_it->type == DNS_QTYPE_NS)
+					{
+						has_ns_in_auth = 1;
+					}
 				}
 
 				/* Iterate over all ADDITIONAL records */
@@ -1036,7 +1050,19 @@ eemo_rv eemo_dnsdistribution_stats_handleqr(eemo_ip_packet_info ip_info, int is_
 				switch(dns_packet->rcode)
 				{
 					case DNS_RCODE_NOERROR:
-						rcodes.NOERROR++;
+						/* Differentiate between NOERROR, REFFERAL and NODATA */
+						if (dns_packet->answers == NULL && has_soa_in_auth)
+						{
+							rcodes.NODATA++;
+						}
+						else if (dns_packet->answers == NULL && has_ns_in_auth)
+						{
+							rcodes.REFERRAL++;
+						}
+						else
+						{
+							rcodes.NOERROR++;
+						}
 						break;
 					case DNS_RCODE_FORMERR:
 						rcodes.FORMERR++;
