@@ -221,7 +221,7 @@ static int eemo_nonecsmonitor_int_open_day_file(time_t ts)
 	/* Write CSV header */
 	if (ftell(edns0_mon_file) == 0)
 	{
-		fprintf(edns0_mon_file, "timestamp;qtype;q_src;q_cidr_desc;qname\n");
+		fprintf(edns0_mon_file, "timestamp;qtype;q_src;q_cidr_desc;has_edns0;qname\n");
 	}
 
 	INFO_MSG("Started new file on %04d-%02d-%02d (%s)", ecsmon_today.year, ecsmon_today.month, ecsmon_today.day, day_file_name);
@@ -252,11 +252,12 @@ eemo_rv eemo_nonecsmonitor_dns_handler(eemo_ip_packet_info ip_info, int is_tcp, 
 			return ERV_SKIPPED;
 		}
 
-		fprintf(edns0_mon_file, "%u;%u;%s;%s",
+		fprintf(edns0_mon_file, "%u;%u;%s;%s;%d",
 			(unsigned int) ip_info.ts.tv_sec,
 			pkt->questions->qtype,
 			ip_info.ip_src,
-			cidr_desc);
+			cidr_desc,
+			pkt->has_edns0);
 
 		if (pkt->questions->qname != NULL)
 		{
