@@ -41,6 +41,7 @@
 #include "utlist.h"
 #include "eemo_log.h"
 #include "eemo_modules.h"
+#include "cidrmatch.h"
 #include <libconfig.h>
 #include <string.h>
 #include <stdlib.h>
@@ -74,7 +75,10 @@ eemo_export_fn_table eemo_function_table =
 	&eemo_reg_udp_handler,
 	&eemo_unreg_udp_handler,
 	&eemo_reg_dns_handler,
-	&eemo_unreg_dns_handler
+	&eemo_unreg_dns_handler,
+	&eemo_cm_add_block,
+	&eemo_cm_match_v4,
+	&eemo_cm_match_v6
 };
 
 /* Load and initialise the modules */

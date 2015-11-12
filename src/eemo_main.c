@@ -54,6 +54,7 @@
 #include "eemo_log.h"
 #include "ip_metadata.h"
 #include "ip_reassemble.h"
+#include "cidrmatch.h"
 
 void version(void)
 {
@@ -373,6 +374,14 @@ int main(int argc, char* argv[])
 		return ERV_GENERAL_ERROR;
 	}
 
+	/* Initialise CIDR block matching module */
+	if (eemo_cm_init() != ERV_OK)
+	{
+		ERROR_MSG("Failed to initialise CIDR block matching");
+
+		return ERV_GENERAL_ERROR;
+	}
+
 	/* Initialise packet handlers */
 	if (eemo_init_raw_handler() != ERV_OK)
 	{
@@ -451,6 +460,9 @@ int main(int argc, char* argv[])
 	eemo_ip_handler_cleanup();
 	eemo_ether_handler_cleanup();
 	eemo_raw_handler_cleanup();
+
+	/* Uninitialise CIDR matching */
+	eemo_cm_finalize();
 
 	/* Uninitialise IP reassembly module */
 	eemo_reasm_finalize();
