@@ -136,7 +136,10 @@ static int	nr_frag					= 0;
 static int	nr_trun					= 0;
 static int	nr_trun_with_sigs			= 0;
 static int 	nr_sigs					= 0;
-static int 	nr_sigs_aa					= 0;
+static int 	nr_sigs_ans				= 0;
+static int 	nr_sigs_auth				= 0;
+static int 	nr_sigs_add				= 0;
+static int 	nr_sigs_aa				= 0;
 static int	nr_resp_with_sigs			= 0;
 static struct	timespec time_before;
 static struct	timespec time_next;		
@@ -278,6 +281,9 @@ void init_var(void)
 	nr_quer			= 0;
 	nr_quer_out		= 0;
 	nr_sigs 		= 0;
+	nr_sigs_ans 		= 0;
+	nr_sigs_auth		= 0;
+	nr_sigs_add		= 0;
 	nr_sigs_aa 		= 0;
 	nr_frag			= 0;
 	nr_trun			= 0;
@@ -389,13 +395,11 @@ void write_stats(void)
 	passed_time_s = time_after.tv_sec - time_before.tv_sec;
 	passed_time_ns = time_after.tv_nsec - time_before.tv_nsec;
 	passed_time_total = (float) passed_time_s + (float) passed_time_ns/NSEC_PER_SEC;
-	INFO_MSG("%d %d %d", time_after.tv_sec, time_before.tv_sec, time_after.tv_sec-time_before.tv_sec);
-	INFO_MSG("%d %d %d", time_after.tv_nsec, time_before.tv_nsec, time_after.tv_nsec-time_before.tv_nsec);
 	
 	if (stat_fp_general != NULL)
 	{
 		//INFO_MSG("- General..");
-		fprintf(stat_fp_general, "%.3f\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%0.2f\t%d\n", passed_time_total, nr_quer, nr_resp, chr.RESPONSES, nr_quer_out, nr_frag, nr_trun, nr_trun_with_sigs, nr_sigs, nr_resp_with_sigs, 100 - (((double) chr.RESPONSES/ (double) chr.QUERIES)*100), nr_sigs_aa);
+		fprintf(stat_fp_general, "%.3f\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%0.2f\t%d\n", passed_time_total, nr_quer, nr_resp, chr.RESPONSES, nr_quer_out, nr_frag, nr_trun, nr_trun_with_sigs, nr_sigs, nr_sigs_ans, nr_sigs_auth, nr_sigs_add, nr_resp_with_sigs, 100 - (((double) chr.RESPONSES/ (double) chr.QUERIES)*100), nr_sigs_aa);
 		fclose(stat_fp_general);	
 	}
 
@@ -411,7 +415,7 @@ void write_stats(void)
 
 		HASH_ITER(hh, qname_table, s, tmp)
 		{
-			fprintf(stat_fp_qnamepop_cl, "%u\t%u\t%s\n", ln, s->value, s->name);
+			//fprintf(stat_fp_qnamepop_cl, "%u\t%u\t%s\n", ln, s->value, s->name);
 			ln++;
 		}
 		fprintf(stat_fp_qnamepop_cl, "\n\n");
@@ -431,7 +435,7 @@ void write_stats(void)
 
 		HASH_ITER(hh, qname_table_q_ns, s, tmp)
 		{
-			fprintf(stat_fp_qnamepop_q_ns, "%u\t%u\t%s\n", ln, s->value, s->name);
+			//fprintf(stat_fp_qnamepop_q_ns, "%u\t%u\t%s\n", ln, s->value, s->name);
 			ln++;
 		}
 		fprintf(stat_fp_qnamepop_q_ns, "\n\n");
@@ -451,7 +455,7 @@ void write_stats(void)
 
 		HASH_ITER(hh, qname_table_r_ns, s, tmp)
 		{
-			fprintf(stat_fp_qnamepop_r_ns, "%u\t%u\t%s\n", ln, s->value, s->name);
+			//fprintf(stat_fp_qnamepop_r_ns, "%u\t%u\t%s\n", ln, s->value, s->name);
 			ln++;
 		}
 		fprintf(stat_fp_qnamepop_r_ns, "\n\n");
@@ -589,7 +593,7 @@ void eemo_dnsdistribution_stats_init(char* stats_file_general, char* stats_file_
 	if (stat_fp_general != NULL){
 		time_t ltime;
                 ltime = time(NULL);
-		fprintf(stat_fp_general, "%s\ttime\tqueries\tresponses\tauth_resp\toutgoing queries\tfrag\ttrunc\ttrunc_w_sigs\tsignatures\tresponses_w_sigs\tchr\tsignatures_aa\n", asctime(localtime(&ltime)));
+		fprintf(stat_fp_general, "%s\ttime\tqueries\tresponses\tauth_resp\toutgoing_queries\tfrag\ttrunc\ttrunc_w_sigs\tsignatures\tsigs_ans\tsigs_auth\tsigs_add\tresponses_w_sigs\tchr\tsignatures_aa\n", asctime(localtime(&ltime)));
 	}
 	fclose(stat_fp_general);
 	
@@ -692,17 +696,6 @@ int analyse_rr(eemo_dns_rr* rr_it, dns_section section, unsigned char aa_flag)
 	int is_sig = 0;
 	struct hashentry_si *s  = NULL; /* Search entry */
 
-	/* Check if the RR set is a signature */
-	if(rr_it->type == DNS_QTYPE_RRSIG)
-	{	
-		nr_sigs++;
-		is_sig++;
-		if (aa_flag)
-		{
-			nr_sigs_aa++;
-		}
-	}
-
 	/* Select the right hashtable */			
 	switch( rr_it->type )
 	{
@@ -756,15 +749,26 @@ int analyse_rr(eemo_dns_rr* rr_it, dns_section section, unsigned char aa_flag)
 		HASH_FIND_STR ( ttl_table_DNSKEY->table, rr_it->name , s );
 		break;
 	case DNS_QTYPE_RRSIG:
+		/* For statistics regarding signatures */		
+		nr_sigs++;
+		is_sig++;
+		if (aa_flag)
+		{
+			nr_sigs_aa++;
+		}
+
 		if (section == ANSWER){
+			nr_sigs_ans++;
 			HASH_FIND_STR ( ttl_table_RRSIG->table, rr_it->name , s );
 		}
 		else if (section == AUTHORITY){
+			nr_sigs_auth++;
 			HASH_FIND_STR ( ttl_table_RRSIG_auth->table, rr_it->name , s );
 		}
 		else if (section == ADDITIONAL){
-					HASH_FIND_STR ( ttl_table_RRSIG_add->table, rr_it->name , s );
-				}
+			nr_sigs_add++;
+			HASH_FIND_STR ( ttl_table_RRSIG_add->table, rr_it->name , s );
+		}
 		break;
 	case DNS_QTYPE_TXT:
 		HASH_FIND_STR ( ttl_table_TXT->table, rr_it->name , s );
