@@ -218,7 +218,7 @@ static int eemo_ecsmonitor_int_open_day_file(time_t ts)
 	/* Write CSV header */
 	if (ftell(edns0_mon_file) == 0)
 	{
-		fprintf(edns0_mon_file, "timestamp;qtype;q_src;ecs_ip;ecs_scope;q_as;q_geoip;ecs_ip_as;ecs_ip_geoip\n");
+		fprintf(edns0_mon_file, "timestamp;qtype;q_src;ecs_ip;ecs_scope;q_as;q_geoip;ecs_ip_as;ecs_ip_geoip;qname\n");
 	}
 
 	INFO_MSG("Started new file on %04d-%02d-%02d (%s)", ecsmon_today.year, ecsmon_today.month, ecsmon_today.day, day_file_name);
@@ -242,7 +242,7 @@ eemo_rv eemo_ecsmonitor_dns_handler(eemo_ip_packet_info ip_info, int is_tcp, con
 			return ERV_SKIPPED;
 		}
 
-		fprintf(edns0_mon_file, "%u;%u;%s;%s;%u;%s;%s;%s;%s\n",
+		fprintf(edns0_mon_file, "%u;%u;%s;%s;%u;%s;%s;%s;%s",
 			(unsigned int) ip_info.ts.tv_sec,
 			pkt->questions->qtype,
 			ip_info.ip_src,
@@ -252,6 +252,15 @@ eemo_rv eemo_ecsmonitor_dns_handler(eemo_ip_packet_info ip_info, int is_tcp, con
 			ip_info.src_geo_ip,
 			pkt->edns0_client_subnet_as_short,
 			pkt->edns0_client_subnet_geo_ip);
+
+		if (pkt->questions->qname != NULL)
+		{
+			fprintf(edns0_mon_file, ";%s\n", pkt->questions->qname);
+		}
+		else
+		{
+			fprintf(edns0_mon_file, ";(NULL)\n");
+		}
 
 		return ERV_HANDLED;
 	}
