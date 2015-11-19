@@ -46,6 +46,8 @@
 #include <signal.h>
 #include <unistd.h>
 #include <time.h>
+#include <sys/types.h>
+#include <ifaddrs.h>
 
 #define IP_ANY	"*"
 
@@ -99,7 +101,7 @@ static struct chr_table
 } chr;
 
 /* RCODE */
-static struct rcodes_table
+struct rcodes_table
 {
 	unsigned int NOERROR;
 	unsigned int NODATA;
@@ -109,7 +111,7 @@ static struct rcodes_table
 	unsigned int NXDOMAIN;
 	unsigned int NOTIMPL;
 	unsigned int REFUSED;
-} rcodes;
+};
 
 /* Statistics file */
 FILE*	stat_fp_qnamepop_cl	= NULL;
@@ -117,7 +119,7 @@ FILE*	stat_fp_qnamepop_q_ns	= NULL;
 FILE*	stat_fp_qnamepop_r_ns	= NULL;
 FILE*	stat_fp_general		= NULL;
 FILE*	stat_fp_sigs_per_resp	= NULL;
-FILE*	stat_fp_rcodes		= NULL;
+FILE*	stat_fp_rcodes	= NULL;
 
 /* Configuration */
 static const int NSEC_PER_SEC 				= 1000000000;
@@ -145,9 +147,9 @@ static int 	nr_sigs_aa				= 0;
 static int	nr_resp_with_sigs			= 0;
 static struct	timespec time_before;
 static struct	timespec time_next;		
-static struct 	hashentry_si *qname_table	 	= NULL;
-static struct 	hashentry_si *qname_table_q_ns 		= NULL;
-static struct 	hashentry_si *qname_table_r_ns 		= NULL;
+static struct 	hashentry_si 	*qname_table		= NULL;
+static struct 	hashentry_si 	*qname_table_q_ns	= NULL;
+static struct 	hashentry_si 	*qname_table_r_ns 	= NULL;
 static struct	ll_hashtable 	*ttl_table_ALL		= NULL;
 static struct	ll_hashtable 	*ttl_table_A		= NULL;
 static struct	ll_hashtable 	*ttl_table_A_add	= NULL;
@@ -175,7 +177,11 @@ static struct	ll_hashtable 	*ttl_table_SRV		= NULL;
 static struct	ll_hashtable 	*ttl_table_TSIG		= NULL;
 static struct	ll_hashtable 	*ttl_table_DLV		= NULL;
 static struct 	ll_hashtable 	*ttl_tables 		= NULL;
-static struct	hashentry_ii *sigs_per_resp_table	= NULL;
+static struct	hashentry_ii 	*sigs_per_resp_table	= NULL;
+static struct 	rcodes_table 	*rcodes_auth		= NULL;
+static struct 	rcodes_table 	*rcodes_client		= NULL;
+char *local_ipv4;
+char *local_ipv6; 
 
 void init_var(void)
 {	
@@ -272,14 +278,25 @@ void init_var(void)
 	chr.RESPONSES 		= 0;
 
 	/* Initialize RCODES statistics */
-	rcodes.NOERROR		= 0;
-	rcodes.NODATA		= 0;
-	rcodes.REFERRAL		= 0;
-	rcodes.FORMERR		= 0;
-	rcodes.SERVFAIL		= 0;
-	rcodes.NXDOMAIN		= 0;
-	rcodes.NOTIMPL		= 0;
-	rcodes.REFUSED		= 0;
+	rcodes_auth = ( struct rcodes_table* ) malloc ( sizeof ( struct rcodes_table) );
+	rcodes_auth->NOERROR	= 0;
+	rcodes_auth->NODATA	= 0;
+	rcodes_auth->REFERRAL	= 0;
+	rcodes_auth->FORMERR	= 0;
+	rcodes_auth->SERVFAIL	= 0;
+	rcodes_auth->NXDOMAIN	= 0;
+	rcodes_auth->NOTIMPL	= 0;
+	rcodes_auth->REFUSED	= 0;
+
+	rcodes_client = ( struct rcodes_table* ) malloc ( sizeof ( struct rcodes_table) );
+	rcodes_client->NOERROR	= 0;
+	rcodes_client->NODATA	= 0;
+	rcodes_client->REFERRAL	= 0;
+	rcodes_client->FORMERR	= 0;
+	rcodes_client->SERVFAIL	= 0;
+	rcodes_client->NXDOMAIN	= 0;
+	rcodes_client->NOTIMPL	= 0;
+	rcodes_client->REFUSED	= 0;
 
 	/* Initialize the variables for counting signatures */
 	nr_quer			= 0;
@@ -542,7 +559,7 @@ void write_stats(void)
 	if (stat_fp_rcodes != NULL)
 	{
 		//INFO_MSG("- RCODE..");
-		fprintf(stat_fp_rcodes, "%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\n", rcodes.NOERROR, rcodes.NODATA, rcodes.REFERRAL, rcodes.FORMERR, rcodes.SERVFAIL, rcodes.NXDOMAIN, rcodes.NOTIMPL, rcodes.REFUSED);	
+		fprintf(stat_fp_rcodes, "%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\n", rcodes_auth->NOERROR, rcodes_auth->NODATA, rcodes_auth->REFERRAL, rcodes_auth->FORMERR, rcodes_auth->SERVFAIL, rcodes_auth->NXDOMAIN, rcodes_auth->NOTIMPL, rcodes_auth->REFUSED, rcodes_client->NOERROR, rcodes_client->NODATA, rcodes_client->REFERRAL, rcodes_client->FORMERR, rcodes_client->SERVFAIL, rcodes_client->NXDOMAIN, rcodes_client->NOTIMPL, rcodes_client->REFUSED);	
 		
 		fclose(stat_fp_rcodes);
 	}	
@@ -551,10 +568,8 @@ void write_stats(void)
 /* Reset statistics */
 void reset_stats(void)
 {
-	//INFO_MSG("Resetting stats..");
 	free_var();	
 	init_var();
-	//INFO_MSG("Resetting stats.. DONE");
 }
 
 /* Initialise the DNS query counter module */
@@ -566,7 +581,7 @@ void eemo_dnsdistribution_stats_init(char* stats_file_general, char* stats_file_
 	stat_file_sigs_per_resp		= stats_file_sigs_per_resp;
 	stat_file_rcodes		= stats_file_rcodes;
 	ips_resolver 			= resolver_ips;
-	ips_count 			= ip_count;
+	ips_count			= ip_count;
 	stat_emit_interval		= emit_interval;
 	stat_qname_interval_ctr		= emit_qname_ctr;
 	int i 				= 0;
@@ -622,7 +637,7 @@ void eemo_dnsdistribution_stats_init(char* stats_file_general, char* stats_file_
 	fclose(stat_fp_sigs_per_resp);
 
 	stat_fp_rcodes  = fopen(stat_file_rcodes, "w");
-	if (stat_fp_rcodes != NULL) fprintf(stat_fp_rcodes, "NOERROR\tNODATA\tREFERRAL\tFORMERR\tSERVFAIL\tNXDOMAIN\tNOTIMPL\tREFUSED\n");
+	if (stat_fp_rcodes != NULL) fprintf(stat_fp_rcodes, "authoritative NS->resolver\t\t\t\t\t\t\t\t\tresolver->clients\nNOERROR\tNODATA\tREFERRAL\tFORMERR\tSERVFAIL\tNXDOMAIN\tNOTIMPL\tREFUSED\t\tNOERROR\tNODATA\tREFERRAL\tFORMERR\tSERVFAIL\tNXDOMAIN\tNOTIMPL\tREFUSED\n");
 	fclose(stat_fp_rcodes);
 	
 	LL_FOREACH(ttl_tables, ttl_table)
@@ -1053,31 +1068,31 @@ eemo_rv eemo_dnsdistribution_stats_handleqr(eemo_ip_packet_info ip_info, int is_
 						/* Differentiate between NOERROR, REFFERAL and NODATA */
 						if (dns_packet->answers == NULL && has_soa_in_auth)
 						{
-							rcodes.NODATA++;
+							rcodes_auth->NODATA++;
 						}
 						else if (dns_packet->answers == NULL && has_ns_in_auth)
 						{
-							rcodes.REFERRAL++;
+							rcodes_auth->REFERRAL++;
 						}
 						else
 						{
-							rcodes.NOERROR++;
+							rcodes_auth->NOERROR++;
 						}
 						break;
 					case DNS_RCODE_FORMERR:
-						rcodes.FORMERR++;
+						rcodes_auth->FORMERR++;
 						break;
 					case DNS_RCODE_SERVFAIL:
-						rcodes.SERVFAIL++;
+						rcodes_auth->SERVFAIL++;
 						break;
 					case DNS_RCODE_NXDOMAIN:
-						rcodes.NXDOMAIN++;
+						rcodes_auth->NXDOMAIN++;
 						break;
 					case DNS_RCODE_NOTIMPL:
-						rcodes.NOTIMPL++;
+						rcodes_auth->NOTIMPL++;
 						break;
 					case DNS_RCODE_REFUSED:
-						rcodes.REFUSED++;
+						rcodes_auth->REFUSED++;
 						break;
 					default:
 						break;
@@ -1115,6 +1130,68 @@ eemo_rv eemo_dnsdistribution_stats_handleqr(eemo_ip_packet_info ip_info, int is_
 				}
 			
 				break;
+			}
+		}
+
+		/* Responses from the resolver towards the clients */
+		for (i = 0; i < ips_count; i++)
+		{
+			if ((!strcmp(ip_info.ip_src, ips_resolver[i]) || !strcmp(ip_info.ip_src, IP_ANY)) && dns_packet->srcport == 53 && dns_packet->dstport != 53)
+			{
+				int has_soa_in_auth = 0;
+				int has_ns_in_auth  = 0;
+		
+				/* Iterate over all AUTHORITY records */
+				LL_FOREACH(dns_packet->authorities, rr_it)
+				{
+					if (rr_it->type == DNS_QTYPE_SOA)
+					{
+						has_soa_in_auth = 1;
+						break;
+					} 
+					else if (rr_it->type == DNS_QTYPE_NS)
+					{
+						has_ns_in_auth = 1;
+						break;
+					}
+				}
+		
+				switch(dns_packet->rcode)
+				{
+					case DNS_RCODE_NOERROR:
+						/* Differentiate between NOERROR, REFFERAL and NODATA */
+						if (dns_packet->answers == NULL && has_soa_in_auth)
+						{
+							rcodes_client->NODATA++;
+						}
+						else if (dns_packet->answers == NULL && has_ns_in_auth)
+						{
+							rcodes_client->REFERRAL++;
+						}
+						else
+						{
+							rcodes_client->NOERROR++;
+						}
+						break;
+					case DNS_RCODE_FORMERR:
+						rcodes_client->FORMERR++;
+						break;
+					case DNS_RCODE_SERVFAIL:
+						rcodes_client->SERVFAIL++;
+						break;
+					case DNS_RCODE_NXDOMAIN:
+						rcodes_client->NXDOMAIN++;
+						break;
+					case DNS_RCODE_NOTIMPL:
+						rcodes_client->NOTIMPL++;
+						break;
+					case DNS_RCODE_REFUSED:
+						rcodes_client->REFUSED++;
+						break;
+					default:
+						break;
+				}
+				break;						
 			}
 		}
 	}
