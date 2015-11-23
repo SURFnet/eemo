@@ -612,7 +612,7 @@ void eemo_dnsdistribution_stats_init(char* stats_file_general, char* stats_file_
 	if (stat_fp_general != NULL){
 		time_t ltime;
                 ltime = time(NULL);
-		fprintf(stat_fp_general, "%stime\tqueries\tresponses\tauth_resp\toutgoing_queries\tfrag\ttrunc\ttrunc_w_sigs\tsignatures\tsigs_ans\tsigs_auth\tsigs_add\tresponses_w_sigs\tchr\tsignatures_aa\n", asctime(localtime(&ltime)));
+		fprintf(stat_fp_general, "%stime\tq_in\tr\tr_auth\tq_out\tfrag\ttrunc\ttrunc_s\ts\ts_ans\ts_auth\ts_add\tr_s\tchr\ts_aa\n", asctime(localtime(&ltime)));
 	}
 	fclose(stat_fp_general);
 	
