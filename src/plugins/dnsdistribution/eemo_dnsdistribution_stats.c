@@ -136,6 +136,7 @@ static int 	curr_stat_qname_interval_ctr		= 0;
 static int	nr_quer					= 0;
 static int	nr_quer_out				= 0;
 static int	nr_resp					= 0;
+static int	nr_resp_out				= 0;
 static int	nr_frag					= 0;
 static int	nr_trun					= 0;
 static int	nr_trun_with_sigs			= 0;
@@ -310,6 +311,7 @@ void init_var(void)
 	nr_trun			= 0;
 	nr_trun_with_sigs	= 0;
 	nr_resp			= 0;
+	nr_resp_out		= 0;
 	nr_resp_with_sigs	= 0;
 }
 
@@ -420,7 +422,8 @@ void write_stats(void)
 	if (stat_fp_general != NULL)
 	{
 		//INFO_MSG("- General..");
-		fprintf(stat_fp_general, "%.3f\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%0.2f\t%d\n", passed_time_total, nr_quer, nr_resp, chr.RESPONSES, nr_quer_out, nr_frag, nr_trun, nr_trun_with_sigs, nr_sigs, nr_sigs_ans, nr_sigs_auth, nr_sigs_add, nr_resp_with_sigs, 100 - (((double) chr.RESPONSES/ (double) chr.QUERIES)*100), nr_sigs_aa);
+		fprintf(stat_fp_general, "%.3f\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%0.2f\n", passed_time_total, nr_quer, nr_quer_out, nr_resp, nr_resp_out, chr.RESPONSES, nr_resp_with_sigs, nr_frag, nr_trun, nr_trun_with_sigs, nr_sigs, nr_sigs_ans, nr_sigs_auth, nr_sigs_add, nr_sigs_aa, (((double) chr.RESPONSES/ (double) chr.QUERIES)*100));
+	//	fprintf(stat_fp_general, "%.3f\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%0.2f\t%d\n", passed_time_total, nr_quer, nr_resp, nr_resp_out, chr.RESPONSES, nr_quer_out, nr_frag, nr_trun, nr_trun_with_sigs, nr_sigs, nr_sigs_ans, nr_sigs_auth, nr_sigs_add, nr_resp_with_sigs, 100 - (((double) chr.RESPONSES/ (double) chr.QUERIES)*100), nr_sigs_aa);
 		fclose(stat_fp_general);	
 	}
 
@@ -612,7 +615,7 @@ void eemo_dnsdistribution_stats_init(char* stats_file_general, char* stats_file_
 	if (stat_fp_general != NULL){
 		time_t ltime;
                 ltime = time(NULL);
-		fprintf(stat_fp_general, "%stime\tq_in\tr\tr_auth\tq_out\tfrag\ttrunc\ttrunc_s\ts\ts_ans\ts_auth\ts_add\tr_s\tchr\ts_aa\n", asctime(localtime(&ltime)));
+		fprintf(stat_fp_general, "%stime\tq_in\tq_out\tr_in\tr_out\tr_auth\tr_s\tfrag\ttrunc\ttrunc_s\ts\ts_ans\ts_auth\ts_add\ts_aa\tchr\n", asctime(localtime(&ltime)));
 	}
 	fclose(stat_fp_general);
 	
@@ -1140,7 +1143,9 @@ eemo_rv eemo_dnsdistribution_stats_handleqr(eemo_ip_packet_info ip_info, int is_
 			{
 				int has_soa_in_auth = 0;
 				int has_ns_in_auth  = 0;
-		
+			
+				nr_resp_out++;				
+
 				/* Iterate over all AUTHORITY records */
 				LL_FOREACH(dns_packet->authorities, rr_it)
 				{
@@ -1242,27 +1247,26 @@ eemo_rv eemo_dnsdistribution_stats_handleqr(eemo_ip_packet_info ip_info, int is_
 				nr_quer_out++;
 
 				LL_FOREACH(dns_packet->questions, query_it)
-                                {
-                                        /* Log value of domain names */
-                                        struct hashentry_si *s = NULL;
-                                        HASH_FIND_STR ( qname_table_q_ns, query_it->qname, s );
-                                        if ( s != NULL )
-                                        {
-                                                /* Domain name was requested before: increment its value */
-                                                s->value++;
-                                        }
-                                        else
-                                        {
-                                                 /* Domain name was never requested before: add to qname_table_q_ns */
-                                                struct hashentry_si *d = NULL;
-                                                d = ( struct hashentry_si* ) malloc ( sizeof ( struct hashentry_si ) );
-                                                d->name = malloc( strlen( query_it->qname )+1 );
-                                                strcpy(d->name, query_it->qname);
-                                                d->value = 1;
-                                                HASH_ADD_KEYPTR ( hh, qname_table_q_ns, d->name, strlen ( d->name ), d );
-                                        }
-                                }
-
+				{
+						/* Log value of domain names */
+						struct hashentry_si *s = NULL;
+						HASH_FIND_STR ( qname_table_q_ns, query_it->qname, s );
+						if ( s != NULL )
+						{
+								/* Domain name was requested before: increment its value */
+								s->value++;
+						}
+						else
+						{
+								 /* Domain name was never requested before: add to qname_table_q_ns */
+								struct hashentry_si *d = NULL;
+								d = ( struct hashentry_si* ) malloc ( sizeof ( struct hashentry_si ) );
+								d->name = malloc( strlen( query_it->qname )+1 );
+								strcpy(d->name, query_it->qname);
+								d->value = 1;
+								HASH_ADD_KEYPTR ( hh, qname_table_q_ns, d->name, strlen ( d->name ), d );
+						}
+				}
 			}			
 		}
 	}
