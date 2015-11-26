@@ -76,7 +76,6 @@ eemo_rv eemo_udprexmit_udp_handler(const eemo_packet_buf* pkt, eemo_ip_packet_in
 {
 	int		i		= 0;
 	int		ip_match	= 0;
-	unsigned short	rndport		= 0;
 
 	for (i = 0; i < cap_dst_ips_count; i++)
 	{
@@ -93,22 +92,6 @@ eemo_rv eemo_udprexmit_udp_handler(const eemo_packet_buf* pkt, eemo_ip_packet_in
 		return ERV_SKIPPED;
 	}
 	
-	/* Pick a pseudo-random source port */
-	rndport = htons((unsigned short) (rand() + 1024));
-
-	if (local_addr.ss_family == AF_INET)
-	{
-		struct sockaddr_in*	addr4	= (struct sockaddr_in*) &local_addr;
-
-		addr4->sin_port = rndport;
-	}
-	else if (local_addr.ss_family == AF_INET6)
-	{
-		struct sockaddr_in6*	addr6	= (struct sockaddr_in6*) &local_addr;
-
-		addr6->sin6_port = rndport;
-	}
-
 	/* Retransmit packet */
 	if (sendto(local_socket, pkt->data, pkt->len, 0, (struct sockaddr*) &local_addr, local_addr_len) < 0)
 	{
@@ -187,8 +170,6 @@ eemo_rv eemo_udprexmit_init(eemo_export_fn_table_ptr eemo_fn, const char* conf_b
 		if ((addr_it->ai_family == AF_INET) || (addr_it->ai_family == AF_INET6))
 		{
 			char	ip_str[INET6_ADDRSTRLEN]	= { 0 };
-
-			local_socket = socket(addr_it->ai_family, SOCK_DGRAM, 0);
 
 			memcpy(&local_addr, addr_it->ai_addr, addr_it->ai_addrlen);
 			local_addr_len = addr_it->ai_addrlen;
