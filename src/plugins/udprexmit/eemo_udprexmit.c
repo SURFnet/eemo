@@ -74,8 +74,9 @@ static int			local_socket		= -1;
 /* Sample UDP handler */
 eemo_rv eemo_udprexmit_udp_handler(const eemo_packet_buf* pkt, eemo_ip_packet_info ip_info, u_short srcport, u_short dstport, u_short length)
 {
-	int	i		= 0;
-	int	ip_match	= 0;
+	int		i		= 0;
+	int		ip_match	= 0;
+	unsigned short	rndport		= 0;
 
 	for (i = 0; i < cap_dst_ips_count; i++)
 	{
@@ -90,6 +91,22 @@ eemo_rv eemo_udprexmit_udp_handler(const eemo_packet_buf* pkt, eemo_ip_packet_in
 	{
 		/* Packet is not for us */
 		return ERV_SKIPPED;
+	}
+	
+	/* Pick a pseudo-random source port */
+	rndport = htons((unsigned short) (rand() + 1024));
+
+	if (local_addr.ss_family == AF_INET)
+	{
+		struct sockaddr_in*	addr4	= (struct sockaddr_in*) &local_addr;
+
+		addr4->sin_port = rndport;
+	}
+	else if (local_addr.ss_family == AF_INET6)
+	{
+		struct sockaddr_in6*	addr6	= (struct sockaddr_in6*) &local_addr;
+
+		addr6->sin6_port = rndport;
 	}
 
 	/* Retransmit packet */
