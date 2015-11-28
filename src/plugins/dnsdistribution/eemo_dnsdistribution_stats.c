@@ -422,7 +422,7 @@ void write_stats(void)
 	if (stat_fp_general != NULL)
 	{
 		//INFO_MSG("- General..");
-		fprintf(stat_fp_general, "%.3f\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%0.2f\n", passed_time_total, nr_quer, nr_quer_out, nr_resp, nr_resp_out, chr.RESPONSES, nr_resp_with_sigs, nr_frag, nr_trun, nr_trun_with_sigs, nr_sigs, nr_sigs_ans, nr_sigs_auth, nr_sigs_add, nr_sigs_aa, (((double) chr.RESPONSES/ (double) chr.QUERIES)*100));
+		fprintf(stat_fp_general, "%.3f\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%0.2f\n", passed_time_total, nr_quer, nr_quer_out, nr_resp, nr_resp_out, chr.RESPONSES, nr_resp_with_sigs, nr_frag, nr_trun, nr_trun_with_sigs, nr_sigs, nr_sigs_ans, nr_sigs_auth, nr_sigs_add, nr_sigs_aa, 100-(((double) chr.RESPONSES/ (double) chr.QUERIES)*100));
 	//	fprintf(stat_fp_general, "%.3f\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%0.2f\t%d\n", passed_time_total, nr_quer, nr_resp, nr_resp_out, chr.RESPONSES, nr_quer_out, nr_frag, nr_trun, nr_trun_with_sigs, nr_sigs, nr_sigs_ans, nr_sigs_auth, nr_sigs_add, nr_resp_with_sigs, 100 - (((double) chr.RESPONSES/ (double) chr.QUERIES)*100), nr_sigs_aa);
 		fclose(stat_fp_general);	
 	}
