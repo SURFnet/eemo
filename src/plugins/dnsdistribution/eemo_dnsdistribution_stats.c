@@ -129,7 +129,9 @@ static char*	stat_file_ttl				= NULL;
 static char*	stat_file_sigs_per_resp			= NULL;
 static char*	stat_file_rcodes			= NULL;
 static char**	ips_resolver				= NULL;
-static int	ips_count				= 0;
+static int	ips_resolver_count			= 0;
+static char**	ips_ignore				= NULL;
+static int	ips_ignore_count			= 0;
 static int 	stat_emit_interval			= 0;
 static int 	stat_qname_interval_ctr			= 0;
 static int 	curr_stat_qname_interval_ctr		= 0;
@@ -576,7 +578,7 @@ void reset_stats(void)
 }
 
 /* Initialise the DNS query counter module */
-void eemo_dnsdistribution_stats_init(char* stats_file_general, char* stats_file_qname_popularity, char* stats_file_ttl, char* stats_file_sigs_per_resp, char* stats_file_rcodes, char** resolver_ips, int ip_count, int emit_interval, int emit_qname_ctr)
+void eemo_dnsdistribution_stats_init(char* stats_file_general, char* stats_file_qname_popularity, char* stats_file_ttl, char* stats_file_sigs_per_resp, char* stats_file_rcodes, char** resolver_ips, int resolver_ip_count, char** ignore_ips, int ignore_ip_count, int emit_interval, int emit_qname_ctr)
 {
 	stat_file_general 		= stats_file_general;
 	stat_file_qname_popularity 	= stats_file_qname_popularity;
@@ -584,7 +586,9 @@ void eemo_dnsdistribution_stats_init(char* stats_file_general, char* stats_file_
 	stat_file_sigs_per_resp		= stats_file_sigs_per_resp;
 	stat_file_rcodes		= stats_file_rcodes;
 	ips_resolver 			= resolver_ips;
-	ips_count			= ip_count;
+	ips_resolver_count		= resolver_ip_count;
+	ips_ignore			= ignore_ips;
+	ips_ignore_count		= ignore_ip_count;
 	stat_emit_interval		= emit_interval;
 	stat_qname_interval_ctr		= emit_qname_ctr;
 	int i 				= 0;
@@ -592,9 +596,14 @@ void eemo_dnsdistribution_stats_init(char* stats_file_general, char* stats_file_
 
 	INFO_MSG("Writing statistics to the files %s, %s, %s and %s.x", stat_file_general, stat_file_qname_popularity, stat_file_rcodes, stat_file_ttl);
 
-	for (i = 0; i < ips_count; i++)
+	for (i = 0; i < ips_resolver_count; i++)
 	{
 		INFO_MSG("The requests are filtered for the resolver with %s as IP address", ips_resolver[i]);
+	}
+
+	for (i = 0; i < ips_ignore_count; i++)
+	{
+		INFO_MSG("The packets are ignore from - and to - hosts with %s as IP address", ips_ignore[i]);
 	}
 
 	if (stat_emit_interval > 0)
@@ -956,6 +965,7 @@ eemo_rv eemo_dnsdistribution_stats_handleqr(eemo_ip_packet_info ip_info, int is_
 {
 	eemo_dns_query* query_it = NULL;
 	eemo_dns_rr* rr_it 	 = NULL;
+	int i 			 = 0;
 
 	/* Used for timing */
 	struct timespec time_after;
@@ -975,13 +985,21 @@ eemo_rv eemo_dnsdistribution_stats_handleqr(eemo_ip_packet_info ip_info, int is_
 		time_before.tv_sec = time_next.tv_sec;
 		time_next.tv_sec = time_next.tv_sec + stat_emit_interval;
 	}
+
+	/* Ignore packets to - and from - the DDoS source(s) */
+	for (i = 0; i < ips_ignore_count; i++)
+	{
+		if (!strcmp(ip_info.ip_dst, ips_resolver[i]) || !strcmp(ip_info.ip_src, ips_resolver[i]))
+		{
+			return ERV_SKIPPED;
+		}
+	}
 		
 	if (dns_packet->qr_flag)
 	{
 		/* This is a response */
 		
 		int sigs_in_resp = 0;
-		int i 		 = 0;
 		
 		/* Count only valid responses */
 		if (!dns_packet->is_valid)
@@ -991,7 +1009,7 @@ eemo_rv eemo_dnsdistribution_stats_handleqr(eemo_ip_packet_info ip_info, int is_
 
 		/* Log TTL value of responses 
 		   Only consider messsages towards the selected resolver */
-		for (i = 0; i < ips_count; i++)
+		for (i = 0; i < ips_resolver_count; i++)
 		{
 			if ((!strcmp(ip_info.ip_dst, ips_resolver[i]) || !strcmp(ip_info.ip_dst, IP_ANY)) && dns_packet->srcport == 53 && dns_packet->dstport != 53)
 			{
@@ -1137,7 +1155,7 @@ eemo_rv eemo_dnsdistribution_stats_handleqr(eemo_ip_packet_info ip_info, int is_
 		}
 
 		/* Responses from the resolver towards the clients */
-		for (i = 0; i < ips_count; i++)
+		for (i = 0; i < ips_resolver_count; i++)
 		{
 			if ((!strcmp(ip_info.ip_src, ips_resolver[i]) || !strcmp(ip_info.ip_src, IP_ANY)) && dns_packet->srcport == 53 && dns_packet->dstport != 53)
 			{
@@ -1210,7 +1228,7 @@ eemo_rv eemo_dnsdistribution_stats_handleqr(eemo_ip_packet_info ip_info, int is_
 			return ERV_SKIPPED;
 		}
 
-		for (i = 0; i < ips_count; i++)
+		for (i = 0; i < ips_resolver_count; i++)
 		{
 			/* Incoming queries */
 			if ((!strcmp(ip_info.ip_dst, ips_resolver[i]) || !strcmp(ip_info.ip_dst, IP_ANY)) && dns_packet->srcport != 53 && dns_packet->dstport == 53)
