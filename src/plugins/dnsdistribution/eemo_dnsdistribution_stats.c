@@ -989,7 +989,7 @@ eemo_rv eemo_dnsdistribution_stats_handleqr(eemo_ip_packet_info ip_info, int is_
 	/* Ignore packets to - and from - the DDoS source(s) */
 	for (i = 0; i < ips_ignore_count; i++)
 	{
-		if (!strcmp(ip_info.ip_dst, ips_resolver[i]) || !strcmp(ip_info.ip_src, ips_resolver[i]))
+		if (!strcmp(ip_info.ip_dst, ips_ignore[i]) || !strcmp(ip_info.ip_src, ips_ignore[i]))
 		{
 			return ERV_SKIPPED;
 		}
