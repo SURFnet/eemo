@@ -373,6 +373,10 @@ void free_var(void)
 			free(s);
 		}
 	}
+
+	/* Free memory of rcodes tables */
+	free(rcodes_auth);
+	free(rcodes_client);
 }
 
 /* Sorts two hash_si items, based on their (integer) value */
@@ -390,7 +394,6 @@ int sort_on_key_ascending(struct hashentry_ii* a, struct hashentry_ii* b)
 /* Write statistics to file */
 void write_stats(void)
 {
-	//INFO_MSG("Writing stats..");
 	int ln 				= 1;
 	stat_fp_general	 		= fopen(stat_file_general, "a");
 	stat_fp_qnamepop_cl 		= fopen(stat_file_qname_popularity, "a");
@@ -423,16 +426,13 @@ void write_stats(void)
 	
 	if (stat_fp_general != NULL)
 	{
-		//INFO_MSG("- General..");
 		fprintf(stat_fp_general, "%.3f\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%0.2f\n", passed_time_total, nr_quer, nr_quer_out, nr_resp, nr_resp_out, chr.RESPONSES, nr_resp_with_sigs, nr_frag, nr_trun, nr_trun_with_sigs, nr_sigs, nr_sigs_ans, nr_sigs_auth, nr_sigs_add, nr_sigs_aa, 100-(((double) chr.RESPONSES/ (double) chr.QUERIES)*100));
-	//	fprintf(stat_fp_general, "%.3f\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%0.2f\t%d\n", passed_time_total, nr_quer, nr_resp, nr_resp_out, chr.RESPONSES, nr_quer_out, nr_frag, nr_trun, nr_trun_with_sigs, nr_sigs, nr_sigs_ans, nr_sigs_auth, nr_sigs_add, nr_resp_with_sigs, 100 - (((double) chr.RESPONSES/ (double) chr.QUERIES)*100), nr_sigs_aa);
 		fclose(stat_fp_general);	
 	}
 
 	/* Printing QNAME popularity statistics */
 	if (stat_fp_qnamepop_cl != NULL && curr_stat_qname_interval_ctr >= stat_qname_interval_ctr)
 	{		
-		//INFO_MSG("- QNAME popularity from clients..");
 		struct hashentry_si *s		= NULL;
 		struct hashentry_si *tmp 	= NULL;
 
@@ -452,7 +452,6 @@ void write_stats(void)
 	ln = 1;
 	if (stat_fp_qnamepop_q_ns != NULL && curr_stat_qname_interval_ctr >= stat_qname_interval_ctr)
 	{		
-		//INFO_MSG("- QNAME popularity towards NSs..");
 		struct hashentry_si *s		= NULL;
 		struct hashentry_si *tmp 	= NULL;
 
@@ -472,7 +471,6 @@ void write_stats(void)
 	ln = 1;	
 	if (stat_fp_qnamepop_r_ns != NULL && curr_stat_qname_interval_ctr >= stat_qname_interval_ctr)
 	{		
-		//INFO_MSG("- QNAME popularity from NSs..");
 		struct hashentry_si *s		= NULL;
 		struct hashentry_si *tmp 	= NULL;
 
@@ -490,7 +488,6 @@ void write_stats(void)
 	}
 
 	/* Printing TTL occurrences statistics */
-	//INFO_MSG("- TTL occurrences..");
 	LL_FOREACH(ttl_tables, ttl_table)
 	{
 		char filepath[1024] = {0};
@@ -546,7 +543,6 @@ void write_stats(void)
 	/* Printing number of signatures per query statistics */
 	if (stat_fp_sigs_per_resp != NULL)
 	{
-		//INFO_MSG("- Signatures per query..");
                 HASH_SORT( sigs_per_resp_table, sort_on_key_ascending);
 
 		struct hashentry_ii *s_ii	= NULL;
@@ -563,7 +559,6 @@ void write_stats(void)
 	/* Printing rcode statistics */
 	if (stat_fp_rcodes != NULL)
 	{
-		//INFO_MSG("- RCODE..");
 		fprintf(stat_fp_rcodes, "%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\n", rcodes_auth->NOERROR, rcodes_auth->NODATA, rcodes_auth->REFERRAL, rcodes_auth->FORMERR, rcodes_auth->SERVFAIL, rcodes_auth->NXDOMAIN, rcodes_auth->NOTIMPL, rcodes_auth->REFUSED, rcodes_client->NOERROR, rcodes_client->NODATA, rcodes_client->REFERRAL, rcodes_client->FORMERR, rcodes_client->SERVFAIL, rcodes_client->NXDOMAIN, rcodes_client->NOTIMPL, rcodes_client->REFUSED);	
 		
 		fclose(stat_fp_rcodes);
@@ -979,7 +974,10 @@ eemo_rv eemo_dnsdistribution_stats_handleqr(eemo_ip_packet_info ip_info, int is_
 		curr_stat_qname_interval_ctr += 1;
 		write_stats();
 		reset_stats();
-		if (curr_stat_qname_interval_ctr >= stat_qname_interval_ctr) curr_stat_qname_interval_ctr = 0;
+		if (curr_stat_qname_interval_ctr >= stat_qname_interval_ctr) 
+		{
+			curr_stat_qname_interval_ctr = 0;
+		}
 		
 		/* Reset the timer */
 		time_before.tv_sec = time_next.tv_sec;
