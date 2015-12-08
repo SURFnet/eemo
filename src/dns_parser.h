@@ -126,7 +126,7 @@ typedef struct eemo_dns_packet
 eemo_dns_packet;
 
 /* Parser flags */
-#define PARSE_NONE			0x00000000	/* Do not performing any parsing on DNS packets */
+#define PARSE_NONE			0x80000000	/* Do not performing any parsing on DNS packets */
 #define PARSE_QUERY			0x00000001	/* Parse the data in query messages */
 #define PARSE_RESPONSE			0x00000002	/* Parse the data in response messages */
 #define PARSE_RDATA_TO_STR		0x00000004	/* Convert parsed query/response RDATA to a string representation */
