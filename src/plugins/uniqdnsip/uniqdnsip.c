@@ -70,6 +70,14 @@ static const char*	type_weekly		= "weekly";
 static char**		server_ips		= NULL;
 static int		server_ips_ct		= 0;
 
+/* 
+ * Measurement mode
+ *
+ * 0 = measure incoming queries
+ * 1 = measure outgoing queries
+ */
+static int		measure_direction	= 0;
+
 /* Time keeping */
 static struct
 {
@@ -339,8 +347,10 @@ static void check_timers(time_t ts)
 /* DNS handler */
 eemo_rv eemo_dnsuniqip_dns_handler(eemo_ip_packet_info ip_info, int is_tcp, const eemo_dns_packet* pkt)
 {
-	int	i		= 0;
-	int	ip_match	= 0;
+	int			i		= 0;
+	int			ip_match	= 0;
+	struct in_addr*		addr4_ptr	= ((measure_direction == 0) ? (struct in_addr*) &ip_info.src_addr : (struct in_addr*) &ip_info.dst_addr);
+	struct in6_addr*	addr6_ptr	= ((measure_direction == 0) ? (struct in6_addr*) &ip_info.src_addr : (struct in6_addr*) &ip_info.dst_addr);
 
 	/* Check time */
 	check_timers(ip_info.ts.tv_sec);
@@ -351,10 +361,23 @@ eemo_rv eemo_dnsuniqip_dns_handler(eemo_ip_packet_info ip_info, int is_tcp, cons
 	/* Check if this is a query against the DNS server we are monitoring */
 	for (i = 0; i < server_ips_ct; i++)
 	{
-		if (strcmp(ip_info.ip_dst, server_ips[i]) == 0)
+		if (measure_direction == 0)
 		{
-			ip_match = 1;
-			break;
+			/* We are measuring incoming queries to the configured IPs */
+			if (strcmp(ip_info.ip_dst, server_ips[i]) == 0)
+			{
+				ip_match = 1;
+				break;
+			}
+		}
+		else if (measure_direction == 1)
+		{
+			/* We are measuring outgoing queries from the configured IPs */
+			if (strcmp(ip_info.ip_src, server_ips[i]) == 0)
+			{
+				ip_match = 1;
+				break;
+			}
 		}
 	}
 
@@ -365,7 +388,7 @@ eemo_rv eemo_dnsuniqip_dns_handler(eemo_ip_packet_info ip_info, int is_tcp, cons
 	{
 		ip4_reg_ht*	found	= NULL;
 
-		HASH_FIND(hh, v4_hour_ht, &ip_info.src_addr, sizeof(struct in_addr), found);
+		HASH_FIND(hh, v4_hour_ht, addr4_ptr, sizeof(struct in_addr), found);
 
 		if (found == NULL)
 		{
@@ -373,7 +396,7 @@ eemo_rv eemo_dnsuniqip_dns_handler(eemo_ip_packet_info ip_info, int is_tcp, cons
 
 			memset(found, 0, sizeof(ip4_reg_ht));
 			
-			memcpy(&found->addr, &ip_info.src_addr, sizeof(struct in_addr));
+			memcpy(&found->addr, addr4_ptr, sizeof(struct in_addr));
 
 			HASH_ADD(hh, v4_hour_ht, addr, sizeof(struct in_addr), found);
 		}
@@ -382,7 +405,7 @@ eemo_rv eemo_dnsuniqip_dns_handler(eemo_ip_packet_info ip_info, int is_tcp, cons
 
 		found = NULL;
 
-		HASH_FIND(hh, v4_day_ht, &ip_info.src_addr, sizeof(struct in_addr), found);
+		HASH_FIND(hh, v4_day_ht, addr4_ptr, sizeof(struct in_addr), found);
 
 		if (found == NULL)
 		{
@@ -390,7 +413,7 @@ eemo_rv eemo_dnsuniqip_dns_handler(eemo_ip_packet_info ip_info, int is_tcp, cons
 
 			memset(found, 0, sizeof(ip4_reg_ht));
 			
-			memcpy(&found->addr, &ip_info.src_addr, sizeof(struct in_addr));
+			memcpy(&found->addr, addr4_ptr, sizeof(struct in_addr));
 
 			HASH_ADD(hh, v4_day_ht, addr, sizeof(struct in_addr), found);
 		}
@@ -399,7 +422,7 @@ eemo_rv eemo_dnsuniqip_dns_handler(eemo_ip_packet_info ip_info, int is_tcp, cons
 
 		found = NULL;
 
-		HASH_FIND(hh, v4_week_ht, &ip_info.src_addr, sizeof(struct in_addr), found);
+		HASH_FIND(hh, v4_week_ht, addr4_ptr, sizeof(struct in_addr), found);
 
 		if (found == NULL)
 		{
@@ -407,7 +430,7 @@ eemo_rv eemo_dnsuniqip_dns_handler(eemo_ip_packet_info ip_info, int is_tcp, cons
 
 			memset(found, 0, sizeof(ip4_reg_ht));
 			
-			memcpy(&found->addr, &ip_info.src_addr, sizeof(struct in_addr));
+			memcpy(&found->addr, addr4_ptr, sizeof(struct in_addr));
 
 			HASH_ADD(hh, v4_week_ht, addr, sizeof(struct in_addr), found);
 		}
@@ -418,7 +441,7 @@ eemo_rv eemo_dnsuniqip_dns_handler(eemo_ip_packet_info ip_info, int is_tcp, cons
 	{
 		ip6_reg_ht*	found	= NULL;
 
-		HASH_FIND(hh, v6_hour_ht, &ip_info.src_addr, sizeof(struct in6_addr), found);
+		HASH_FIND(hh, v6_hour_ht, addr6_ptr, sizeof(struct in6_addr), found);
 
 		if (found == NULL)
 		{
@@ -426,7 +449,7 @@ eemo_rv eemo_dnsuniqip_dns_handler(eemo_ip_packet_info ip_info, int is_tcp, cons
 
 			memset(found, 0, sizeof(ip6_reg_ht));
 			
-			memcpy(&found->addr, &ip_info.src_addr, sizeof(struct in6_addr));
+			memcpy(&found->addr, addr6_ptr, sizeof(struct in6_addr));
 
 			HASH_ADD(hh, v6_hour_ht, addr, sizeof(struct in6_addr), found);
 		}
@@ -435,7 +458,7 @@ eemo_rv eemo_dnsuniqip_dns_handler(eemo_ip_packet_info ip_info, int is_tcp, cons
 
 		found = NULL;
 
-		HASH_FIND(hh, v6_day_ht, &ip_info.src_addr, sizeof(struct in6_addr), found);
+		HASH_FIND(hh, v6_day_ht, addr6_ptr, sizeof(struct in6_addr), found);
 
 		if (found == NULL)
 		{
@@ -443,7 +466,7 @@ eemo_rv eemo_dnsuniqip_dns_handler(eemo_ip_packet_info ip_info, int is_tcp, cons
 
 			memset(found, 0, sizeof(ip6_reg_ht));
 			
-			memcpy(&found->addr, &ip_info.src_addr, sizeof(struct in6_addr));
+			memcpy(&found->addr, addr6_ptr, sizeof(struct in6_addr));
 
 			HASH_ADD(hh, v6_day_ht, addr, sizeof(struct in6_addr), found);
 		}
@@ -452,7 +475,7 @@ eemo_rv eemo_dnsuniqip_dns_handler(eemo_ip_packet_info ip_info, int is_tcp, cons
 
 		found = NULL;
 
-		HASH_FIND(hh, v6_week_ht, &ip_info.src_addr, sizeof(struct in6_addr), found);
+		HASH_FIND(hh, v6_week_ht, addr6_ptr, sizeof(struct in6_addr), found);
 
 		if (found == NULL)
 		{
@@ -460,7 +483,7 @@ eemo_rv eemo_dnsuniqip_dns_handler(eemo_ip_packet_info ip_info, int is_tcp, cons
 
 			memset(found, 0, sizeof(ip6_reg_ht));
 			
-			memcpy(&found->addr, &ip_info.src_addr, sizeof(struct in6_addr));
+			memcpy(&found->addr, addr6_ptr, sizeof(struct in6_addr));
 
 			HASH_ADD(hh, v6_week_ht, addr, sizeof(struct in6_addr), found);
 		}
@@ -474,10 +497,21 @@ eemo_rv eemo_dnsuniqip_dns_handler(eemo_ip_packet_info ip_info, int is_tcp, cons
 /* Plugin initialisation */
 eemo_rv eemo_dnsuniqip_init(eemo_export_fn_table_ptr eemo_fn, const char* conf_base_path)
 {
+	int	i	= 0;
+
 	/* Initialise logging for the plugin */
 	eemo_init_plugin_log(eemo_fn->log);
 
 	INFO_MSG("Initialising dnsuniqip plugin");
+
+	if (((eemo_fn->conf_get_int)(conf_base_path, "measure_direction", &measure_direction, 0) != ERV_OK) || ((measure_direction != 0) && (measure_direction != 1)))
+	{
+		ERROR_MSG("Could not determine the measurement direction based on the configuration");
+
+		return ERV_CONFIG_ERROR;
+	}
+
+	INFO_MSG("Measuring %s queries", (measure_direction == 0) ? "incoming" : "outgoing");
 
 	if (((eemo_fn->conf_get_string)(conf_base_path, "hour_file", &dnsuniq_hour_file, NULL) != ERV_OK) || (dnsuniq_hour_file == NULL))
 	{
@@ -486,12 +520,16 @@ eemo_rv eemo_dnsuniqip_init(eemo_export_fn_table_ptr eemo_fn, const char* conf_b
 		return ERV_CONFIG_ERROR;
 	}
 
+	INFO_MSG("Writing hourly data to %s", dnsuniq_hour_file);
+
 	if (((eemo_fn->conf_get_string)(conf_base_path, "day_file", &dnsuniq_day_file, NULL) != ERV_OK) || (dnsuniq_day_file == NULL))
 	{
 		ERROR_MSG("Could not get output file for daily data from the configuration");
 
 		return ERV_CONFIG_ERROR;
 	}
+
+	INFO_MSG("Writing daily data to %s", dnsuniq_day_file);
 
 	if (((eemo_fn->conf_get_string)(conf_base_path, "week_file", &dnsuniq_week_file, NULL) != ERV_OK) || (dnsuniq_week_file == NULL))
 	{
@@ -500,11 +538,18 @@ eemo_rv eemo_dnsuniqip_init(eemo_export_fn_table_ptr eemo_fn, const char* conf_b
 		return ERV_CONFIG_ERROR;
 	}
 
+	INFO_MSG("Writing weekly data to %s", dnsuniq_week_file);
+
 	if (((eemo_fn->conf_get_string_array)(conf_base_path, "server_ips", &server_ips, &server_ips_ct) != ERV_OK) || (server_ips_ct <= 0) || (server_ips == NULL))
 	{
 		ERROR_MSG("Could not retrieve the DNS server IPs to monitor from the configuration");
 
 		return ERV_CONFIG_ERROR;
+	}
+
+	for (i = 0; i < server_ips_ct; i++)
+	{
+		INFO_MSG("Monitoring for queries %s %s", (measure_direction == 0) ? "to" : "from", server_ips[i]);
 	}
 
 	/* Register DNS handler */
