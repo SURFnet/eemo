@@ -1,7 +1,8 @@
 /* $Id$ */
 
 /*
- * Copyright (c) 2010-2011 SURFnet bv
+ * Copyright (c) 2010-2015 SURFnet bv
+ * Copyright (c) 2015 Roland van Rijswijk-Deij
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -58,13 +59,43 @@ static unsigned long long	dns_counter		= 0;
 static unsigned long long	dns_q_counter		= 0;
 static unsigned long long	dns_r_counter		= 0;
 
+static eemo_export_fn_table_ptr	eemo_fn_exp		= NULL;
+
 /* Sample UDP handler */
 eemo_rv eemo_demo_udp_handler(const eemo_packet_buf* pkt, eemo_ip_packet_info ip_info, u_short srcport, u_short dstport, u_short length)
 {
+	const char*	cidr_desc	= NULL;
+
 	DEBUG_MSG("UDPv%d packet from %s:%d (%s,%s,%s) to %s:%d (%s,%s,%s) (UDP size %d)", ip_info.ip_type, ip_info.ip_src, srcport, ip_info.src_as_short, ip_info.src_as_full, ip_info.src_geo_ip, ip_info.ip_dst, dstport, ip_info.dst_as_short, ip_info.dst_as_full, ip_info.dst_geo_ip, length);
 
 	udp_counter++;
 	all_counter++;
+
+	/* Do CIDR matching */
+	if (ip_info.ip_type == 4)
+	{
+		if ((eemo_fn_exp->cm_match_v4)(ip_info.src_addr.v4, &cidr_desc) == ERV_OK)
+		{
+			DEBUG_MSG("%s matches CIDR block with description '%s'", ip_info.ip_src, cidr_desc);
+		}
+
+		if ((eemo_fn_exp->cm_match_v4)(ip_info.dst_addr.v4, &cidr_desc) == ERV_OK)
+		{
+			DEBUG_MSG("%s matches CIDR block with description '%s'", ip_info.ip_dst, cidr_desc);
+		}
+	}
+	else
+	{
+		if ((eemo_fn_exp->cm_match_v6)(ip_info.src_addr.v6, &cidr_desc) == ERV_OK)
+		{
+			DEBUG_MSG("%s matches CIDR block with description '%s'", ip_info.ip_src, cidr_desc);
+		}
+
+		if ((eemo_fn_exp->cm_match_v6)(ip_info.dst_addr.v6, &cidr_desc) == ERV_OK)
+		{
+			DEBUG_MSG("%s matches CIDR block with description '%s'", ip_info.ip_dst, cidr_desc);
+		}
+	}
 
 	return ERV_HANDLED;
 }
@@ -100,6 +131,8 @@ eemo_rv eemo_demo_dns_handler(eemo_ip_packet_info ip_info, int is_tcp, const eem
 /* Plugin initialisation */
 eemo_rv eemo_demo_init(eemo_export_fn_table_ptr eemo_fn, const char* conf_base_path)
 {
+	eemo_fn_exp = eemo_fn;
+
 	/* Initialise logging for the plugin */
 	eemo_init_plugin_log(eemo_fn->log);
 
@@ -129,6 +162,35 @@ eemo_rv eemo_demo_init(eemo_export_fn_table_ptr eemo_fn, const char* conf_base_p
 		ERROR_MSG("Failed to register demo DNS handler");
 
 		(eemo_fn->unreg_dns_handler)(dns_handler_handle);
+
+		return ERV_GENERAL_ERROR;
+	}
+
+	/* Add some CIDR blocks */
+	if ((eemo_fn->cm_add_block)("8.8.4.0/24", "Google Public DNS v4 /24") != ERV_OK)
+	{
+		ERROR_MSG("Failed to add CIDR block");
+
+		return ERV_GENERAL_ERROR;
+	}
+
+	if ((eemo_fn->cm_add_block)("8.8.0.0/16", "Google Public DNS v4 /16") != ERV_OK)
+	{
+		ERROR_MSG("Failed to add CIDR block");
+
+		return ERV_GENERAL_ERROR;
+	}
+
+	if ((eemo_fn->cm_add_block)("2001:4860:4860::8888/126", "Google Public DNS v6 /126") != ERV_OK)
+	{
+		ERROR_MSG("Failed to add CIDR block");
+
+		return ERV_GENERAL_ERROR;
+	}
+
+	if ((eemo_fn->cm_add_block)("2001:4860:4860::/48", "Google Public DNS v6 /48") != ERV_OK)
+	{
+		ERROR_MSG("Failed to add CIDR block");
 
 		return ERV_GENERAL_ERROR;
 	}

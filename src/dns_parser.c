@@ -945,7 +945,7 @@ eemo_rv eemo_parse_dns_rrs(const eemo_packet_buf* packet, eemo_dns_packet* dns_p
 /* Parse a DNS packet */
 eemo_rv eemo_parse_dns_packet(const eemo_packet_buf* packet, eemo_dns_packet* dns_packet, unsigned long parser_flags, unsigned short udp_len, int is_fragmented)
 {
-	eemo_hdr_dns*	hdr	= NULL;
+	eemo_hdr_dns	hdr;
 	unsigned long	ofs	= sizeof(eemo_hdr_dns);
 	eemo_rv		rv	= ERV_OK;
 
@@ -991,27 +991,27 @@ eemo_rv eemo_parse_dns_packet(const eemo_packet_buf* packet, eemo_dns_packet* dn
 	}
 
 	/* Retrieve the header */
-	hdr = (eemo_hdr_dns*) packet->data;
-	eemo_dns_hdr_ntoh(hdr);
+	memcpy(&hdr, packet->data, sizeof(hdr));
+	eemo_dns_hdr_ntoh(&hdr);
 
 	PARSE_MSG("Parsing DNS packet with:");
-	PARSE_MSG("%d questions (QDCOUNT)", hdr->dns_qdcount);
-	PARSE_MSG("%d answers (ANCOUNT)", hdr->dns_ancount);
-	PARSE_MSG("%d authorities (NSCOUNT)", hdr->dns_nscount);
-	PARSE_MSG("%d additionals (ARCOUNT)", hdr->dns_arcount);
+	PARSE_MSG("%d questions (QDCOUNT)", hdr.dns_qdcount);
+	PARSE_MSG("%d answers (ANCOUNT)", hdr.dns_ancount);
+	PARSE_MSG("%d authorities (NSCOUNT)", hdr.dns_nscount);
+	PARSE_MSG("%d additionals (ARCOUNT)", hdr.dns_arcount);
 
 	/* Copy the query ID, flags, OPCODE and RCODE */
-	dns_packet->query_id 	= hdr->dns_qid;
-	dns_packet->qr_flag 	= FLAG_SET(hdr->dns_flags, DNS_QRFLAG);
-	dns_packet->aa_flag	= FLAG_SET(hdr->dns_flags, DNS_AAFLAG);
-	dns_packet->tc_flag 	= FLAG_SET(hdr->dns_flags, DNS_TCFLAG);
-	dns_packet->ra_flag 	= FLAG_SET(hdr->dns_flags, DNS_RAFLAG);
-	dns_packet->rd_flag	= FLAG_SET(hdr->dns_flags, DNS_RDFLAG);
-	dns_packet->opcode	= DNS_OPCODE(hdr->dns_flags);
-	dns_packet->rcode	= DNS_RCODE(hdr->dns_flags);
-	dns_packet->ans_count	= hdr->dns_ancount;
-	dns_packet->aut_count	= hdr->dns_nscount;
-	dns_packet->add_count	= hdr->dns_arcount;
+	dns_packet->query_id 	= hdr.dns_qid;
+	dns_packet->qr_flag 	= FLAG_SET(hdr.dns_flags, DNS_QRFLAG);
+	dns_packet->aa_flag	= FLAG_SET(hdr.dns_flags, DNS_AAFLAG);
+	dns_packet->tc_flag 	= FLAG_SET(hdr.dns_flags, DNS_TCFLAG);
+	dns_packet->ra_flag 	= FLAG_SET(hdr.dns_flags, DNS_RAFLAG);
+	dns_packet->rd_flag	= FLAG_SET(hdr.dns_flags, DNS_RDFLAG);
+	dns_packet->opcode	= DNS_OPCODE(hdr.dns_flags);
+	dns_packet->rcode	= DNS_RCODE(hdr.dns_flags);
+	dns_packet->ans_count	= hdr.dns_ancount;
+	dns_packet->aut_count	= hdr.dns_nscount;
+	dns_packet->add_count	= hdr.dns_arcount;
 
 	PARSE_MSG("Query ID: %d", dns_packet->query_id);
 	PARSE_MSG("Flags:%s%s%s%s%s",
@@ -1038,7 +1038,7 @@ eemo_rv eemo_parse_dns_packet(const eemo_packet_buf* packet, eemo_dns_packet* dn
 	}
 
 	/* Retrieve the queries from the packet */
-	if ((rv = eemo_parse_dns_queries(packet, dns_packet, hdr->dns_qdcount, &ofs, parser_flags)) != ERV_OK)
+	if ((rv = eemo_parse_dns_queries(packet, dns_packet, hdr.dns_qdcount, &ofs, parser_flags)) != ERV_OK)
 	{
 		if (rv == ERV_PARTIAL)
 		{
@@ -1053,7 +1053,7 @@ eemo_rv eemo_parse_dns_packet(const eemo_packet_buf* packet, eemo_dns_packet* dn
 	/* Retrieve the answers from the packet */
 	PARSE_MSG("Answers:");
 
-	if ((rv = eemo_parse_dns_rrs(packet, dns_packet, &dns_packet->answers, hdr->dns_ancount, &ofs, parser_flags)) != ERV_OK)
+	if ((rv = eemo_parse_dns_rrs(packet, dns_packet, &dns_packet->answers, hdr.dns_ancount, &ofs, parser_flags)) != ERV_OK)
 	{
 		if (rv == ERV_PARTIAL)
 		{
@@ -1068,7 +1068,7 @@ eemo_rv eemo_parse_dns_packet(const eemo_packet_buf* packet, eemo_dns_packet* dn
 	/* Retrieve the authorities from the packet */
 	PARSE_MSG("Authorities:");
 
-	if ((rv = eemo_parse_dns_rrs(packet, dns_packet, &dns_packet->authorities, hdr->dns_nscount, &ofs, parser_flags)) != ERV_OK)
+	if ((rv = eemo_parse_dns_rrs(packet, dns_packet, &dns_packet->authorities, hdr.dns_nscount, &ofs, parser_flags)) != ERV_OK)
 	{
 		if (rv == ERV_PARTIAL)
 		{
@@ -1083,7 +1083,7 @@ eemo_rv eemo_parse_dns_packet(const eemo_packet_buf* packet, eemo_dns_packet* dn
 	/* Retrieve the additionals from the packet */
 	PARSE_MSG("Additional RRs:");
 
-	if ((rv = eemo_parse_dns_rrs(packet, dns_packet, &dns_packet->additionals, hdr->dns_arcount, &ofs, parser_flags)) != ERV_OK)
+	if ((rv = eemo_parse_dns_rrs(packet, dns_packet, &dns_packet->additionals, hdr.dns_arcount, &ofs, parser_flags)) != ERV_OK)
 	{
 		if (rv == ERV_PARTIAL)
 		{

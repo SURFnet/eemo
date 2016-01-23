@@ -77,6 +77,16 @@ define([EEMO_AUTH_VS_CLIENT_CURRENT], [1])
 define([EEMO_AUTH_VS_CLIENT_REVISION], [0])
 define([EEMO_AUTH_VS_CLIENT_AGE], [0])
 
+# Non-EDNS0 client subnet monitoring plugin
+define([EEMO_NONECSMONITOR_CURRENT], [1])
+define([EEMO_NONECSMONITOR_REVISION], [0])
+define([EEMO_NONECSMONITOR_AGE], [0])
+
+# Plugin that collects statistics on unique DNS clients seen
+define([EEMO_UNIQDNSIP_CURRENT], [1])
+define([EEMO_UNIQDNSIP_REVISION], [0])
+define([EEMO_UNIQDNSIP_AGE], [0])
+
 ################################################################################
 # Configuration functions                                                      #
 ################################################################################
@@ -115,6 +125,10 @@ EEMO_NAMEX_VERSION_INFO="EEMO_NAMEX_CURRENT:EEMO_NAMEX_REVISION:EEMO_NAMEX_AGE"
 AC_SUBST(EEMO_NAMEX_VERSION_INFO)
 EEMO_AUTH_VS_CLIENT_VERSION_INFO="EEMO_AUTH_VS_CLIENT_CURRENT:EEMO_AUTH_VS_CLIENT_REVISION:EEMO_AUTH_VS_CLIENT_AGE"
 AC_SUBST(EEMO_AUTH_VS_CLIENT_VERSION_INFO)
+EEMO_NONECSMONITOR_VERSION_INFO="EEMO_NONECSMONITOR_CURRENT:EEMO_NONECSMONITOR_REVISION:EEMO_NONECSMONITOR_AGE"
+AC_SUBST(EEMO_NONECSMONITOR_VERSION_INFO)
+EEMO_UNIQDNSIP_VERSION_INFO="EEMO_UNIQDNSIP_CURRENT:EEMO_UNIQDNSIP_REVISION:EEMO_UNIQDNSIP_AGE"
+AC_SUBST(EEMO_UNIQDNSIP_VERSION_INFO)
 
 # Checks for compilers and other programs
 AC_PROG_CC_C99
@@ -149,6 +163,7 @@ AM_COND_IF([WITH_SQLITE3], ,AC_MSG_WARN([Not building IP-to-AS or GeoIP support 
 # Check for headers
 AC_CHECK_HEADERS([pcap.h])
 AC_CHECK_HEADERS([arpa/inet.h])
+AC_CHECK_HEADERS([netinet/in.h])
 AC_CHECK_HEADERS([netdb.h])
 AC_CHECK_HEADERS([ifaddrs.h])
 AC_CHECK_HEADERS([sys/socket.h])
@@ -249,6 +264,8 @@ AC_CONFIG_FILES([
 	src/plugins/dnskeyex/Makefile
 	src/plugins/namex/Makefile
 	src/plugins/auth_vs_client/Makefile
+	src/plugins/nonecsmonitor/Makefile
+	src/plugins/uniqdnsip/Makefile
 	config/Makefile
 	scripts/Makefile
 ])

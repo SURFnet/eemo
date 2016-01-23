@@ -58,6 +58,7 @@ typedef unsigned long eemo_rv;
 #define ERV_NEED_MORE_FRAGS	0x80003000	/* More fragments are needed to reassemble the full packet */
 #define ERV_REASM_DISABLED	0x80003001	/* IP reassembly was disabled in the configuration */
 #define ERV_REASM_FAILED	0x80003002	/* IP reassembly failed */
+#define ERV_CIDR_NOMATCH	0x80004000	/* No matching IP block found */
 
 /* Error messages */
 #define ERV_GENERAL_ERROR	0x80000000	/* An undefined error occurred */
@@ -79,16 +80,17 @@ typedef unsigned long eemo_rv;
 #define ERV_CONFIG_NO_STRING	0x80000010	/* The requested configuration item is not a string */
 #define ERV_MODULE_INIT_FAIL	0x80000011	/* The module failed to initialise (see log) */
 #define ERV_MDDB_ERROR		0x80000012	/* An error occurred while querying one of the metadata databases */
+#define ERV_CIDR_FORMERR	0x80000013	/* CIDR block malformed */
 
 /* Sensor/multiplexer messages */
-#define ERV_MUXCONN_ERROR	0x80003000	/* An error occurred while establishing a connection with the multiplexer */
-#define ERV_MUXCONN_FATAL	0x80003001	/* A fatal error occurred while establishing a connection with the multiplexer */
-#define ERV_MUXCONN_PROTO_ERR	0x80003002	/* A protocol error occurred while communicating with the multiplexer */
-#define ERV_FEED_NO_ACCESS	0x80003003	/* Access to the feed was denied */
-#define ERV_CLIENT_ERROR	0x80003004	/* There was an error communicating with a client */
-#define ERV_TLS_ERROR		0x80003005	/* A TLS error occurred */
-#define ERV_QUEUE_OVERFLOW	0x80003100	/* Client packet queue overflow */
-#define ERV_QUEUE_OK		0x80003101	/* Client packet queue no longer overflowing */
+#define ERV_MUXCONN_ERROR	0x81000000	/* An error occurred while establishing a connection with the multiplexer */
+#define ERV_MUXCONN_FATAL	0x81000001	/* A fatal error occurred while establishing a connection with the multiplexer */
+#define ERV_MUXCONN_PROTO_ERR	0x81000002	/* A protocol error occurred while communicating with the multiplexer */
+#define ERV_FEED_NO_ACCESS	0x81000003	/* Access to the feed was denied */
+#define ERV_CLIENT_ERROR	0x81000004	/* There was an error communicating with a client */
+#define ERV_TLS_ERROR		0x81000005	/* A TLS error occurred */
+#define ERV_QUEUE_OVERFLOW	0x81000100	/* Client packet queue overflow */
+#define ERV_QUEUE_OK		0x81000101	/* Client packet queue no longer overflowing */
 
 #endif /* !_EEMO_H */
 

@@ -57,7 +57,7 @@ static unsigned long		tcp_dns_in_handler_handle	= 0;
 static unsigned long		tcp_dns_out_handler_handle	= 0;
 
 /* DNS parser flags */
-static unsigned long 		dns_parser_flags		= PARSE_NONE;
+static unsigned long 		dns_parser_flags		= 0;
 
 /* Handle DNS payload */
 eemo_rv eemo_handle_dns_payload(const eemo_packet_buf* packet, eemo_ip_packet_info ip_info, int is_tcp, unsigned short srcport, unsigned short dstport, unsigned short udp_len, int is_fragmented)
@@ -221,7 +221,7 @@ eemo_rv eemo_init_dns_handler(void)
 {
 	eemo_rv rv = ERV_OK;
 	dns_handlers = NULL;
-	dns_parser_flags = PARSE_NONE;
+	dns_parser_flags = 0;
 
 	/* Register UDP packet handlers */
 	rv = eemo_reg_udp_handler(UDP_ANY_PORT, UDP_ANY_PORT, &eemo_handle_dns_udp_packet, &udp_dns_in_handler_handle);

@@ -48,9 +48,10 @@
 #include "tcp_handler.h"
 #include "udp_handler.h"
 #include "ip_metadata.h"
+#include "cidrmatch.h"
 
 /* Function table exported by EEMO; always check version before using */
-#define EEMO_EXPORT_FN_VERSION		4
+#define EEMO_EXPORT_FN_VERSION		5
 
 /* Configuration functions need to be defined here, otherwise we get cross-referencing headers */
 typedef eemo_rv (*eemo_conf_get_int_fn)(const char*, const char*, int*, int);
@@ -101,6 +102,11 @@ typedef struct
 	/* DNS query handler administration */
 	eemo_reg_dns_handler_fn		reg_dns_handler;
 	eemo_unreg_dns_handler_fn	unreg_dns_handler;
+	
+	/* CIDR-based IP matching */
+	eemo_cm_add_block_fn		cm_add_block;
+	eemo_cm_match_v4_fn		cm_match_v4;
+	eemo_cm_match_v6_fn		cm_match_v6;
 }
 eemo_export_fn_table, *eemo_export_fn_table_ptr;
 

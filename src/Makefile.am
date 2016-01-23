@@ -63,6 +63,8 @@ eemo_SOURCES =			dns_handler.c \
 				tcp_handler.h \
 				udp_handler.c \
 				udp_handler.h \
+				cidrmatch.c \
+				cidrmatch.h \
 				utlist.h \
 				uthash.h \
 				endian_compat.h
