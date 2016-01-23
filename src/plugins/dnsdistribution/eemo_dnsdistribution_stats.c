@@ -51,16 +51,6 @@
 
 #define IP_ANY	"*"
 
-/* Debugging uthash.h */
-#undef uthash_fatal
-#define uthash_fatal(msg) my_fatal_function(msg);
-
-void my_fatal_function(char *msg)
-{
-	INFO_MSG("uthash.h crashed: %s", msg);
-	exit(-1);
-}
-
 /* Possible different sections in DNS message */
 typedef enum {
 	QUESTION,
@@ -93,7 +83,9 @@ struct ll_hashtable
 	struct ll_hashtable *next;
 };
 
-/* Cache hit ratio */
+/* Cache hit ratio
+   The cache hit ratio is estimated as the ratio between the number of incoming authoritative responses from NSs and the number of incoming queries from clients
+   It is not a perfect estimation but has proven to be sufficiently accurate */
 static struct chr_table
 {
 	unsigned int QUERIES;
@@ -113,7 +105,7 @@ struct rcodes_table
 	unsigned int REFUSED;
 };
 
-/* Statistics file */
+/* Statistics file, config file specifies location of files */
 FILE*	stat_fp_qnamepop_cl	= NULL;
 FILE*	stat_fp_qnamepop_q_ns	= NULL;
 FILE*	stat_fp_qnamepop_r_ns	= NULL;
@@ -135,6 +127,7 @@ static int	ips_ignore_count			= 0;
 static int 	stat_emit_interval			= 0;
 static int 	stat_qname_interval_ctr			= 0;
 static int 	curr_stat_qname_interval_ctr		= 0;
+/* general counters regarding traffic volumes */
 static int	nr_quer					= 0;
 static int	nr_quer_out				= 0;
 static int	nr_resp					= 0;
@@ -148,11 +141,13 @@ static int 	nr_sigs_auth				= 0;
 static int 	nr_sigs_add				= 0;
 static int 	nr_sigs_aa				= 0;
 static int	nr_resp_with_sigs			= 0;
-static struct	timespec time_before;
-static struct	timespec time_next;		
+static struct	timespec time_before; /* represents previous time of writing statistics */
+static struct	timespec time_next; /* represent the next moment data needs to be written */
+/* hash tables that keep track of query name popularity */	
 static struct 	hashentry_si 	*qname_table		= NULL;
 static struct 	hashentry_si 	*qname_table_q_ns	= NULL;
 static struct 	hashentry_si 	*qname_table_r_ns 	= NULL;
+/* hash tables that keep track of all unique TTL values, based on the query name and query type */
 static struct	ll_hashtable 	*ttl_table_ALL		= NULL;
 static struct	ll_hashtable 	*ttl_table_A		= NULL;
 static struct	ll_hashtable 	*ttl_table_A_add	= NULL;
@@ -188,7 +183,6 @@ char *local_ipv6;
 
 void init_var(void)
 {	
-	//INFO_MSG("Initializing variables..");
 	struct ll_hashtable *s		= NULL; /* Temporary struct for iteration */
 
 	/* Initialize the TTL tables */
@@ -320,7 +314,6 @@ void init_var(void)
 /* Free memory of all variables used in a stat reset (i.e. the filepath values are not freed) */
 void free_var(void)
 {
-	//INFO_MSG("Freeing variables");
 	struct hashentry_si *s 			= NULL; /* Temporary struct for iteration */
 	struct hashentry_si *tmp 		= NULL; /* Temporary struct for iteration */
 	struct ll_hashtable *ttl_table  	= NULL;
@@ -938,7 +931,7 @@ int analyse_rr(eemo_dns_rr* rr_it, dns_section section, unsigned char aa_flag)
 		}
 	}
 	
-	/* Also add to the hashtable that stores ALL responses */
+	/* Also add to the hashtable that stores all responses */
 	s = NULL;
 	HASH_FIND_STR ( ttl_table_ALL->table, rr_it->name , s );
 	if (s == NULL)
@@ -969,8 +962,6 @@ eemo_rv eemo_dnsdistribution_stats_handleqr(eemo_ip_packet_info ip_info, int is_
 	/* Write statistics if the sufficient amount of time has passed */
 	if (time_after.tv_sec >= time_next.tv_sec)
 	{
-		INFO_MSG("Writing stats.. (next %ld %ld)", time_next.tv_sec, time_next.tv_nsec);
-
 		curr_stat_qname_interval_ctr += 1;
 		write_stats();
 		reset_stats();
@@ -984,7 +975,7 @@ eemo_rv eemo_dnsdistribution_stats_handleqr(eemo_ip_packet_info ip_info, int is_
 		time_next.tv_sec = time_next.tv_sec + stat_emit_interval;
 	}
 
-	/* Ignore packets to - and from - the DDoS source(s) */
+	/* Ignore packets to - and from - specified by the config file */
 	for (i = 0; i < ips_ignore_count; i++)
 	{
 		if (!strcmp(ip_info.ip_dst, ips_ignore[i]) || !strcmp(ip_info.ip_src, ips_ignore[i]))
