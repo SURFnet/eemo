@@ -95,7 +95,6 @@ define([EEMO_UNIQDNSIP_AGE], [0])
 AC_PREREQ(2.61)
 AC_INIT([eemo],[EEMO_VERSION_MAJOR.EEMO_VERSION_MINOR.EEMO_VERSION_BUILDREV[]PACKAGE_SUFFIX])
 AC_CONFIG_HEADER([config.h])
-AC_CONFIG_SRCDIR([src/Makefile.am])
 AC_CONFIG_MACRO_DIR([m4])
 AM_INIT_AUTOMAKE(foreign subdir-objects)
 ACX_PREFIXHACK
@@ -245,29 +244,6 @@ AC_PROG_INSTALL
 # Generate the makefiles
 AC_CONFIG_FILES([
 	Makefile
-	src/Makefile
-	src/plugins/Makefile
-	src/plugins/demo/Makefile
-	src/plugins/dnsqfw/Makefile
-	src/plugins/dnsqfw/testsink/Makefile
-	src/plugins/dnsstats/Makefile
-	src/plugins/dnsstats/cacti/Makefile
-	src/plugins/dnsdistribution/Makefile
-	src/plugins/dnssensorfw/Makefile
-	src/plugins/dnssensorfw/testsink/Makefile
-	src/plugins/icmpfragmon/Makefile
-	src/plugins/dnsqrlog/Makefile
-	src/plugins/udprexmit/Makefile
-	src/plugins/ecsmonitor/Makefile
-	src/plugins/dnszabbix/Makefile
-	src/plugins/dumppcap/Makefile
-	src/plugins/dnskeyex/Makefile
-	src/plugins/namex/Makefile
-	src/plugins/auth_vs_client/Makefile
-	src/plugins/nonecsmonitor/Makefile
-	src/plugins/uniqdnsip/Makefile
-	config/Makefile
-	scripts/Makefile
 ])
 
 AC_OUTPUT
