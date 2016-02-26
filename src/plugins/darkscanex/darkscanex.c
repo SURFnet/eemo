@@ -54,12 +54,14 @@ const static char* plugin_description = "EEMO DNS scanning extraction plugin " P
 /* DNS handler handles */
 static unsigned long		dns_handler_handle	= 0;
 
-/* Output file */
-static FILE*			out_file		= NULL;
+/* Output files */
+static FILE*			query_out_file		= NULL;
+static FILE*			response_out_file	= NULL;
 
 static unsigned long long	q_count			= 0;
 static unsigned long long	mq_count		= 0;
 static unsigned long long	r_count			= 0;
+static unsigned long long	mr_count		= 0;
 
 /* Output some statistics */
 static void eemo_darkscanex_int_stats(void)
@@ -70,7 +72,7 @@ static void eemo_darkscanex_int_stats(void)
 	{
 		mark = time(NULL);
 
-		INFO_MSG("Counted %llu queries, %llu responses and %llu malformed queries", q_count, r_count, mq_count);
+		INFO_MSG("Counted %llu queries, %llu malformed queries, %llu responses and %llu malformed responses", q_count, mq_count, r_count, mr_count);
 	}
 }
 
@@ -79,8 +81,22 @@ eemo_rv eemo_darkscanex_dns_handler(eemo_ip_packet_info ip_info, int is_tcp, con
 {
 	if (pkt->qr_flag)
 	{
-		/* Count but ignor response */
-		r_count++;
+		if (pkt->questions != NULL)
+		{
+			r_count++;
+
+			fprintf(query_out_file, "%u;%s;%5u;%5u;%d;%u\n",
+				(unsigned int) ip_info.ts.tv_sec,
+				pkt->questions->qname,
+				pkt->questions->qclass,
+				pkt->questions->qtype,
+				pkt->has_edns0,
+				pkt->has_edns0 ? pkt->edns0_max_size : 0);
+		}
+		else
+		{
+			mr_count++;
+		}
 	}
 	else
 	{
@@ -88,7 +104,7 @@ eemo_rv eemo_darkscanex_dns_handler(eemo_ip_packet_info ip_info, int is_tcp, con
 		{
 			q_count++;
 
-			fprintf(out_file, "%u;%s;%5u;%5u;%d;%u\n",
+			fprintf(query_out_file, "%u;%s;%5u;%5u;%d;%u\n",
 				(unsigned int) ip_info.ts.tv_sec,
 				pkt->questions->qname,
 				pkt->questions->qclass,
@@ -110,32 +126,57 @@ eemo_rv eemo_darkscanex_dns_handler(eemo_ip_packet_info ip_info, int is_tcp, con
 /* Plugin initialisation */
 eemo_rv eemo_darkscanex_init(eemo_export_fn_table_ptr eemo_fn, const char* conf_base_path)
 {
-	char*	out_file_name	= NULL;
+	char*	query_out_file_name	= NULL;
+	char*	response_out_file_name	= NULL;
 
 	/* Initialise logging for the plugin */
 	eemo_init_plugin_log(eemo_fn->log);
 
 	INFO_MSG("Initialising darkscanex plugin");
 
-	if (((eemo_fn->conf_get_string)(conf_base_path, "out_file", &out_file_name, NULL) != ERV_OK) || (out_file_name == NULL))
+	if (((eemo_fn->conf_get_string)(conf_base_path, "query_out_file", &query_out_file_name, NULL) != ERV_OK) || (query_out_file_name == NULL))
 	{
-		ERROR_MSG("Could not get output file from the configuration");
+		ERROR_MSG("Could not get query output file from the configuration");
 
 		return ERV_CONFIG_ERROR;
 	}
 
-	out_file = fopen(out_file_name, "a");
+	query_out_file = fopen(query_out_file_name, "a");
 
-	if (out_file == NULL)
+	if (query_out_file == NULL)
 	{
-		ERROR_MSG("Failed to append output file %s", out_file_name);
+		ERROR_MSG("Failed to append query output file %s", query_out_file_name);
 
-		free(out_file_name);
+		free(query_out_file_name);
+
+		fclose(query_out_file);
 
 		return ERV_GENERAL_ERROR;
 	}
 
-	free(out_file_name);
+	free(query_out_file_name);
+
+	if (((eemo_fn->conf_get_string)(conf_base_path, "response_out_file", &response_out_file_name, NULL) != ERV_OK) || (response_out_file_name == NULL))
+	{
+		ERROR_MSG("Could not get response output file from the configuration");
+
+		return ERV_CONFIG_ERROR;
+	}
+
+	response_out_file = fopen(response_out_file_name, "a");
+
+	if (response_out_file == NULL)
+	{
+		ERROR_MSG("Failed to append response output file %s", response_out_file_name);
+
+		free(response_out_file_name);
+
+		fclose(query_out_file);
+
+		return ERV_GENERAL_ERROR;
+	}
+
+	free(response_out_file_name);
 
 	/* Register DNS handler */
 	if ((eemo_fn->reg_dns_handler)(&eemo_darkscanex_dns_handler, PARSE_QUERY, &dns_handler_handle) != ERV_OK)
@@ -163,9 +204,14 @@ eemo_rv eemo_darkscanex_uninit(eemo_export_fn_table_ptr eemo_fn)
 		ERROR_MSG("Failed to unregister darkscanex DNS handler");
 	}
 
-	if (out_file != NULL)
+	if (query_out_file != NULL)
 	{
-		fclose(out_file);
+		fclose(query_out_file);
+	}
+
+	if (response_out_file != NULL)
+	{
+		fclose(response_out_file);
 	}
 
 	INFO_MSG("Finished uninitialising darkscanex plugin");
