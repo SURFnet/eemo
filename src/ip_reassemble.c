@@ -1,6 +1,6 @@
 /*
- * Copyright (c) 2010-2015 SURFnet bv
- * Copyright (c) 2015 Roland van Rijswijk-Deij
+ * Copyright (c) 2010-2016 SURFnet bv
+ * Copyright (c) 2016 Roland van Rijswijk-Deij
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -130,6 +130,7 @@ static ip_reasm_buf*	ra_buffers	= NULL;
 static int		ra_buf_count	= -1;
 static int		ra_timeout	= -1;
 static int		ra_enabled	= 1;
+static int		ra_log		= 1;
 
 /* Initialise reassembly module */
 eemo_rv eemo_reasm_init(void)
@@ -165,6 +166,13 @@ eemo_rv eemo_reasm_init(void)
 	if ((eemo_conf_get_int("ip", "reassembly_buffers", &ra_buf_count, 1000) != ERV_OK) || (ra_buf_count <= 0))
 	{
 		ERROR_MSG("Failed to retrieve number of IP reassembly buffers from the configuration");
+
+		return ERV_CONFIG_ERROR;
+	}
+
+	if (eemo_conf_get_bool("ip", "reassemble_log", &ra_log, 1) != ERV_OK)
+	{
+		ERROR_MSG("Failed to retrieve reassembly log setting from the configuration");
 
 		return ERV_CONFIG_ERROR;
 	}
@@ -327,7 +335,7 @@ static ip_reasm_buf* eemo_reasm_int_find_buf(const ip_reasm_id* id)
 			/* Found it, check for reassembly timeout */
 			if (((now - rv->first_frag_arr) > ra_timeout) && !rv->reassembled)
 			{
-				WARNING_MSG("Fragment reassembly timeout occurred, assuming new packet (src %s, dst %s)", eemo_reasm_int_get_src_str(id), eemo_reasm_int_get_dst_str(id));
+				if (ra_log) WARNING_MSG("Fragment reassembly timeout occurred, assuming new packet (src %s, dst %s)", eemo_reasm_int_get_src_str(id), eemo_reasm_int_get_dst_str(id));
 
 				rv->first_frag_arr	= now;
 				rv->in_use 		= 1;
@@ -381,7 +389,7 @@ static ip_reasm_buf* eemo_reasm_int_find_buf(const ip_reasm_id* id)
 		 */
 		rv = oldest;
 
-		WARNING_MSG("Ran out of reassembly buffers, discarding partially reassembled packet of age %ds with src %s and dst %s", (int) (now - oldest->first_frag_arr), eemo_reasm_int_get_src_str(&oldest->id), eemo_reasm_int_get_dst_str(&oldest->id));
+		if (ra_log) WARNING_MSG("Ran out of reassembly buffers, discarding partially reassembled packet of age %ds with src %s and dst %s", (int) (now - oldest->first_frag_arr), eemo_reasm_int_get_src_str(&oldest->id), eemo_reasm_int_get_dst_str(&oldest->id));
 	}
 
 	/* Clean up the new buffer */
@@ -417,7 +425,7 @@ static eemo_rv eemo_reasm_int_process_fragment(const ip_reasm_id* id, const eemo
 	/* Find a buffer for the fragment */
 	if ((buf = eemo_reasm_int_find_buf(id)) == NULL)
 	{
-		ERROR_MSG("Could not find a reassembly buffer for fragment with src %s and dst %s", eemo_reasm_int_get_src_str(id), eemo_reasm_int_get_dst_str(id));
+		if (ra_log) ERROR_MSG("Could not find a reassembly buffer for fragment with src %s and dst %s", eemo_reasm_int_get_src_str(id), eemo_reasm_int_get_dst_str(id));
 
 		return ERV_REASM_FAILED;
 	}
@@ -425,7 +433,7 @@ static eemo_rv eemo_reasm_int_process_fragment(const ip_reasm_id* id, const eemo
 	/* Check the sanity of the fragment */
 	if ((fragment->len + ofs) > 65536)
 	{
-		ERROR_MSG("Fragment with src %s and dst %s has offset %u and length %u, which would exceed the maximum allowed packet length!", eemo_reasm_int_get_src_str(id), eemo_reasm_int_get_dst_str(id), ofs, fragment->len);
+		if (ra_log) ERROR_MSG("Fragment with src %s and dst %s has offset %u and length %u, which would exceed the maximum allowed packet length!", eemo_reasm_int_get_src_str(id), eemo_reasm_int_get_dst_str(id), ofs, fragment->len);
 
 		buf->in_use = 0;
 
@@ -435,7 +443,7 @@ static eemo_rv eemo_reasm_int_process_fragment(const ip_reasm_id* id, const eemo
 	/* Check if we already know the length of the whole reassembled packet and if this fragment is within that size */
 	if ((buf->pkt_len > 0) && ((fragment->len + ofs) > buf->pkt_len))
 	{
-		ERROR_MSG("Fragment with src %s and dst %s has offset %u and length %u, which exceeds the expected length %d", eemo_reasm_int_get_src_str(id), eemo_reasm_int_get_dst_str(id), ofs, fragment->len, buf->pkt_len);
+		if (ra_log) ERROR_MSG("Fragment with src %s and dst %s has offset %u and length %u, which exceeds the expected length %d", eemo_reasm_int_get_src_str(id), eemo_reasm_int_get_dst_str(id), ofs, fragment->len, buf->pkt_len);
 
 		/* Return the buffer */
 		buf->in_use = 0;
@@ -454,7 +462,7 @@ static eemo_rv eemo_reasm_int_process_fragment(const ip_reasm_id* id, const eemo
 
 			if (is_last)
 			{
-				ERROR_MSG("First fragment is also the last fragment; packet should not be reassembled");
+				if (ra_log) ERROR_MSG("First fragment is also the last fragment; packet should not be reassembled");
 
 				buf->in_use = 0;
 
@@ -528,7 +536,7 @@ static eemo_rv eemo_reasm_int_process_fragment(const ip_reasm_id* id, const eemo
 			else if (((ofs + fragment->len - 1) > hd->hd_last) || (ofs < hd->hd_first))
 			{
 				/* Overlapping fragment! */
-				ERROR_MSG("Overlapping fragment in packet with src %s and dst %s", eemo_reasm_int_get_src_str(id), eemo_reasm_int_get_dst_str(id));
+				if (ra_log) ERROR_MSG("Overlapping fragment in packet with src %s and dst %s", eemo_reasm_int_get_src_str(id), eemo_reasm_int_get_dst_str(id));
 
 				buf->in_use = 0;
 
@@ -540,7 +548,7 @@ static eemo_rv eemo_reasm_int_process_fragment(const ip_reasm_id* id, const eemo
 
 		if (hd == NULL)
 		{
-			ERROR_MSG("Found a fragment with src %s and dst %s but no hole to put it in", eemo_reasm_int_get_src_str(id), eemo_reasm_int_get_dst_str(id));
+			if (ra_log) ERROR_MSG("Found a fragment with src %s and dst %s but no hole to put it in", eemo_reasm_int_get_src_str(id), eemo_reasm_int_get_dst_str(id));
 
 			buf->in_use = 0;
 
@@ -713,14 +721,14 @@ void eemo_reasm_v4_free(const struct in_addr* src, const struct in_addr* dst, co
 
 	if ((buf = eemo_reasm_int_find_buf(id)) == NULL)
 	{
-		ERROR_MSG("Could not find a reassembly buffer for fragment with src %s and dst %s", eemo_reasm_int_get_src_str(id), eemo_reasm_int_get_dst_str(id));
+		if (ra_log) ERROR_MSG("Could not find a reassembly buffer for fragment with src %s and dst %s", eemo_reasm_int_get_src_str(id), eemo_reasm_int_get_dst_str(id));
 
 		return;
 	}
 
 	if (!buf->reassembled)
 	{
-		WARNING_MSG("Releasing packet that was not fully reassembled");
+		if (ra_log) WARNING_MSG("Releasing packet that was not fully reassembled");
 	}
 
 	buf->in_use = 0;
@@ -751,14 +759,14 @@ void eemo_reasm_v6_free(const struct in6_addr* src, const struct in6_addr* dst, 
 
 	if ((buf = eemo_reasm_int_find_buf(id)) == NULL)
 	{
-		ERROR_MSG("Could not find a reassembly buffer for fragment with src %s and dst %s", eemo_reasm_int_get_src_str(id), eemo_reasm_int_get_dst_str(id));
+		if (ra_log) ERROR_MSG("Could not find a reassembly buffer for fragment with src %s and dst %s", eemo_reasm_int_get_src_str(id), eemo_reasm_int_get_dst_str(id));
 
 		return;
 	}
 
 	if (!buf->reassembled)
 	{
-		WARNING_MSG("Releasing packet that was not fully reassembled");
+		if (ra_log) WARNING_MSG("Releasing packet that was not fully reassembled");
 	}
 
 	buf->in_use = 0;
