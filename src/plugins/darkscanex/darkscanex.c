@@ -100,6 +100,8 @@ eemo_rv eemo_darkscanex_dns_handler(eemo_ip_packet_info ip_info, int is_tcp, con
 {
 	if (pkt->qr_flag)
 	{
+		if (response_out_file == NULL) return ERV_SKIPPED;
+
 		if (pkt->questions != NULL)
 		{
 			dscan_ht_ent*	response_ent	= NULL;
@@ -243,30 +245,33 @@ eemo_rv eemo_darkscanex_init(eemo_export_fn_table_ptr eemo_fn, const char* conf_
 
 	free(query_out_file_name);
 
-	if (((eemo_fn->conf_get_string)(conf_base_path, "response_out_file", &response_out_file_name, NULL) != ERV_OK) || (response_out_file_name == NULL))
+	if ((eemo_fn->conf_get_string)(conf_base_path, "response_out_file", &response_out_file_name, NULL) != ERV_OK)
 	{
 		ERROR_MSG("Could not get response output file from the configuration");
 
 		return ERV_CONFIG_ERROR;
 	}
 
-	response_out_file = fopen(response_out_file_name, "a");
-
-	if (response_out_file == NULL)
+	if (response_out_file_name != NULL)
 	{
-		ERROR_MSG("Failed to append response output file %s", response_out_file_name);
-
+		response_out_file = fopen(response_out_file_name, "a");
+	
+		if (response_out_file == NULL)
+		{
+			ERROR_MSG("Failed to append response output file %s", response_out_file_name);
+	
+			free(response_out_file_name);
+	
+			fclose(query_out_file);
+	
+			return ERV_GENERAL_ERROR;
+		}
+	
 		free(response_out_file_name);
-
-		fclose(query_out_file);
-
-		return ERV_GENERAL_ERROR;
 	}
 
-	free(response_out_file_name);
-
 	/* Register DNS handler */
-	if ((eemo_fn->reg_dns_handler)(&eemo_darkscanex_dns_handler, PARSE_QUERY | PARSE_RESPONSE, &dns_handler_handle) != ERV_OK)
+	if ((eemo_fn->reg_dns_handler)(&eemo_darkscanex_dns_handler, (response_out_file != NULL) ? (PARSE_QUERY | PARSE_RESPONSE) : PARSE_QUERY, &dns_handler_handle) != ERV_OK)
 	{
 		ERROR_MSG("Failed to register darkscanex DNS handler");
 
