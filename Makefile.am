@@ -200,7 +200,7 @@ sbin_eemo_sensor_LDADD =	-lpcap @LIBCONFIG_LIBS@ @OPENSSL_LIBS@ @PTHREAD_LIBS@
 # auth_vs_client plugin
 lib_LTLIBRARIES += 			lib/libeemo_auth_vs_client.la
 
-lib_libeemo_auth_vs_client_la_CFLAGS =	@PTHREAD_CFLAGS@ -Isrc -Isrc/plugins -Isrc/plugins/auth_vs_client
+lib_libeemo_auth_vs_client_la_CFLAGS =	@PTHREAD_CFLAGS@ -Isrc -Isrc/plugins -Isrc/plugins/auth_vs_client @LIBCONFIG_CFLAGS@
 
 lib_libeemo_auth_vs_client_la_SOURCES =	src/plugins/auth_vs_client/auth_vs_client.c \
 					src/plugins/eemo_plugin_log.c \
@@ -211,7 +211,7 @@ lib_libeemo_auth_vs_client_la_LDFLAGS =	-version-info @EEMO_AUTH_VS_CLIENT_VERSI
 # demo plugin
 lib_LTLIBRARIES += 			lib/libeemo_demo.la
 
-lib_libeemo_demo_la_CFLAGS =		-Isrc -Isrc/plugins -Isrc/plugins/demo
+lib_libeemo_demo_la_CFLAGS =		-Isrc -Isrc/plugins -Isrc/plugins/demo @LIBCONFIG_CFLAGS@
 
 lib_libeemo_demo_la_SOURCES =		src/plugins/demo/eemo_demo_entry.c \
 					src/plugins/eemo_plugin_log.c \
@@ -222,7 +222,7 @@ lib_libeemo_demo_la_LDFLAGS =		-version-info @EEMO_DEMO_VERSION_INFO@
 # dnsdistribution plugin
 lib_LTLIBRARIES += 			lib/libeemo_dnsdistribution.la
 
-lib_libeemo_dnsdistribution_la_CFLAGS =	-Isrc -Isrc/plugins -Isrc/plugins/dnsdistribution
+lib_libeemo_dnsdistribution_la_CFLAGS =	-Isrc -Isrc/plugins -Isrc/plugins/dnsdistribution @LIBCONFIG_CFLAGS@
 
 lib_libeemo_dnsdistribution_la_SOURCES =src/plugins/dnsdistribution/eemo_dnsdistribution_entry.c \
 					src/plugins/dnsdistribution/eemo_dnsdistribution_stats.c \
@@ -235,7 +235,7 @@ lib_libeemo_dnsdistribution_la_LDFLAGS =-version-info @EEMO_DNSSTATS_VERSION_INF
 # dnskeyex plugin
 lib_LTLIBRARIES += 			lib/libeemo_dnskeyex.la
 
-lib_libeemo_dnskeyex_la_CFLAGS =	@PTHREAD_CFLAGS@ -Isrc -Isrc/plugins -Isrc/plugins/dnskeyex
+lib_libeemo_dnskeyex_la_CFLAGS =	@PTHREAD_CFLAGS@ -Isrc -Isrc/plugins -Isrc/plugins/dnskeyex @LIBCONFIG_CFLAGS@
 
 lib_libeemo_dnskeyex_la_SOURCES =	src/plugins/dnskeyex/dnskeyex.c \
 					src/plugins/eemo_plugin_log.c \
@@ -246,7 +246,7 @@ lib_libeemo_dnskeyex_la_LDFLAGS =	-version-info @EEMO_DNSKEYEX_VERSION_INFO@ @PT
 # dnsqfw plugin
 lib_LTLIBRARIES +=			lib/libeemo_dnsqfw.la
 
-lib_libeemo_dnsqfw_la_CFLAGS =		-Isrc -Isrc/plugins -Isrc/plugins/dnsqfw
+lib_libeemo_dnsqfw_la_CFLAGS =		-Isrc -Isrc/plugins -Isrc/plugins/dnsqfw @LIBCONFIG_CFLAGS@
 
 lib_libeemo_dnsqfw_la_SOURCES =		src/plugins/dnsqfw/eemo_dnsqfw_entry.c \
 					src/plugins/dnsqfw/eemo_dnsqfw_aggr.c \
@@ -265,7 +265,7 @@ bin_dnsqfw_testsink_SOURCES =		src/plugins/dnsqfw/testsink/dnsqfw_sink_main.c
 # dnsqrlog plugin
 lib_LTLIBRARIES +=			lib/libeemo_dnsqrlog.la
 
-lib_libeemo_dnsqrlog_la_CFLAGS =	-Isrc -Isrc/plugins -Isrc/plugins/dnsqrlog
+lib_libeemo_dnsqrlog_la_CFLAGS =	-Isrc -Isrc/plugins -Isrc/plugins/dnsqrlog @LIBCONFIG_CFLAGS@
 
 lib_libeemo_dnsqrlog_la_SOURCES =	src/plugins/dnsqrlog/eemo_dnsqrlog_entry.c \
 					src/plugins/dnsqrlog/eemo_dnsqrlog.c \
@@ -278,7 +278,7 @@ lib_libeemo_dnsqrlog_la_LDFLAGS =	-version-info @EEMO_DNSQFW_VERSION_INFO@
 # dnssensorfw plugin
 lib_LTLIBRARIES +=			lib/libeemo_dnssensorfw.la
 
-lib_libeemo_dnssensorfw_la_CFLAGS =	-Isrc -Isrc/plugins -Isrc/plugins/dnssensorfw @PTHREAD_CFLAGS@
+lib_libeemo_dnssensorfw_la_CFLAGS =	-Isrc -Isrc/plugins -Isrc/plugins/dnssensorfw @PTHREAD_CFLAGS@ @LIBCONFIG_CFLAGS@
 
 lib_libeemo_dnssensorfw_la_SOURCES =	src/plugins/dnssensorfw/eemo_dnssensorfw_entry.c \
 					src/plugins/dnssensorfw/eemo_dnssensorfw_ipfw.c \
@@ -297,7 +297,7 @@ bin_dnssensorfw_testsink_SOURCES =	src/plugins/dnssensorfw/testsink/dnssensor_si
 # dnsstats plugin
 lib_LTLIBRARIES += 			lib/libeemo_dnsstats.la
 
-lib_libeemo_dnsstats_la_CFLAGS =	-Isrc -Isrc/plugins -Isrc/plugins/dnsstats
+lib_libeemo_dnsstats_la_CFLAGS =	-Isrc -Isrc/plugins -Isrc/plugins/dnsstats @LIBCONFIG_CFLAGS@
 
 lib_libeemo_dnsstats_la_SOURCES =	src/plugins/dnsstats/eemo_dnsstats_entry.c \
 					src/plugins/dnsstats/eemo_dnsstats_stats.c \
@@ -327,7 +327,7 @@ doc_DATA +=				src/plugins/dnsstats/cacti/README-dnsstats \
 # dnszabbix plugin
 lib_LTLIBRARIES += 			lib/libeemo_dnszabbix.la
 
-lib_libeemo_dnszabbix_la_CFLAGS =	-Isrc -Isrc/plugins -Isrc/plugins/dnszabbix
+lib_libeemo_dnszabbix_la_CFLAGS =	-Isrc -Isrc/plugins -Isrc/plugins/dnszabbix @LIBCONFIG_CFLAGS@
 
 lib_libeemo_dnszabbix_la_SOURCES =	src/plugins/dnszabbix/eemo_dnszabbix_entry.c \
 					src/plugins/dnszabbix/eemo_dnszabbix_stats.c \
@@ -340,7 +340,7 @@ lib_libeemo_dnszabbix_la_LDFLAGS =	-version-info @EEMO_DNSZABBIX_VERSION_INFO@
 # dumppcap plugin
 lib_LTLIBRARIES +=	 		lib/libeemo_dumppcap.la
 
-lib_libeemo_dumppcap_la_CFLAGS =	-Isrc -Isrc/plugins -Isrc/plugins/dumppcap
+lib_libeemo_dumppcap_la_CFLAGS =	-Isrc -Isrc/plugins -Isrc/plugins/dumppcap @LIBCONFIG_CFLAGS@
 
 lib_libeemo_dumppcap_la_SOURCES =	src/plugins/dumppcap/dumppcap.c \
 					src/plugins/eemo_plugin_log.c \
@@ -351,7 +351,7 @@ lib_libeemo_dumppcap_la_LDFLAGS =	-version-info @EEMO_DUMPPCAP_VERSION_INFO@
 # ecsmonitor plugin
 lib_LTLIBRARIES += 			lib/libeemo_ecsmonitor.la
 
-lib_libeemo_ecsmonitor_la_CFLAGS =	@PTHREAD_CFLAGS@ -Isrc -Isrc/plugins -Isrc/plugins/ecsmonitor
+lib_libeemo_ecsmonitor_la_CFLAGS =	@PTHREAD_CFLAGS@ -Isrc -Isrc/plugins -Isrc/plugins/ecsmonitor @LIBCONFIG_CFLAGS@
 
 lib_libeemo_ecsmonitor_la_SOURCES =	src/plugins/ecsmonitor/ecsmonitor.c \
 					src/plugins/eemo_plugin_log.c \
@@ -362,7 +362,7 @@ lib_libeemo_ecsmonitor_la_LDFLAGS =	-version-info @EEMO_ECSMONITOR_VERSION_INFO@
 # icmpfragmon plugin
 lib_LTLIBRARIES +=			lib/libeemo_icmpfragmon.la
 
-lib_libeemo_icmpfragmon_la_CFLAGS =	-Isrc -Isrc/plugins -Isrc/plugins/icmpfragmon
+lib_libeemo_icmpfragmon_la_CFLAGS =	-Isrc -Isrc/plugins -Isrc/plugins/icmpfragmon @LIBCONFIG_CFLAGS@
 
 lib_libeemo_icmpfragmon_la_SOURCES =	src/plugins/icmpfragmon/eemo_icmpfragmon_entry.c \
 					src/plugins/icmpfragmon/eemo_icmpfragmon_aggr.c \
@@ -375,7 +375,7 @@ lib_libeemo_icmpfragmon_la_LDFLAGS =	-version-info @EEMO_ICMPFRAGMON_VERSION_INF
 # namex plugin
 lib_LTLIBRARIES +=	 		lib/libeemo_namex.la
 
-lib_libeemo_namex_la_CFLAGS =		@PTHREAD_CFLAGS@ -Isrc -Isrc/plugins -Isrc/plugins/namex
+lib_libeemo_namex_la_CFLAGS =		@PTHREAD_CFLAGS@ -Isrc -Isrc/plugins -Isrc/plugins/namex @LIBCONFIG_CFLAGS@
 
 lib_libeemo_namex_la_SOURCES =		src/plugins/namex/namex.c \
 					src/plugins/eemo_plugin_log.c \
@@ -386,7 +386,7 @@ lib_libeemo_namex_la_LDFLAGS =		-version-info @EEMO_NAMEX_VERSION_INFO@ @PTHREAD
 # nonecsmonitor
 lib_LTLIBRARIES += 			lib/libeemo_nonecsmonitor.la
 
-lib_libeemo_nonecsmonitor_la_CFLAGS =	@PTHREAD_CFLAGS@ -Isrc -Isrc/plugins -Isrc/plugins/nonecsmonitor
+lib_libeemo_nonecsmonitor_la_CFLAGS =	@PTHREAD_CFLAGS@ -Isrc -Isrc/plugins -Isrc/plugins/nonecsmonitor @LIBCONFIG_CFLAGS@
 
 lib_libeemo_nonecsmonitor_la_SOURCES =	src/plugins/nonecsmonitor/nonecsmonitor.c \
 					src/plugins/eemo_plugin_log.c \
@@ -397,7 +397,7 @@ lib_libeemo_nonecsmonitor_la_LDFLAGS =	-version-info @EEMO_NONECSMONITOR_VERSION
 # udprexmit plugin
 lib_LTLIBRARIES += 			lib/libeemo_udprexmit.la
 
-lib_libeemo_udprexmit_la_CFLAGS =	-Isrc -Isrc/plugins -Isrc/plugins/udprexmit
+lib_libeemo_udprexmit_la_CFLAGS =	-Isrc -Isrc/plugins -Isrc/plugins/udprexmit @LIBCONFIG_CFLAGS@
 
 lib_libeemo_udprexmit_la_SOURCES =	src/plugins/udprexmit/eemo_udprexmit.c \
 					src/plugins/eemo_plugin_log.c \

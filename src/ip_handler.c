@@ -39,6 +39,8 @@
 #include <string.h>
 #include <pcap.h>
 #include <arpa/inet.h>
+#include <netinet/in.h>
+#include <sys/socket.h>
 #include "eemo.h"
 #include "utlist.h"
 #include "eemo_handlefactory.h"

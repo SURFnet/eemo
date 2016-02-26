@@ -43,6 +43,8 @@
 #include <pcap.h>
 #include <netdb.h>
 #include <arpa/inet.h>
+#include <netinet/in.h>
+#include <sys/socket.h>
 
 /* Initialise reassembly module */
 eemo_rv eemo_reasm_init(void);

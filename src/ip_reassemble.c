@@ -43,6 +43,8 @@
 #include <pcap.h>
 #include <netdb.h>
 #include <arpa/inet.h>
+#include <netinet/in.h>
+#include <sys/socket.h>
 #include <time.h>
 #include <stdlib.h>
 #include <string.h>

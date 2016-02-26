@@ -40,6 +40,7 @@
 #include "config.h"
 #include "eemo.h"
 #include <arpa/inet.h>
+#include <netinet/in.h>
 
 /* Initialise metadata module */
 eemo_rv eemo_md_init(void);

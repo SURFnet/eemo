@@ -39,6 +39,7 @@
 
 #include "config.h"
 #include "eemo.h"
+#include <pcap.h>
 
 /* Function pointer definitions */
 typedef eemo_rv (*eemo_cm_add_block_fn)(const char*, const char*);

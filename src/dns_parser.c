@@ -38,6 +38,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <arpa/inet.h>
+#include <netinet/in.h>
+#include <sys/socket.h>
 #include <ctype.h>
 #include "dns_parser.h"
 #include "eemo_log.h"

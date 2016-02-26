@@ -38,6 +38,7 @@
 #include "config.h"
 #include <arpa/inet.h>
 #include <sys/socket.h>
+#include <netinet/in.h>
 #include <netdb.h>
 #include <ifaddrs.h>
 #include <unistd.h>

@@ -39,7 +39,7 @@
 #include <stdio.h>
 #include <time.h>
 #include <assert.h>
-#include <wait.h>
+#include <sys/wait.h>
 #include <pthread.h>
 #include <unistd.h>
 #include <string.h>

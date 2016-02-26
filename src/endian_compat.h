@@ -59,11 +59,15 @@
 #define be64toh(x) OSSwapBigToHostInt64(x)
 #define le64toh(x) OSSwapLittleToHostInt64(x)
 
-#else /* __APPLE__ */
+#elif defined(__FreeBSD__) /* !__APPLE__ */
+
+#include <sys/endian.h>
+
+#else /* !__FreeBSD__ */
 
 #include <endian.h>
 
-#endif /* !__APPLE__ */
+#endif
 
 #endif /* !_ENDIAN_COMPAT_H */
 
