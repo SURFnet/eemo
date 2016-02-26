@@ -48,6 +48,7 @@
 #include "eemo_plugin_log.h"
 #include "dns_handler.h"
 #include "dns_parser.h"
+#include "uthash.h"
 
 const static char* plugin_description = "EEMO DNS scanning extraction plugin " PACKAGE_VERSION;
 
@@ -63,6 +64,22 @@ static unsigned long long	mq_count		= 0;
 static unsigned long long	r_count			= 0;
 static unsigned long long	mr_count		= 0;
 
+typedef struct dscan_ht_ent
+{
+	char		name[512];
+	unsigned int	qt_count[256];
+	unsigned int	qt_other_count;
+	unsigned int	w_edns0[2];
+	unsigned int	edns0_max_size;
+	time_t		first_seen;
+	time_t		last_seen;
+	UT_hash_handle	hh;
+}
+dscan_ht_ent;
+
+static dscan_ht_ent*	query_ht	= NULL;
+static dscan_ht_ent*	response_ht	= NULL;
+
 /* Output some statistics */
 static void eemo_darkscanex_int_stats(void)
 {
@@ -73,6 +90,8 @@ static void eemo_darkscanex_int_stats(void)
 		mark = time(NULL);
 
 		INFO_MSG("Counted %llu queries, %llu malformed queries, %llu responses and %llu malformed responses", q_count, mq_count, r_count, mr_count);
+
+		INFO_MSG("Query hash table has %d entries, response hash table has %d entries", HASH_COUNT(query_ht), HASH_COUNT(response_ht));
 	}
 }
 
@@ -83,15 +102,49 @@ eemo_rv eemo_darkscanex_dns_handler(eemo_ip_packet_info ip_info, int is_tcp, con
 	{
 		if (pkt->questions != NULL)
 		{
+			dscan_ht_ent*	response_ent	= NULL;
+
 			r_count++;
 
-			fprintf(query_out_file, "%u;%s;%5u;%5u;%d;%u\n",
-				(unsigned int) ip_info.ts.tv_sec,
-				pkt->questions->qname,
-				pkt->questions->qclass,
-				pkt->questions->qtype,
-				pkt->has_edns0,
-				pkt->has_edns0 ? pkt->edns0_max_size : 0);
+			HASH_FIND_STR(response_ht, pkt->questions->qname, response_ent);
+
+			if (response_ent == NULL)
+			{
+				response_ent = (dscan_ht_ent*) malloc(sizeof(dscan_ht_ent));
+
+				memset(response_ent, 0, sizeof(dscan_ht_ent));
+
+				strcpy(response_ent->name, pkt->questions->qname);
+
+				response_ent->first_seen = (time_t) ip_info.ts.tv_sec;
+
+				HASH_ADD_STR(response_ht, name, response_ent);
+			}
+
+			if (pkt->questions->qtype > 255)
+			{
+				response_ent->qt_other_count++;
+			}
+			else
+			{
+				response_ent->qt_count[pkt->questions->qtype]++;
+			}
+
+			if (pkt->has_edns0)
+			{
+				response_ent->w_edns0[1]++;
+
+				if (pkt->edns0_max_size > response_ent->edns0_max_size)
+				{
+					response_ent->edns0_max_size = pkt->edns0_max_size;
+				}
+			}
+			else
+			{
+				response_ent->w_edns0[0]++;
+			}
+
+			response_ent->last_seen = (time_t) ip_info.ts.tv_sec;
 		}
 		else
 		{
@@ -102,15 +155,49 @@ eemo_rv eemo_darkscanex_dns_handler(eemo_ip_packet_info ip_info, int is_tcp, con
 	{
 		if (pkt->questions != NULL)
 		{
+			dscan_ht_ent*	query_ent	= NULL;
+
 			q_count++;
 
-			fprintf(query_out_file, "%u;%s;%5u;%5u;%d;%u\n",
-				(unsigned int) ip_info.ts.tv_sec,
-				pkt->questions->qname,
-				pkt->questions->qclass,
-				pkt->questions->qtype,
-				pkt->has_edns0,
-				pkt->has_edns0 ? pkt->edns0_max_size : 0);
+			HASH_FIND_STR(query_ht, pkt->questions->qname, query_ent);
+
+			if (query_ent == NULL)
+			{
+				query_ent = (dscan_ht_ent*) malloc(sizeof(dscan_ht_ent));
+
+				memset(query_ent, 0, sizeof(dscan_ht_ent));
+
+				strcpy(query_ent->name, pkt->questions->qname);
+
+				query_ent->first_seen = (time_t) ip_info.ts.tv_sec;
+
+				HASH_ADD_STR(query_ht, name, query_ent);
+			}
+
+			if (pkt->questions->qtype > 255)
+			{
+				query_ent->qt_other_count++;
+			}
+			else
+			{
+				query_ent->qt_count[pkt->questions->qtype]++;
+			}
+
+			if (pkt->has_edns0)
+			{
+				query_ent->w_edns0[1]++;
+
+				if (pkt->edns0_max_size > query_ent->edns0_max_size)
+				{
+					query_ent->edns0_max_size = pkt->edns0_max_size;
+				}
+			}
+			else
+			{
+				query_ent->w_edns0[0]++;
+			}
+
+			query_ent->last_seen = (time_t) ip_info.ts.tv_sec;
 		}
 		else
 		{
@@ -196,6 +283,9 @@ eemo_rv eemo_darkscanex_init(eemo_export_fn_table_ptr eemo_fn, const char* conf_
 /* Plugin uninitialisation */
 eemo_rv eemo_darkscanex_uninit(eemo_export_fn_table_ptr eemo_fn)
 {
+	dscan_ht_ent*	ht_it	= NULL;
+	dscan_ht_ent*	ht_tmp	= NULL;
+
 	INFO_MSG("Uninitialising darkscanex plugin");
 
 	/* Unregister DNS handler */
@@ -206,12 +296,86 @@ eemo_rv eemo_darkscanex_uninit(eemo_export_fn_table_ptr eemo_fn)
 
 	if (query_out_file != NULL)
 	{
+		/* Write out query hash table */
+		INFO_MSG("Outputting query hash table");
+
+		HASH_ITER(hh, query_ht, ht_it, ht_tmp)
+		{
+			int	i	= 0;
+
+			for (i = 0; i < 255; i++)
+			{
+				if (ht_it->qt_count[i] > 0)
+				{
+					fprintf(query_out_file, "%s;%u;%u;%d;%u;-1;-1;-1\n", ht_it->name, (unsigned int) ht_it->first_seen, (unsigned int) ht_it->last_seen, i, ht_it->qt_count[i]);
+				}
+
+				if (ht_it->qt_other_count > 0)
+				{
+					fprintf(query_out_file, "%s;%u;%u;65537;%u;-1;-1;-1\n", ht_it->name, (unsigned int) ht_it->first_seen, (unsigned int) ht_it->last_seen, ht_it->qt_other_count);
+				}
+			}
+
+			if (ht_it->w_edns0[0] > 0)
+			{
+				fprintf(query_out_file, "%s;%u;%u;-1;-1;%u;-1;-1\n", ht_it->name, (unsigned int) ht_it->first_seen, (unsigned int) ht_it->last_seen, ht_it->w_edns0[0]);
+			}
+			
+			if (ht_it->w_edns0[1] > 0)
+			{
+				fprintf(query_out_file, "%s;%u;%u;-1;-1;-1;%u;%u\n", ht_it->name, (unsigned int) ht_it->first_seen, (unsigned int) ht_it->last_seen, ht_it->w_edns0[1], ht_it->edns0_max_size);
+			}
+		}
+
 		fclose(query_out_file);
 	}
 
 	if (response_out_file != NULL)
 	{
+		INFO_MSG("Outputting response hash table");
+
+		HASH_ITER(hh, response_ht, ht_it, ht_tmp)
+		{
+			int	i	= 0;
+
+			for (i = 0; i < 255; i++)
+			{
+				if (ht_it->qt_count[i] > 0)
+				{
+					fprintf(response_out_file, "%s;%u;%u;%d;%u;-1;-1;-1\n", ht_it->name, (unsigned int) ht_it->first_seen, (unsigned int) ht_it->last_seen, i, ht_it->qt_count[i]);
+				}
+
+				if (ht_it->qt_other_count > 0)
+				{
+					fprintf(response_out_file, "%s;%u;%u;65537;%u;-1;-1;-1\n", ht_it->name, (unsigned int) ht_it->first_seen, (unsigned int) ht_it->last_seen, ht_it->qt_other_count);
+				}
+			}
+
+			if (ht_it->w_edns0[0] > 0)
+			{
+				fprintf(response_out_file, "%s;%u;%u;-1;-1;%u;-1;-1\n", ht_it->name, (unsigned int) ht_it->first_seen, (unsigned int) ht_it->last_seen, ht_it->w_edns0[0]);
+			}
+			
+			if (ht_it->w_edns0[1] > 0)
+			{
+				fprintf(response_out_file, "%s;%u;%u;-1;-1;-1;%u;%u\n", ht_it->name, (unsigned int) ht_it->first_seen, (unsigned int) ht_it->last_seen, ht_it->w_edns0[1], ht_it->edns0_max_size);
+			}
+		}
+
 		fclose(response_out_file);
+	}
+
+	/* Clean up hash tables */
+	HASH_ITER(hh, query_ht, ht_it, ht_tmp)
+	{
+		HASH_DEL(query_ht, ht_it);
+		free(ht_it);
+	}
+
+	HASH_ITER(hh, response_ht, ht_it, ht_tmp)
+	{
+		HASH_DEL(response_ht, ht_it);
+		free(ht_it);
 	}
 
 	INFO_MSG("Finished uninitialising darkscanex plugin");

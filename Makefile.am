@@ -412,6 +412,7 @@ lib_libeemo_darkscanex_la_CFLAGS =	-Isrc -Isrc/plugins -Isrc/plugins/darkscanex 
 
 lib_libeemo_darkscanex_la_SOURCES =	src/plugins/darkscanex/darkscanex.c \
 					src/plugins/eemo_plugin_log.c \
-					src/plugins/eemo_plugin_log.h
+					src/plugins/eemo_plugin_log.h \
+					src/uthash.h
 
 lib_libeemo_darkscanex_la_LDFLAGS =	-version-info @EEMO_DARKSCANEX_VERSION_INFO@ @PTHREAD_LIBS@ @SQLITE3_LDFLAGS@
