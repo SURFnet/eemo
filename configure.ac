@@ -87,6 +87,11 @@ define([EEMO_UNIQDNSIP_CURRENT], [1])
 define([EEMO_UNIQDNSIP_REVISION], [0])
 define([EEMO_UNIQDNSIP_AGE], [0])
 
+# Plugin that extracts DNS-scanning queries from PCAPs
+define([EEMO_DARKSCANEX_CURRENT], [1])
+define([EEMO_DARKSCANEX_REVISION], [0])
+define([EEMO_DARKSCANEX_AGE], [0])
+
 ################################################################################
 # Configuration functions                                                      #
 ################################################################################
@@ -128,6 +133,8 @@ EEMO_NONECSMONITOR_VERSION_INFO="EEMO_NONECSMONITOR_CURRENT:EEMO_NONECSMONITOR_R
 AC_SUBST(EEMO_NONECSMONITOR_VERSION_INFO)
 EEMO_UNIQDNSIP_VERSION_INFO="EEMO_UNIQDNSIP_CURRENT:EEMO_UNIQDNSIP_REVISION:EEMO_UNIQDNSIP_AGE"
 AC_SUBST(EEMO_UNIQDNSIP_VERSION_INFO)
+EEMO_DARKSCANEX_VERSION_INFO="EEMO_DARKSCANEX_CURRENT:EEMO_DARKSCANEX_REVISION:EEMO_DARKSCANEX_AGE"
+AC_SUBST(EEMO_DARKSCANEX_VERSION_INFO)
 
 # Checks for compilers and other programs
 AC_PROG_CC_C99
