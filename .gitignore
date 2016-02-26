@@ -21,3 +21,4 @@ Makefile
 bin
 sbin
 lib
+eemo.spec
