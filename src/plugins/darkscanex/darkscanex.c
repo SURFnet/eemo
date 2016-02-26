@@ -179,7 +179,7 @@ eemo_rv eemo_darkscanex_init(eemo_export_fn_table_ptr eemo_fn, const char* conf_
 	free(response_out_file_name);
 
 	/* Register DNS handler */
-	if ((eemo_fn->reg_dns_handler)(&eemo_darkscanex_dns_handler, PARSE_QUERY, &dns_handler_handle) != ERV_OK)
+	if ((eemo_fn->reg_dns_handler)(&eemo_darkscanex_dns_handler, PARSE_QUERY | PARSE_RESPONSE, &dns_handler_handle) != ERV_OK)
 	{
 		ERROR_MSG("Failed to register darkscanex DNS handler");
 
