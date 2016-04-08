@@ -43,12 +43,15 @@
 #include <pthread.h>
 #include <unistd.h>
 #include <string.h>
+#include <stdint.h>
 #include "eemo.h"
 #include "eemo_api.h"
 #include "eemo_plugin_log.h"
 #include "dns_handler.h"
 #include "dns_parser.h"
 #include "uthash.h"
+
+#define UNIQ_IP_STORAGE	256
 
 const static char* plugin_description = "EEMO DNS scanning extraction plugin " PACKAGE_VERSION;
 
@@ -57,28 +60,37 @@ static unsigned long		dns_handler_handle	= 0;
 
 /* Output files */
 static FILE*			query_out_file		= NULL;
-static FILE*			response_out_file	= NULL;
 
+static int			q_threshold		= 1;
+static unsigned long long	q_multi_count		= 0;
 static unsigned long long	q_count			= 0;
-static unsigned long long	mq_count		= 0;
-static unsigned long long	r_count			= 0;
-static unsigned long long	mr_count		= 0;
+static unsigned long long	q_saturated_count	= 0;
+
+static eemo_export_fn_table_ptr eemo_fn_tab		= NULL;
 
 typedef struct dscan_ht_ent
 {
-	char		name[512];
-	unsigned int	qt_count[256];
-	unsigned int	qt_other_count;
-	unsigned int	w_edns0[2];
-	unsigned int	edns0_max_size;
+	char		qname_qc_qt_edns[512];
+	uint32_t	ip[UNIQ_IP_STORAGE];
+	int		ip_count;
+	int		is_saturated;
 	time_t		first_seen;
 	time_t		last_seen;
+	int		seen_count;
 	UT_hash_handle	hh;
 }
 dscan_ht_ent;
 
 static dscan_ht_ent*	query_ht	= NULL;
-static dscan_ht_ent*	response_ht	= NULL;
+
+static void eemo_darkscanex_int_qtostring(const eemo_dns_packet* pkt, char* str, const size_t str_len)
+{
+	snprintf(str, str_len, "%s_%05d_%05d_%d",
+		pkt->questions->qname,
+		pkt->questions->qclass,
+		pkt->questions->qtype,
+		pkt->has_edns0);
+}
 
 /* Output some statistics */
 static void eemo_darkscanex_int_stats(void)
@@ -89,9 +101,10 @@ static void eemo_darkscanex_int_stats(void)
 	{
 		mark = time(NULL);
 
-		INFO_MSG("Counted %llu queries, %llu malformed queries, %llu responses and %llu malformed responses", q_count, mq_count, r_count, mr_count);
-
-		INFO_MSG("Query hash table has %d entries, response hash table has %d entries", HASH_COUNT(query_ht), HASH_COUNT(response_ht));
+		INFO_MSG("Counted %llu queries", q_count);
+		INFO_MSG("Counted %llu queries to more than %d IPs", q_multi_count, q_threshold);
+		INFO_MSG("Counted %llu queries to %d IPs or more", q_saturated_count, UNIQ_IP_STORAGE);
+		INFO_MSG("Query hash table has %d entries");
 	}
 }
 
@@ -100,68 +113,33 @@ eemo_rv eemo_darkscanex_dns_handler(eemo_ip_packet_info ip_info, int is_tcp, con
 {
 	if (pkt->qr_flag)
 	{
-		if (response_out_file == NULL) return ERV_SKIPPED;
-
-		if (pkt->questions != NULL)
-		{
-			dscan_ht_ent*	response_ent	= NULL;
-
-			r_count++;
-
-			HASH_FIND_STR(response_ht, pkt->questions->qname, response_ent);
-
-			if (response_ent == NULL)
-			{
-				response_ent = (dscan_ht_ent*) malloc(sizeof(dscan_ht_ent));
-
-				memset(response_ent, 0, sizeof(dscan_ht_ent));
-
-				strcpy(response_ent->name, pkt->questions->qname);
-
-				response_ent->first_seen = (time_t) ip_info.ts.tv_sec;
-
-				HASH_ADD_STR(response_ht, name, response_ent);
-			}
-
-			if (pkt->questions->qtype > 255)
-			{
-				response_ent->qt_other_count++;
-			}
-			else
-			{
-				response_ent->qt_count[pkt->questions->qtype]++;
-			}
-
-			if (pkt->has_edns0)
-			{
-				response_ent->w_edns0[1]++;
-
-				if (pkt->edns0_max_size > response_ent->edns0_max_size)
-				{
-					response_ent->edns0_max_size = pkt->edns0_max_size;
-				}
-			}
-			else
-			{
-				response_ent->w_edns0[0]++;
-			}
-
-			response_ent->last_seen = (time_t) ip_info.ts.tv_sec;
-		}
-		else
-		{
-			mr_count++;
-		}
+		/* Don't do anything with responses */
+		return ERV_SKIPPED;
 	}
 	else
 	{
+		/* Only look at query which have a destination within our darknet */
+		const char*	cidr_match	= NULL;
+
+		/* FIXME: we assume darknets are IPv4 only for the moment */
+		if (((ip_info.ip_type == IP_TYPE_V4) && (eemo_fn_tab->cm_match_v4(ip_info.dst_addr.v4, &cidr_match) != ERV_OK)) ||
+		    (ip_info.ip_type == IP_TYPE_V6))
+		{
+			/* Not matching the darknet as destination, skip it */
+			return ERV_SKIPPED;
+		}
+
 		if (pkt->questions != NULL)
 		{
-			dscan_ht_ent*	query_ent	= NULL;
+			char		qname_qc_qt_edns[512]	= { 0 };
+			dscan_ht_ent*	query_ent		= NULL;
+			int		i			= 0;
+
+			eemo_darkscanex_int_qtostring(pkt, qname_qc_qt_edns, 512);
 
 			q_count++;
 
-			HASH_FIND_STR(query_ht, pkt->questions->qname, query_ent);
+			HASH_FIND_STR(query_ht, qname_qc_qt_edns, query_ent);
 
 			if (query_ent == NULL)
 			{
@@ -169,41 +147,42 @@ eemo_rv eemo_darkscanex_dns_handler(eemo_ip_packet_info ip_info, int is_tcp, con
 
 				memset(query_ent, 0, sizeof(dscan_ht_ent));
 
-				strcpy(query_ent->name, pkt->questions->qname);
+				eemo_darkscanex_int_qtostring(pkt, query_ent->qname_qc_qt_edns, 512);
 
 				query_ent->first_seen = (time_t) ip_info.ts.tv_sec;
 
-				HASH_ADD_STR(query_ht, name, query_ent);
-			}
-
-			if (pkt->questions->qtype > 255)
-			{
-				query_ent->qt_other_count++;
-			}
-			else
-			{
-				query_ent->qt_count[pkt->questions->qtype]++;
-			}
-
-			if (pkt->has_edns0)
-			{
-				query_ent->w_edns0[1]++;
-
-				if (pkt->edns0_max_size > query_ent->edns0_max_size)
-				{
-					query_ent->edns0_max_size = pkt->edns0_max_size;
-				}
-			}
-			else
-			{
-				query_ent->w_edns0[0]++;
+				HASH_ADD_STR(query_ht, qname_qc_qt_edns, query_ent);
 			}
 
 			query_ent->last_seen = (time_t) ip_info.ts.tv_sec;
-		}
-		else
-		{
-			mq_count++;
+			query_ent->seen_count++;
+
+			if (!query_ent->is_saturated)
+			{
+				/* Find a free slot to save the destination IP */
+				for (i = 0; i < UNIQ_IP_STORAGE; i++)
+				{
+					if (query_ent->ip[i] == 0)
+					{
+						query_ent->ip[i] = ip_info.dst_addr.v4;
+						break;
+					}
+				}
+
+				i++;
+
+				query_ent->ip_count = i;
+
+				if (i == (q_threshold - 1)) q_multi_count++;
+
+				if (i == UNIQ_IP_STORAGE)
+				{
+					query_ent->is_saturated = 1;
+					q_saturated_count++;
+
+					INFO_MSG("Storage for query %s saturated", qname_qc_qt_edns);
+				}
+			}
 		}
 	}
 
@@ -216,7 +195,12 @@ eemo_rv eemo_darkscanex_dns_handler(eemo_ip_packet_info ip_info, int is_tcp, con
 eemo_rv eemo_darkscanex_init(eemo_export_fn_table_ptr eemo_fn, const char* conf_base_path)
 {
 	char*	query_out_file_name	= NULL;
-	char*	response_out_file_name	= NULL;
+	char**	darknet_cidr_blocks	= NULL;
+	int	darknet_cidr_block_ct	= 0;
+	int	i			= 0;
+	
+	/* Keep function table */
+	eemo_fn_tab = eemo_fn;
 
 	/* Initialise logging for the plugin */
 	eemo_init_plugin_log(eemo_fn->log);
@@ -245,33 +229,36 @@ eemo_rv eemo_darkscanex_init(eemo_export_fn_table_ptr eemo_fn, const char* conf_
 
 	free(query_out_file_name);
 
-	if ((eemo_fn->conf_get_string)(conf_base_path, "response_out_file", &response_out_file_name, NULL) != ERV_OK)
+	if (((eemo_fn->conf_get_int)(conf_base_path, "query_threshold", &q_threshold, 1) != ERV_OK) || (q_threshold < 0))
 	{
-		ERROR_MSG("Could not get response output file from the configuration");
+		ERROR_MSG("Failed to get query threshold from the configuration");
 
 		return ERV_CONFIG_ERROR;
 	}
 
-	if (response_out_file_name != NULL)
+	if (((eemo_fn->conf_get_string_array)(conf_base_path, "darknet_cidr_blocks", &darknet_cidr_blocks, &darknet_cidr_block_ct) != ERV_OK) || (darknet_cidr_block_ct == 0) || (darknet_cidr_blocks == NULL))
 	{
-		response_out_file = fopen(response_out_file_name, "a");
-	
-		if (response_out_file == NULL)
-		{
-			ERROR_MSG("Failed to append response output file %s", response_out_file_name);
-	
-			free(response_out_file_name);
-	
-			fclose(query_out_file);
-	
-			return ERV_GENERAL_ERROR;
-		}
-	
-		free(response_out_file_name);
+		ERROR_MSG("Failed to retrieve list of darknet CIDR blocks from the configuration");
+
+		return ERV_CONFIG_ERROR;
 	}
 
+	for (i = 0; i < darknet_cidr_block_ct; i++)
+	{
+		if ((eemo_fn->cm_add_block)(darknet_cidr_blocks[i], darknet_cidr_blocks[i]) != ERV_OK)
+		{
+			ERROR_MSG("Failed to add darknet CIDR block %s", darknet_cidr_blocks[i]);
+
+			return ERV_CONFIG_ERROR;
+		}
+
+		INFO_MSG("Added darknet CIDR block %s", darknet_cidr_blocks[i]);
+	}
+
+	(eemo_fn->conf_free_string_array)(darknet_cidr_blocks, darknet_cidr_block_ct);
+
 	/* Register DNS handler */
-	if ((eemo_fn->reg_dns_handler)(&eemo_darkscanex_dns_handler, (response_out_file != NULL) ? (PARSE_QUERY | PARSE_RESPONSE) : PARSE_QUERY, &dns_handler_handle) != ERV_OK)
+	if ((eemo_fn->reg_dns_handler)(&eemo_darkscanex_dns_handler, PARSE_QUERY, &dns_handler_handle) != ERV_OK)
 	{
 		ERROR_MSG("Failed to register darkscanex DNS handler");
 
@@ -306,80 +293,19 @@ eemo_rv eemo_darkscanex_uninit(eemo_export_fn_table_ptr eemo_fn)
 
 		HASH_ITER(hh, query_ht, ht_it, ht_tmp)
 		{
-			int	i	= 0;
-
-			for (i = 0; i < 255; i++)
+			if (ht_it->ip_count > q_threshold)
 			{
-				if (ht_it->qt_count[i] > 0)
-				{
-					fprintf(query_out_file, "%s;%u;%u;%d;%u;-1;-1;-1\n", ht_it->name, (unsigned int) ht_it->first_seen, (unsigned int) ht_it->last_seen, i, ht_it->qt_count[i]);
-				}
-
-				if (ht_it->qt_other_count > 0)
-				{
-					fprintf(query_out_file, "%s;%u;%u;65537;%u;-1;-1;-1\n", ht_it->name, (unsigned int) ht_it->first_seen, (unsigned int) ht_it->last_seen, ht_it->qt_other_count);
-				}
-			}
-
-			if (ht_it->w_edns0[0] > 0)
-			{
-				fprintf(query_out_file, "%s;%u;%u;-1;-1;%u;-1;-1\n", ht_it->name, (unsigned int) ht_it->first_seen, (unsigned int) ht_it->last_seen, ht_it->w_edns0[0]);
-			}
-			
-			if (ht_it->w_edns0[1] > 0)
-			{
-				fprintf(query_out_file, "%s;%u;%u;-1;-1;-1;%u;%u\n", ht_it->name, (unsigned int) ht_it->first_seen, (unsigned int) ht_it->last_seen, ht_it->w_edns0[1], ht_it->edns0_max_size);
+				fprintf(query_out_file, "%s;%d;%d;%d;%u;%u\n", ht_it->qname_qc_qt_edns, ht_it->ip_count, ht_it->is_saturated, ht_it->seen_count, (unsigned int) ht_it->first_seen, (unsigned int) ht_it->last_seen);
 			}
 		}
 
 		fclose(query_out_file);
 	}
 
-	if (response_out_file != NULL)
-	{
-		INFO_MSG("Outputting response hash table");
-
-		HASH_ITER(hh, response_ht, ht_it, ht_tmp)
-		{
-			int	i	= 0;
-
-			for (i = 0; i < 255; i++)
-			{
-				if (ht_it->qt_count[i] > 0)
-				{
-					fprintf(response_out_file, "%s;%u;%u;%d;%u;-1;-1;-1\n", ht_it->name, (unsigned int) ht_it->first_seen, (unsigned int) ht_it->last_seen, i, ht_it->qt_count[i]);
-				}
-
-				if (ht_it->qt_other_count > 0)
-				{
-					fprintf(response_out_file, "%s;%u;%u;65537;%u;-1;-1;-1\n", ht_it->name, (unsigned int) ht_it->first_seen, (unsigned int) ht_it->last_seen, ht_it->qt_other_count);
-				}
-			}
-
-			if (ht_it->w_edns0[0] > 0)
-			{
-				fprintf(response_out_file, "%s;%u;%u;-1;-1;%u;-1;-1\n", ht_it->name, (unsigned int) ht_it->first_seen, (unsigned int) ht_it->last_seen, ht_it->w_edns0[0]);
-			}
-			
-			if (ht_it->w_edns0[1] > 0)
-			{
-				fprintf(response_out_file, "%s;%u;%u;-1;-1;-1;%u;%u\n", ht_it->name, (unsigned int) ht_it->first_seen, (unsigned int) ht_it->last_seen, ht_it->w_edns0[1], ht_it->edns0_max_size);
-			}
-		}
-
-		fclose(response_out_file);
-	}
-
 	/* Clean up hash tables */
 	HASH_ITER(hh, query_ht, ht_it, ht_tmp)
 	{
 		HASH_DEL(query_ht, ht_it);
-		free(ht_it);
-	}
-
-	HASH_ITER(hh, response_ht, ht_it, ht_tmp)
-	{
-		HASH_DEL(response_ht, ht_it);
 		free(ht_it);
 	}
 
