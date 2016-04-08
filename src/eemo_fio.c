@@ -77,7 +77,7 @@ dir_entry* eemo_fio_enum_dir(const char* dir)
 #else
 		struct stat entry_stat;
 
-		if ((lstat(entry->d_name, &entry_stat) != 0) || !S_ISREG(entry_state.st_mode))
+		if ((lstat(entry->d_name, &entry_stat) != 0) || !S_ISREG(entry_stat.st_mode))
 		{
 			/* Only add regular files */
 			continue;
