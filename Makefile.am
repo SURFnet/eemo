@@ -89,6 +89,8 @@ sbin_eemo_SOURCES =		src/dns_handler.c \
 				src/eemo_api.h \
 				src/eemo_config.c \
 				src/eemo_config.h \
+				src/eemo_fio.c \
+				src/eemo_fio.h \
 				src/eemo_modules.c \
 				src/eemo_modules.h \
 				src/eemo_handlefactory.c \

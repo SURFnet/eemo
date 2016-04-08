@@ -1,6 +1,6 @@
 /*
- * Copyright (c) 2010-2015 SURFnet bv
- * Copyright (c) 2015 Roland van Rijswijk-Deij
+ * Copyright (c) 2010-2016 SURFnet bv
+ * Copyright (c) 2014-2016 Roland van Rijswijk-Deij
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -55,11 +55,16 @@
 #include "ip_metadata.h"
 #include "ip_reassemble.h"
 #include "cidrmatch.h"
+#include "eemo_fio.h"
+
+#define DIR_SORT_ALPHA	1
+#define	DIR_SORT_CHRONO	2
 
 void version(void)
 {
 	printf("Extensible Ethernet Monitor (eemo) version %s\n", VERSION);
-	printf("Copyright (c) 2010-2014 SURFnet bv\n\n");
+	printf("Copyright (c) 2010-2016 SURFnet bv\n");
+	printf("Copyright (c) 2014-2016 Roland van Rijswijk-Deij\n\n");
 	printf("Use, modification and redistribution of this software is subject to the terms\n");
 	printf("of the license agreement. This software is licensed under a 3-clause BSD-style\n");
 	printf("license a copy of which is included as the file LICENSE in the distribution.\n");
@@ -71,24 +76,37 @@ void usage(void)
 	printf("Usage:\n");
 	printf("\teemo [-i <if>] [-f] [-c <config>] [-p <pidfile>]\n");
 	printf("\teemo [-s <savefile>]\n");
+	printf("\teemo [-D <directory>] [-a] [-t]\n\n");
 	printf("\teemo -h\n");
 	printf("\teemo -v\n");
 	printf("\n");
-	printf("\t-i <if>       Capture package on interface <if>; defaults to standard packet\n");
-	printf("\t              capturing interface reported by libpcap, see pcap_lookupdev(3)\n");
-	printf("\t-f            Run in the foreground rather than forking as a daemon\n");
-	printf("\t-c <config>   Use <config> as configuration file\n");
-	printf("\t              Defaults to %s\n", DEFAULT_EEMO_CONF);
-	printf("\t-p <pidfile>  Specify the PID file to write the daemon process ID to\n");
-	printf("\t              Defaults to %s\n", DEFAULT_EEMO_PIDFILE);
+	printf("\t-i <if>        Capture package on interface <if>; defaults to standard packet\n");
+	printf("\t               capturing interface reported by libpcap, see pcap_lookupdev(3).\n");
+	printf("\t-f             Run in the foreground rather than forking as a daemon.\n");
+	printf("\t-c <config>    Use <config> as configuration file.\n");
+	printf("\t               Defaults to %s\n", DEFAULT_EEMO_CONF);
+	printf("\t-p <pidfile>   Specify the PID file to write the daemon process ID to.\n");
+	printf("\t               Defaults to %s\n", DEFAULT_EEMO_PIDFILE);
 	printf("\n");
-	printf("\t-s <savefile> Play back a PCAP savefile (e.g. dumped using tcpdump) instead\n");
-	printf("\t              of using a live capture; options -c and -p may also be\n");
-	printf("\t              supplied, option -f is implied\n");
+	printf("\t-s <savefile>  Play back a PCAP savefile (e.g. dumped using tcpdump) instead\n");
+	printf("\t               of using a live capture; options -c and -p may also be\n");
+	printf("\t               supplied, option -f is implied. PCAP files in gzipped format\n");
+	printf("\t               are also accepted, and automatically detected.\n");
 	printf("\n");
-	printf("\t-h            Print this help message\n");
+	printf("\t-D <directory> Read PCAP savefiles from <directory>; any file in the directory\n");
+	printf("\t               is treated as a savefile in either PCAP or gzipped PCAP format.\n");
+	printf("\t               Use -a or -t to select the sorting order in which the files are\n");
+	printf("\t               read.\n");
+	printf("\t-a             Sort files read from the directory specified with -D in\n");
+	printf("\t               alphabetical order (note: strcmp respects the configure locale\n");
+	printf("\t               of your system).\n");
+	printf("\t-t             Sort files read from the directory specified with -D in\n");
+	printf("\t               chronological order from oldest to newest.\n");
+	printf("\t               (this is the default sorting order)\n");
 	printf("\n");
-	printf("\t-v            Print the version number\n");
+	printf("\t-h             Print this help message\n");
+	printf("\n");
+	printf("\t-v             Print the version number\n");
 }
 
 void write_pid(const char* pid_path, pid_t pid)
@@ -148,32 +166,89 @@ void signal_handler(int signum)
 	}
 }
 
+int dir_sort_alpha(void* left, void* right)
+{
+	dir_entry*	left_ent	= (dir_entry*) left;
+	dir_entry*	right_ent	= (dir_entry*) right;
+
+	return strcmp(left_ent->name, right_ent->name);
+}
+
+int dir_sort_chrono(void* left, void* right)
+{
+	dir_entry*	left_ent	= (dir_entry*) left;
+	dir_entry*	right_ent	= (dir_entry*) right;
+
+	return (int) (left_ent->mtime - right_ent->mtime);
+}
+
+void playback_directory(const char* dir_path, const int sort_mode)
+{
+	dir_entry*	dir_content	= NULL;
+	dir_entry*	dir_it		= NULL;
+	char		full_path[4096]	= { 0 };
+
+	INFO_MSG("Starting playback for PCAP files in %s", dir_path);
+
+	dir_content = eemo_fio_enum_dir(dir_path);
+
+	/* Sort according to the specified order */
+	switch(sort_mode)
+	{
+	case DIR_SORT_ALPHA:
+		LL_SORT(dir_content, dir_sort_alpha);
+		break;
+	case DIR_SORT_CHRONO:
+	default:
+		LL_SORT(dir_content, dir_sort_chrono);
+		break;
+	}
+
+	LL_FOREACH(dir_content, dir_it)
+	{
+		snprintf(full_path, 4096, "%s/%s", dir_path, dir_it->name);
+
+		/* Play back */
+		if (eemo_capture_init(NULL, full_path) != ERV_OK)
+		{
+			ERROR_MSG("Failed to initialise capture, giving up");
+		}
+		else
+		{
+			eemo_capture_run();
+	
+			eemo_capture_finalize();
+		}
+	}
+
+	eemo_fio_dir_free(dir_content);
+
+	INFO_MSG("Processed final file in %s", dir_path);
+}
+
 int main(int argc, char* argv[])
 {
-	char* interface = NULL;
-	char* config_path = NULL;
-	char* pid_path = NULL;
-	char* savefile_path = NULL;
-	int daemon = 1;
-	int c = 0;
-	int pid_path_set = 0;
-	int daemon_set = 0;
-	int interface_set = 0;
-	int savefile_set = 0;
-	pid_t pid = 0;
+	char*	interface	= NULL;
+	char*	config_path	= NULL;
+	char*	pid_path	= NULL;
+	char*	savefile_path	= NULL;
+	char*	savefile_dir	= NULL;
+	int	daemon		= 1;
+	int	c		= 0;
+	int	pid_path_set	= 0;
+	int	daemon_set	= 0;
+	int	interface_set	= 0;
+	int	savefile_set	= 0;
+	int	savedir_set	= 0;
+	int	dir_sort	= DIR_SORT_CHRONO;
+	pid_t	pid		= 0;
 	
-	while ((c = getopt(argc, argv, "i:s:fc:p:hv")) != -1)
+	while ((c = getopt(argc, argv, "i:s:fc:p:D:athv")) != -1)
 	{
 		switch(c)
 		{
 		case 'i':
 			interface = strdup(optarg);
-
-			if (interface == NULL)
-			{
-				fprintf(stderr, "Error allocating memory, exiting\n");
-				return ERV_MEMORY;
-			}
 
 			interface_set = 1;
 
@@ -181,17 +256,26 @@ int main(int argc, char* argv[])
 		case 's':
 			savefile_path = strdup(optarg);
 
-			if (savefile_path == NULL)
-			{
-				fprintf(stderr, "Error allocating memory, exiting\n");
-				return ERV_MEMORY;
-			}
-
 			savefile_set = 1;
 			
 			/* Always run in the foreground when playing back a recorded dump */
 			daemon = 0;
 			daemon_set = 1;
+			break;
+		case 'D':
+			savefile_dir = strdup(optarg);
+
+			savedir_set = 1;
+
+			/* Always run in the foreground when playing back PCAPs from a directory */
+			daemon = 0;
+			daemon_set = 1;
+			break;
+		case 'a':
+			dir_sort = DIR_SORT_ALPHA;
+			break;
+		case 't':
+			dir_sort = DIR_SORT_CHRONO;
 			break;
 		case 'f':
 			daemon = 0;
@@ -249,9 +333,16 @@ int main(int argc, char* argv[])
 		}
 	}
 
-	if (interface_set && savefile_set)
+	if (interface_set && (savefile_set || savedir_set))
 	{
-		fprintf(stderr, "Cannot combine live capture (-i) and savefile playback (-s), exiting\n");
+		fprintf(stderr, "Cannot combine live capture (-i) and savefile playback (-s, -D), exiting\n");
+
+		return ERV_CONFIG_ERROR;
+	}
+
+	if (savefile_set && savedir_set)
+	{
+		fprintf(stderr, "Cannot combine reading individual savefile (-s) with directory playback (-D), exiting\n");
 
 		return ERV_CONFIG_ERROR;
 	}
@@ -432,16 +523,23 @@ int main(int argc, char* argv[])
 		return ERV_NO_MODULES;
 	}
 
-	/* Start capturing */
-	if (eemo_capture_init(interface, savefile_path) != ERV_OK)
+	if (savedir_set)
 	{
-		ERROR_MSG("Failed to initialise capture, giving up");
+		playback_directory(savefile_dir, dir_sort);
 	}
 	else
 	{
-		eemo_capture_run();
-
-		eemo_capture_finalize();
+		/* Start capturing */
+		if (eemo_capture_init(interface, savefile_path) != ERV_OK)
+		{
+			ERROR_MSG("Failed to initialise capture, giving up");
+		}
+		else
+		{
+			eemo_capture_run();
+	
+			eemo_capture_finalize();
+		}
 	}
 
 	INFO_MSG("Stopping the Extensible Ethernet Monitor (eemo) version %s", VERSION);
@@ -497,6 +595,7 @@ int main(int argc, char* argv[])
 	free(pid_path);
 	free(config_path);
 	free(savefile_path);
+	free(savefile_dir);
 
 	if (interface != NULL)
 	{
