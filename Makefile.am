@@ -74,7 +74,7 @@ sbin_PROGRAMS += 		sbin/eemo \
 				sbin/eemo_mux \
 				sbin/eemo_sensor
 
-sbin_eemo_CFLAGS =		@LIBCONFIG_CFLAGS@ @PTHREAD_CFLAGS@ @OPENSSL_CFLAGS@ -Isrc
+sbin_eemo_CFLAGS =		@LIBCONFIG_CFLAGS@ @PTHREAD_CFLAGS@ @OPENSSL_CFLAGS@ @ZLIB_CFLAGS@ -Isrc
 
 if WITH_SQLITE3
 sbin_eemo_CFLAGS +=		@SQLITE3_CFLAGS@
@@ -139,7 +139,7 @@ sbin_eemo_SOURCES =		src/dns_handler.c \
 				src/uthash.h \
 				src/endian_compat.h
 
-sbin_eemo_LDADD =		-lpcap @LIBCONFIG_LIBS@ @PTHREAD_LIBS@ @OPENSSL_LIBS@
+sbin_eemo_LDADD =		-lpcap @LIBCONFIG_LIBS@ @PTHREAD_LIBS@ @OPENSSL_LIBS@ @ZLIB_LIBS@
 
 if WITH_SQLITE3
 sbin_eemo_LDADD +=		@SQLITE3_LDFLAGS@

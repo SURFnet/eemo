@@ -1,6 +1,6 @@
 /*
- * Copyright (c) 2010-2015 SURFnet bv
- * Copyright (c) 2014-2015 Roland van Rijswijk-Deij
+ * Copyright (c) 2010-2016 SURFnet bv
+ * Copyright (c) 2014-2016 Roland van Rijswijk-Deij
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without

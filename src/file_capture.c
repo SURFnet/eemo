@@ -1,6 +1,6 @@
 /*
- * Copyright (c) 2010-2015 SURFnet bv
- * Copyright (c) 2014-2015 Roland van Rijswijk-Deij
+ * Copyright (c) 2010-2016 SURFnet bv
+ * Copyright (c) 2014-2016 Roland van Rijswijk-Deij
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -42,16 +42,11 @@
 #include "eemo_packet.h"
 #include <stdio.h>
 #include <signal.h>
-#include <pcap.h>
 #include <time.h>
 #include <string.h>
 #include <stdlib.h>
-
-#define SNAPLEN			65536
-#define DEBUG_PACKET_FILE	"/tmp/eemo.packet"
-
-/* Global PCAP handle */
-static pcap_t* handle = NULL;
+#include <stdint.h>
+#include <zlib.h>
 
 /* Total packet counter */
 static unsigned long long capture_ctr = 0;
@@ -65,84 +60,108 @@ static int capture_stats_interval = 0;
 /* Last time statistics were logged */
 static time_t last_capture_stats = 0;
 
-/* Should we log the packet currently being handled to file? */
-static int log_current_packet = 0;
-
-/* PCAP dump headers for packet file, makes for easy reading by e.g. Wireshark */
+/* PCAP headers */
 #pragma pack(push,1)
-static struct
+typedef struct
 {
-	uint32_t magic_number;
-	uint16_t version_major;
-	uint16_t version_minor;
-	int32_t thiszone;
-	uint32_t sigfigs;
-	uint32_t snaplen;
-	uint32_t network;
+	uint32_t	pcap_magic;
+	uint16_t	pcap_major;
+	uint16_t	pcap_minor;
+	int32_t		pcap_utc_ofs;
+	uint32_t	pcap_ts_acc;
+	uint32_t	pcap_snaplen;
+	uint32_t	pcap_linktype;
 }
-pcap_header
-=
-{
-	0xa1b2c3d4,
-	2,
-	4,
-	0,
-	0,
-	SNAPLEN,
-	1
-};
+pcap_file_hdr;
 
-static struct
+typedef struct
 {
-	uint32_t ts_sec;
-	uint32_t ts_usec;
-	uint32_t incl_len;
-	uint32_t orig_len;
+	uint32_t	pkt_ts_sec;
+	uint32_t	pkt_ts_usec;
+	uint32_t	pkt_sav_len;
+	uint32_t	pkt_cap_len;
 }
-pcap_cap_header = { 0, 0, 0, 0};
-
-static unsigned char blankbuf[2048] = { 0 };
+pcap_pkt_hdr;
 #pragma pack(pop)
 
-/* File for debug packet dumping */
-static FILE* debug_packet_file = NULL;
+#define PCAP_MAGIC_DEFAULT	0xa1b2c3d4
+#define PCAP_MAGIC_OTHER_ENDIAN	0xd4c3b2a1
+#define PCAP_MAGIC_NSEC		0xa1b23c4d
+#define PCAP_MAGIC_NSEC_ENDIAN	0x4d3cb2a1
+
+/* Invert endianess of PCAP headers? */
+static int	invert_endian	= 0;
+static int	use_ntoh	= 0; 
+
+/* PCAP precision */
+static int	is_nsec_pcap	= 0;
+
+/* Should we exit? */
+static int	capture_exit	= 0;
+
+/* PCAP file handle */
+static FILE*	pcap_fd		= NULL;
+static gzFile	zpcap_fd	= NULL;
 
 /* Signal handler for exit signal */
 static void stop_signal_handler(int signum)
 {
 	INFO_MSG("Received request to exit");
 
-	pcap_breakloop(handle);
+	capture_exit = 1;
+}
+
+static uint16_t eemo_pcap_int_flip_uint16(const uint16_t in)
+{
+	return use_ntoh ? ntohs(in) : htons(in);
+}
+
+static int32_t eemo_pcap_int_flip_int32(const int32_t in)
+{
+	return (int32_t) (use_ntoh ? ntohl((uint32_t) in) : htonl((uint32_t) in));
+}
+
+static uint32_t eemo_pcap_int_flip_uint32(const uint32_t in)
+{
+	return use_ntoh ? ntohl(in) : htonl(in);
+}
+
+static void eemo_pcap_int_pkt_hdr_endian(pcap_pkt_hdr* hdr)
+{
+	if (invert_endian)
+	{
+		hdr->pkt_ts_sec		= eemo_pcap_int_flip_uint32(hdr->pkt_ts_sec);
+		hdr->pkt_ts_usec	= eemo_pcap_int_flip_uint32(hdr->pkt_ts_usec);
+		hdr->pkt_sav_len	= eemo_pcap_int_flip_uint32(hdr->pkt_sav_len);
+		hdr->pkt_cap_len	= eemo_pcap_int_flip_uint32(hdr->pkt_cap_len);
+	}
+}
+
+static void eemo_pcap_int_file_hdr_endian(pcap_file_hdr* hdr)
+{
+	if (invert_endian)
+	{
+		hdr->pcap_major		= eemo_pcap_int_flip_uint16(hdr->pcap_major);
+		hdr->pcap_minor		= eemo_pcap_int_flip_uint16(hdr->pcap_minor);
+		hdr->pcap_utc_ofs	= eemo_pcap_int_flip_int32(hdr->pcap_utc_ofs);
+		hdr->pcap_ts_acc	= eemo_pcap_int_flip_uint32(hdr->pcap_ts_acc);
+		hdr->pcap_snaplen	= eemo_pcap_int_flip_uint32(hdr->pcap_snaplen);
+		hdr->pcap_linktype	= eemo_pcap_int_flip_uint32(hdr->pcap_linktype);
+	}
 }
 
 /* PCAP callback handler */
-static void eemo_pcap_callback(u_char* user_ptr, const struct pcap_pkthdr* hdr, const u_char* capture_data)
+static void eemo_pcap_int_handle_one(const uint32_t ts_sec, const uint32_t ts_usec, const uint8_t* data, const size_t data_len)
 {
 	eemo_rv 	rv	= ERV_OK;
-	eemo_packet_buf	packet	= { (u_char*) capture_data, hdr->len };
+	eemo_packet_buf	packet	= { (u_char*) data, data_len };
+	struct timeval	tv	= { ts_sec, ts_usec };
 
 	/* Count the packet */
 	capture_ctr++;
 
-	/* Log the packet to file if necessary */
-	if (log_current_packet)
-	{
-		/* Write packet and flush */
-		rewind(debug_packet_file);
-		fwrite(&blankbuf[0], 1, sizeof(blankbuf), debug_packet_file);
-		rewind(debug_packet_file);
-		fwrite(&pcap_header, 1, sizeof(pcap_header), debug_packet_file);
-
-		pcap_cap_header.incl_len = hdr->len;
-		pcap_cap_header.orig_len = hdr->len;
-		fwrite(&pcap_cap_header, 1, sizeof(pcap_cap_header), debug_packet_file);
-
-		fwrite(capture_data, 1, hdr->len, debug_packet_file);
-		fflush(debug_packet_file);
-	}
-
 	/* Run it through the handlers */
-	rv = eemo_handle_raw_packet(&packet, hdr->ts);
+	rv = eemo_handle_raw_packet(&packet, tv);
 
 	/* Conditionally increment the handled packet counter */
 	if (rv == ERV_HANDLED)
@@ -165,10 +184,13 @@ static void eemo_pcap_callback(u_char* user_ptr, const struct pcap_pkthdr* hdr, 
 /* Initialise direct capturing */
 eemo_rv eemo_file_capture_init(const char* savefile)
 {
-	char 	errbuf[PCAP_ERRBUF_SIZE]	= { 0 };
-	char*	open_file			= NULL;
+	char*		open_file	= NULL;
+	FILE*		tmp_fd		= NULL;
+	uint8_t		gz_magic[2]	= { 0, 0 };
+	pcap_file_hdr	pcap_hdr;
 	
-	handle = NULL;
+	capture_exit = 0;
+	use_ntoh = (ntohl(0x12345678) == 0x12345678) ? 0 : 1;
 
 	/* Reset counters */
 	capture_ctr = handled_ctr = 0;
@@ -176,7 +198,6 @@ eemo_rv eemo_file_capture_init(const char* savefile)
 
 	/* Retrieve configuration */
 	eemo_conf_get_int("capture", "stats_interval", &capture_stats_interval, 0);
-	eemo_conf_get_bool("capture", "debug_log_packet", &log_current_packet, 0);
 
 	if (savefile == NULL)
 	{
@@ -197,34 +218,126 @@ eemo_rv eemo_file_capture_init(const char* savefile)
 		INFO_MSG("Emitting capture statistics every %ds", capture_stats_interval);
 	}
 
-	if (log_current_packet)
+	/* Try to open the file */
+	tmp_fd = fopen(open_file, "r");
+
+	if (tmp_fd == NULL)
 	{
-		INFO_MSG("Logging packet being handled to %s for debugging purposes", DEBUG_PACKET_FILE);
-
-		debug_packet_file = fopen(DEBUG_PACKET_FILE, "w");
-
-		if (debug_packet_file == NULL)
-		{
-			ERROR_MSG("Failed to open %s for writing", DEBUG_PACKET_FILE);
-
-			log_current_packet = 0;
-		}
-	}
-
-	/* Open the previously saved capture file */
-	handle = pcap_open_offline(open_file, errbuf);
-
-	if (handle == NULL)
-	{
-		/* Failed to open the capture file */
-		ERROR_MSG("Failed to open PCAP capture file %s", open_file);
-
+		ERROR_MSG("Failed to open capture file %s", open_file);
+		
 		free(open_file);
 
 		return ERV_NO_ACCESS;
 	}
 
-	INFO_MSG("Will read packets from PCAP file %s", open_file);
+	/* Check if the file is gzipped */
+	if ((fread(gz_magic, 1, 2, tmp_fd) == 2) &&
+	    (gz_magic[0] == 0x1f) &&
+	    (gz_magic[1] == 0x8b))
+	{
+		/* Assume this file is GZipped */
+		fclose(tmp_fd);
+
+		zpcap_fd = gzopen(open_file, "r");
+
+		if (zpcap_fd == NULL)
+		{
+			ERROR_MSG("Failed to open %s as gzip stream", open_file);
+
+			free(open_file);
+			
+			return ERV_NO_ACCESS;
+		}
+
+		INFO_MSG("Opened %s as gzipped PCAP stream", open_file);
+	}
+	else
+	{
+		/* This file is not GZipped */
+		rewind(tmp_fd);
+
+		pcap_fd = tmp_fd;
+
+		INFO_MSG("Opened %s for reading as plain PCAP", open_file);
+	}
+
+	/* Read PCAP header */
+	if (pcap_fd != NULL)
+	{
+		if (fread(&pcap_hdr, 1, sizeof(pcap_file_hdr), pcap_fd) != sizeof(pcap_file_hdr))
+		{
+			fclose(pcap_fd);
+			pcap_fd = NULL;
+
+			ERROR_MSG("Failed to read PCAP header from %s", open_file);
+		}
+	}
+	else
+	{
+		if (gzread(zpcap_fd, &pcap_hdr, sizeof(pcap_file_hdr)) != sizeof(pcap_file_hdr))
+		{
+			gzclose(zpcap_fd);
+			zpcap_fd = NULL;
+
+			ERROR_MSG("Failed to read PCAP header from %s", open_file);
+		}
+	}
+	
+	/* Check header integrity */
+	switch(pcap_hdr.pcap_magic)
+	{
+	case PCAP_MAGIC_DEFAULT:
+		INFO_MSG("%s is a standard PCAP file in local endian format", open_file);
+
+		invert_endian = 0;
+		is_nsec_pcap = 0;
+
+		break;
+	case PCAP_MAGIC_NSEC:
+		INFO_MSG("%s is a PCAP file with nano-second precision in local endian format", open_file);
+	
+		invert_endian = 0;
+		is_nsec_pcap = 1;
+
+		break;
+	case PCAP_MAGIC_OTHER_ENDIAN:
+		INFO_MSG("%s is a standard PCAP file in a different endian format", open_file);
+
+		invert_endian = 1;
+		is_nsec_pcap = 0;
+
+		break;
+	case PCAP_MAGIC_NSEC_ENDIAN:
+		INFO_MSG("%s is a PCAP file with nano-second precision in a different endian format", open_file);
+
+		invert_endian = 1;
+		is_nsec_pcap = 1;
+		
+		break;
+	default:
+		ERROR_MSG("Invalid magic word (0x%08X) found in PCAP file %s", pcap_hdr.pcap_magic, open_file);
+
+		if (pcap_fd != NULL)
+		{
+			fclose(pcap_fd);
+			pcap_fd = NULL;
+		}
+		else
+		{
+			gzclose(zpcap_fd);
+			zpcap_fd = NULL;
+		}
+
+		free(open_file);
+		return ERV_GENERAL_ERROR;
+	}
+
+	/* Correct the rest of the header for local endianess if required */
+	eemo_pcap_int_file_hdr_endian(&pcap_hdr);
+
+	INFO_MSG("PCAP file has version %u.%u", pcap_hdr.pcap_major, pcap_hdr.pcap_minor);
+	INFO_MSG("PCAP snap length %d bytes", pcap_hdr.pcap_snaplen);
+	INFO_MSG("PCAP link type 0x%08X", pcap_hdr.pcap_linktype);
 
 	INFO_MSG("PCAP processing initialised successfully");
 
@@ -236,6 +349,23 @@ eemo_rv eemo_file_capture_init(const char* savefile)
 /* Uninitialise direct capturing */
 eemo_rv eemo_file_capture_finalize(void)
 {
+	/* Close files */
+	if (pcap_fd != NULL)
+	{
+		fclose(pcap_fd);
+		pcap_fd = NULL;
+
+		INFO_MSG("Closed regular PCAP file stream");
+	}
+
+	if (zpcap_fd != NULL)
+	{
+		gzclose(zpcap_fd);
+		zpcap_fd = NULL;
+
+		INFO_MSG("Closed gzipped PCAP file stream");
+	}
+
 	INFO_MSG("PCAP processing uninitialised");
 
 	return ERV_OK;
@@ -244,6 +374,10 @@ eemo_rv eemo_file_capture_finalize(void)
 /* Run the direct capture */
 void eemo_file_capture_run(void)
 {
+	pcap_pkt_hdr	pkt_hdr;
+	int		nread		= 0;
+	static uint8_t	buf[65536]	= { 0 };
+
 	/* Register the signal handler for termination */
 	signal(SIGINT, stop_signal_handler);
 	signal(SIGHUP, stop_signal_handler);
@@ -252,25 +386,94 @@ void eemo_file_capture_run(void)
 	/* Capture the specified number of packets */
 	INFO_MSG("Starting packet playback");
 
-	if (pcap_loop(handle, 0, &eemo_pcap_callback, NULL) == -1)
+	while (!capture_exit)
 	{
-		ERROR_MSG("pcap_loop(..) returned an error (%s)", pcap_geterr(handle));
+		/* Read header */
+		if (pcap_fd != NULL)
+		{
+			nread = fread(&pkt_hdr, 1, sizeof(pcap_pkt_hdr), pcap_fd);
+		}
+		else
+		{
+			nread = gzread(zpcap_fd, &pkt_hdr, sizeof(pcap_pkt_hdr));
+		}
+
+		if (nread != sizeof(pcap_pkt_hdr))
+		{
+			if (nread == 0)
+			{
+				INFO_MSG("Reached end of PCAP stream");
+			}
+			else if (nread < 0)
+			{
+				ERROR_MSG("Error reading PCAP stream");
+			}
+			else
+			{
+				ERROR_MSG("Truncated PCAP stream, read %d bytes, expected %d", nread, sizeof(pcap_pkt_hdr));
+			}
+
+			capture_exit = 1;
+			continue;
+		}
+	
+		/* Convert header to local endianess if necessary */
+		eemo_pcap_int_pkt_hdr_endian(&pkt_hdr);
+
+		if (pkt_hdr.pkt_sav_len > 65536)
+		{
+			ERROR_MSG("Unsupported packet size of %u bytes, giving up on this PCAP stream", pkt_hdr.pkt_sav_len);
+
+			capture_exit = 1;
+			continue;
+		}
+
+		if (pkt_hdr.pkt_sav_len == 0)
+		{
+			WARNING_MSG("Zero-length packet in PCAP stream");
+			continue;
+		}
+
+		/* Read the packet from the stream */
+		if (pcap_fd != NULL)
+		{
+			nread = fread(buf, 1, pkt_hdr.pkt_sav_len, pcap_fd);
+		}
+		else
+		{
+			nread = gzread(zpcap_fd, buf, pkt_hdr.pkt_sav_len);
+		}
+
+		if (nread != pkt_hdr.pkt_sav_len)
+		{
+			if (nread == 0)
+			{
+				WARNING_MSG("Unexpected end of PCAP stream");
+			}
+			else if (nread < 0)
+			{
+				ERROR_MSG("Error reading PCAP stream");
+			}
+			else
+			{
+				ERROR_MSG("Truncated PCAP stream, read %d bytes, expected %d", nread, pkt_hdr.pkt_sav_len);
+			}
+
+			capture_exit = 1;
+			continue;
+		}
+
+		/* Adjust time if necessary */
+		if (is_nsec_pcap) pkt_hdr.pkt_ts_usec /= 1000;
+	
+		/* Process the packet */
+		eemo_pcap_int_handle_one(pkt_hdr.pkt_ts_sec, pkt_hdr.pkt_ts_usec, buf, pkt_hdr.pkt_sav_len);
 	}
 
 	signal(SIGINT, SIG_DFL);
 	signal(SIGHUP, SIG_DFL);
 	signal(SIGTERM, SIG_DFL);
 
-	/* Close last packet dump file if open */
-	if (log_current_packet && debug_packet_file)
-	{
-		fclose(debug_packet_file);
-	}
-
 	INFO_MSG("Packet playback ended, read %llu packets of which %llu were handled", capture_ctr, handled_ctr);
-
-	pcap_close(handle);
-
-	handle = NULL;
 }
 
