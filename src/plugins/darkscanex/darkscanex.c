@@ -40,6 +40,9 @@
 #include <time.h>
 #include <assert.h>
 #include <sys/wait.h>
+#include <arpa/inet.h>
+#include <netinet/in.h>
+#include <sys/socket.h>
 #include <pthread.h>
 #include <unistd.h>
 #include <string.h>
@@ -159,28 +162,52 @@ eemo_rv eemo_darkscanex_dns_handler(eemo_ip_packet_info ip_info, int is_tcp, con
 
 			if (!query_ent->is_saturated)
 			{
+				int	seen_before	= 0;
+
 				/* Find a free slot to save the destination IP */
 				for (i = 0; i < UNIQ_IP_STORAGE; i++)
 				{
-					if (query_ent->ip[i] == 0)
+					if (query_ent->ip[i] == ip_info.dst_addr.v4)
 					{
-						query_ent->ip[i] = ip_info.dst_addr.v4;
+						seen_before = 1;
 						break;
 					}
 				}
 
-				i++;
-
-				query_ent->ip_count = i;
-
-				if (i == (q_threshold + 1)) q_multi_count++;
-
-				if (i == UNIQ_IP_STORAGE)
+				if (!seen_before)
 				{
-					query_ent->is_saturated = 1;
-					q_saturated_count++;
+					for (i = 0; i < UNIQ_IP_STORAGE; i++)
+					{
+						if (query_ent->ip[i] == 0)
+						{
+							query_ent->ip[i] = ip_info.dst_addr.v4;
+							break;
+						}
+					}
 
-					INFO_MSG("Storage for query %s saturated", qname_qc_qt_edns);
+					i++;
+	
+					query_ent->ip_count = i;
+	
+					if (i == (q_threshold + 1)) q_multi_count++;
+	
+					if (i == UNIQ_IP_STORAGE)
+					{
+						query_ent->is_saturated = 1;
+						q_saturated_count++;
+	
+						INFO_MSG("Storage for query %s saturated", qname_qc_qt_edns);
+	
+						for (i = 0; i < UNIQ_IP_STORAGE; i++)
+						{
+							char	ip_str[INET_ADDRSTRLEN];
+	
+							if (inet_ntop(AF_INET, &query_ent->ip[i], ip_str, INET_ADDRSTRLEN) != NULL)
+							{
+								DEBUG_MSG("IP: %s", ip_str);
+							}
+						}
+					}
 				}
 			}
 		}
