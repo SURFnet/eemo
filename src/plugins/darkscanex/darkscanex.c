@@ -104,7 +104,7 @@ static void eemo_darkscanex_int_stats(void)
 		INFO_MSG("Counted %llu queries", q_count);
 		INFO_MSG("Counted %llu queries to more than %d IPs", q_multi_count, q_threshold);
 		INFO_MSG("Counted %llu queries to %d IPs or more", q_saturated_count, UNIQ_IP_STORAGE);
-		INFO_MSG("Query hash table has %d entries");
+		INFO_MSG("Query hash table has %d entries", HASH_COUNT(query_ht));
 	}
 }
 
@@ -173,7 +173,7 @@ eemo_rv eemo_darkscanex_dns_handler(eemo_ip_packet_info ip_info, int is_tcp, con
 
 				query_ent->ip_count = i;
 
-				if (i == (q_threshold - 1)) q_multi_count++;
+				if (i == (q_threshold + 1)) q_multi_count++;
 
 				if (i == UNIQ_IP_STORAGE)
 				{
