@@ -69,6 +69,10 @@ static unsigned long long	q_multi_count		= 0;
 static unsigned long long	q_count			= 0;
 static unsigned long long	q_saturated_count	= 0;
 
+static time_t			last_prune		= (time_t) 0;
+
+static int			prune_interval		= 1800;
+
 static eemo_export_fn_table_ptr eemo_fn_tab		= NULL;
 
 typedef struct dscan_ht_ent
@@ -77,6 +81,7 @@ typedef struct dscan_ht_ent
 	uint32_t	ip[UNIQ_IP_STORAGE];
 	int		ip_count;
 	int		is_saturated;
+	int		reached_threshold;
 	time_t		first_seen;
 	time_t		last_seen;
 	int		seen_count;
@@ -108,6 +113,45 @@ static void eemo_darkscanex_int_stats(void)
 		INFO_MSG("Counted %llu queries to more than %d IPs", q_multi_count, q_threshold);
 		INFO_MSG("Counted %llu queries to %d IPs or more", q_saturated_count, UNIQ_IP_STORAGE);
 		INFO_MSG("Query hash table has %d entries", HASH_COUNT(query_ht));
+	}
+
+	/* Periodically prune hash table */
+	if ((time(NULL) - last_prune) >= prune_interval)
+	{
+		dscan_ht_ent*	ht_it	= NULL;
+		dscan_ht_ent*	ht_tmp	= NULL;
+
+		last_prune = time(NULL);
+
+		INFO_MSG("Performing hash table prune");
+
+		INFO_MSG("Hash table has %d entries before prune", HASH_COUNT(query_ht));
+
+		HASH_ITER(hh, query_ht, ht_it, ht_tmp)
+		{
+			if (ht_it->is_saturated || ht_it->reached_threshold) continue;
+
+			if (ht_it->ip_count == 1)
+			{
+				/* Single destination IP, has been there for at least a minute, prune it */
+				if ((last_prune - ht_it->first_seen) > 60)
+				{
+					HASH_DEL(query_ht, ht_it);
+					free(ht_it);
+				}
+			}
+			else if (ht_it->ip_count <= q_threshold)
+			{
+				/* Less than the threshold, has been there for at least half the prune interval */
+				if ((last_prune - ht_it->first_seen) > (prune_interval / 2))
+				{
+					HASH_DEL(query_ht, ht_it);
+					free(ht_it);
+				}
+			}
+		}
+
+		INFO_MSG("Hash table has %d entries after prune", HASH_COUNT(query_ht));
 	}
 }
 
@@ -189,7 +233,11 @@ eemo_rv eemo_darkscanex_dns_handler(eemo_ip_packet_info ip_info, int is_tcp, con
 	
 					query_ent->ip_count = i;
 	
-					if (i == (q_threshold + 1)) q_multi_count++;
+					if (i == (q_threshold + 1))
+					{
+						q_multi_count++;
+						query_ent->reached_threshold = 1;
+					}
 	
 					if (i == UNIQ_IP_STORAGE)
 					{
@@ -263,6 +311,17 @@ eemo_rv eemo_darkscanex_init(eemo_export_fn_table_ptr eemo_fn, const char* conf_
 		return ERV_CONFIG_ERROR;
 	}
 
+	INFO_MSG("Assuming queries to %d or more IP addresses are scans", q_threshold);
+
+	if (((eemo_fn->conf_get_int)(conf_base_path, "prune_interval", &prune_interval, 1800) != ERV_OK) || (prune_interval < 0))
+	{
+		ERROR_MSG("Failed to retrieve the hash table prune interval from the configuration");
+
+		return ERV_CONFIG_ERROR;
+	}
+
+	INFO_MSG("Pruning query hash table every %d seconds", prune_interval);
+
 	if (((eemo_fn->conf_get_string_array)(conf_base_path, "darknet_cidr_blocks", &darknet_cidr_blocks, &darknet_cidr_block_ct) != ERV_OK) || (darknet_cidr_block_ct == 0) || (darknet_cidr_blocks == NULL))
 	{
 		ERROR_MSG("Failed to retrieve list of darknet CIDR blocks from the configuration");
@@ -295,6 +354,8 @@ eemo_rv eemo_darkscanex_init(eemo_export_fn_table_ptr eemo_fn, const char* conf_
 	}
 
 	INFO_MSG("darkscanex plugin initialisation complete");
+
+	last_prune = time(NULL);
 
 	return ERV_OK;
 }
