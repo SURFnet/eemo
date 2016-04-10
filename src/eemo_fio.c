@@ -68,6 +68,8 @@ dir_entry* eemo_fio_enum_dir(const char* dir)
 	{
 		dir_entry*	new_entry	= NULL;
 
+		snprintf(full_path, 4096, "%s/%s", dir, entry->d_name);
+
 #if defined(_DIRENT_HAVE_D_TYPE) && defined(_BSD_SOURCE)
 		if (entry->d_type != DT_REG)
 		{
@@ -75,18 +77,18 @@ dir_entry* eemo_fio_enum_dir(const char* dir)
 			continue;
 		}
 #else
-		struct stat entry_stat;
-
-		if ((lstat(entry->d_name, &entry_stat) != 0) || !S_ISREG(entry_stat.st_mode))
 		{
-			/* Only add regular files */
-			continue;
+			struct stat entry_stat;
+
+			if ((lstat(full_path, &entry_stat) != 0) || !S_ISREG(entry_stat.st_mode))
+			{
+				/* Only add regular files */
+				continue;
+			}
 		}
 #endif
 
 		/* Get information on the file */
-		snprintf(full_path, 4096, "%s/%s", dir, entry->d_name);
-
 		if (stat(full_path, &file_stat) != 0)
 		{
 			ERROR_MSG("Failed to stat(..) %s", full_path);
