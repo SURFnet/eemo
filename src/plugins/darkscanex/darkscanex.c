@@ -80,6 +80,7 @@ typedef struct dscan_ht_ent
 	char		qname_qc_qt_edns[512];
 	uint32_t	ip[UNIQ_IP_STORAGE];
 	int		ip_count;
+	hll_stor*	hll_ipcount;
 	int		is_saturated;
 	int		reached_threshold;
 	time_t		first_seen;
@@ -146,6 +147,7 @@ static void eemo_darkscanex_int_stats(void)
 				if ((last_prune - ht_it->first_seen) > (prune_interval / 2))
 				{
 					HASH_DEL(query_ht, ht_it);
+					free(ht_it->hll_ipcount);
 					free(ht_it);
 				}
 			}
@@ -244,19 +246,20 @@ eemo_rv eemo_darkscanex_dns_handler(eemo_ip_packet_info ip_info, int is_tcp, con
 						query_ent->is_saturated = 1;
 						q_saturated_count++;
 	
-						INFO_MSG("Storage for query %s saturated", qname_qc_qt_edns);
+						INFO_MSG("Storage for query %s saturated, starting probabilistic counting", qname_qc_qt_edns);
+
+						query_ent->hll_ipcount = (hll_stor*) malloc(sizeof(hll_stor));
 	
 						for (i = 0; i < UNIQ_IP_STORAGE; i++)
 						{
-							char	ip_str[INET_ADDRSTRLEN];
-	
-							if (inet_ntop(AF_INET, &query_ent->ip[i], ip_str, INET_ADDRSTRLEN) != NULL)
-							{
-								DEBUG_MSG("IP: %s", ip_str);
-							}
+							eemo_fn_tab->hll_add(*(query_ent->hll_ipcount), &query_ent->ip[i], sizeof(uint32_t));
 						}
 					}
 				}
+			}
+			else
+			{
+				eemo_fn_tab->hll_add(*(query_ent->hll_ipcount), &ip_info.dst_addr.v4, sizeof(uint32_t));
 			}
 		}
 	}
@@ -383,7 +386,14 @@ eemo_rv eemo_darkscanex_uninit(eemo_export_fn_table_ptr eemo_fn)
 		{
 			if (ht_it->ip_count > q_threshold)
 			{
-				fprintf(query_out_file, "%s;%d;%d;%d;%u;%u\n", ht_it->qname_qc_qt_edns, ht_it->ip_count, ht_it->is_saturated, ht_it->seen_count, (unsigned int) ht_it->first_seen, (unsigned int) ht_it->last_seen);
+				uint64_t	prob_count	= 0;
+
+				if (ht_it->is_saturated)
+				{
+					prob_count = eemo_fn_tab->hll_count(*(ht_it->hll_ipcount));
+				}
+
+				fprintf(query_out_file, "%s;%d;%d;%llu;%d;%u;%u\n", ht_it->qname_qc_qt_edns, ht_it->ip_count, ht_it->is_saturated, (unsigned long long) prob_count, ht_it->seen_count, (unsigned int) ht_it->first_seen, (unsigned int) ht_it->last_seen);
 			}
 		}
 
@@ -394,6 +404,7 @@ eemo_rv eemo_darkscanex_uninit(eemo_export_fn_table_ptr eemo_fn)
 	HASH_ITER(hh, query_ht, ht_it, ht_tmp)
 	{
 		HASH_DEL(query_ht, ht_it);
+		free(ht_it->hll_ipcount);
 		free(ht_it);
 	}
 

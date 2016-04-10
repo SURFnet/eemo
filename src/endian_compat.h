@@ -1,6 +1,6 @@
 /*
- * Copyright (c) 2010-2015 SURFnet bv
- * Copyright (c) 2015 Roland van Rijswijk-Deij
+ * Copyright (c) 2010-2016 SURFnet bv
+ * Copyright (c) 2016 Roland van Rijswijk-Deij
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -37,6 +37,9 @@
 #ifndef _ENDIAN_COMPAT_H
 #define _ENDIAN_COMPAT_H
 
+#define EEMO_LITTLE_ENDIAN	4321
+#define EEMO_BIG_ENDIAN		1234
+
 #ifdef __APPLE__
 
 /* OS X does not provide the BSD/Linux endianess functions, redefine local equivalents */
@@ -59,13 +62,31 @@
 #define be64toh(x) OSSwapBigToHostInt64(x)
 #define le64toh(x) OSSwapLittleToHostInt64(x)
 
+#if BYTE_ORDER == LITTLE_ENDIAN
+#define EEMO_BYTE_ORDER	EEMO_LITTLE_ENDIAN
+#else
+#define EEMO_BYTE_ORDER EEMO_BIG_ENDIAN
+#endif
+
 #elif defined(__FreeBSD__) /* !__APPLE__ */
 
 #include <sys/endian.h>
 
+#if _BYTE_ORDER == _LITTLE_ENDIAN
+#define EEMO_BYTE_ORDER EEMO_LITTLE_ENDIAN
+#else
+#define EEMO_BYTE_ORDER EEMO_BIG_ENDIAN
+#endif
+
 #else /* !__FreeBSD__ */
 
 #include <endian.h>
+
+#if __BYTE_ORDER == __LITTLE_ENDIAN
+#define EEMO_BYTE_ORDER EEMO_LITTLE_ENDIAN
+#else
+#define EEMO_BYTE_ORDER EEMO_BIG_ENDIAN
+#endif
 
 #endif
 

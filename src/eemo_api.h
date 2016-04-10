@@ -49,9 +49,10 @@
 #include "udp_handler.h"
 #include "ip_metadata.h"
 #include "cidrmatch.h"
+#include "hyperloglogpp.h"
 
 /* Function table exported by EEMO; always check version before using */
-#define EEMO_EXPORT_FN_VERSION		5
+#define EEMO_EXPORT_FN_VERSION		6
 
 /* Configuration functions need to be defined here, otherwise we get cross-referencing headers */
 typedef eemo_rv (*eemo_conf_get_int_fn)(const char*, const char*, int*, int);
@@ -107,6 +108,10 @@ typedef struct
 	eemo_cm_add_block_fn		cm_add_block;
 	eemo_cm_match_v4_fn		cm_match_v4;
 	eemo_cm_match_v6_fn		cm_match_v6;
+
+	/* Probabilistic counting using HyperLogLog++ */
+	hll_add_fn			hll_add;
+	hll_count_fn			hll_count;
 }
 eemo_export_fn_table, *eemo_export_fn_table_ptr;
 

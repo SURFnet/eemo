@@ -139,9 +139,11 @@ sbin_eemo_SOURCES =		src/dns_handler.c \
 				src/cidrmatch.h \
 				src/utlist.h \
 				src/uthash.h \
+				src/hyperloglogpp.c \
+				src/hyperloglogpp.h \
 				src/endian_compat.h
 
-sbin_eemo_LDADD =		-lpcap @LIBCONFIG_LIBS@ @PTHREAD_LIBS@ @OPENSSL_LIBS@ @ZLIB_LIBS@
+sbin_eemo_LDADD =		-lpcap @LIBCONFIG_LIBS@ @PTHREAD_LIBS@ @OPENSSL_LIBS@ @ZLIB_LIBS@ -lm
 
 if WITH_SQLITE3
 sbin_eemo_LDADD +=		@SQLITE3_LDFLAGS@

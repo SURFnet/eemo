@@ -42,6 +42,7 @@
 #include "eemo_log.h"
 #include "eemo_modules.h"
 #include "cidrmatch.h"
+#include "hyperloglogpp.h"
 #include <libconfig.h>
 #include <string.h>
 #include <stdlib.h>
@@ -78,7 +79,9 @@ eemo_export_fn_table eemo_function_table =
 	&eemo_unreg_dns_handler,
 	&eemo_cm_add_block,
 	&eemo_cm_match_v4,
-	&eemo_cm_match_v6
+	&eemo_cm_match_v6,
+	&hll_add,
+	&hll_count
 };
 
 /* Load and initialise the modules */
