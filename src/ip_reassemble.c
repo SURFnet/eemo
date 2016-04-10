@@ -493,6 +493,16 @@ static eemo_rv eemo_reasm_int_process_fragment(const ip_reasm_id* id, const eemo
 			hd->hd_last = (ofs - 1);
 			hd->hd_next = is_last ? HD_NULL : (ofs + fragment->len);
 
+			/* Check if the hole is 8 octets or more */
+			if (hd->hd_last + 1 - hd->hd_first < 8)
+			{
+				ERROR_MSG("Fragment reassembly starting with hole of less than 8 octets; packet should not be reassembled");
+
+				buf->in_use = 0;
+
+				return ERV_REASM_FAILED;
+			}
+
 			FRAG_MSG("Added hole f=%u l=%u n=%u", hd->hd_first, hd->hd_last, hd->hd_next);
 
 			/* Copy the fragment data in */
@@ -568,6 +578,16 @@ static eemo_rv eemo_reasm_int_process_fragment(const ip_reasm_id* id, const eemo
 			new_hd->hd_last		= ofs - 1;
 			new_hd->hd_next		= hd_found.hd_next;
 
+			/* Check if the hole is more than 8 octets */
+			if (new_hd->hd_last + 1 - new_hd->hd_first < 8)
+			{
+				ERROR_MSG("Fragment would create a new hole of less than 8 octets; stopping reassembly");
+
+				buf->in_use = 0;
+
+				return ERV_REASM_FAILED;
+			}
+
 			FRAG_MSG("Added hole f=%u l=%u n=%u", new_hd->hd_first, new_hd->hd_last, new_hd->hd_next);
 
 			hd_prev = new_hd;
@@ -593,6 +613,16 @@ static eemo_rv eemo_reasm_int_process_fragment(const ip_reasm_id* id, const eemo
 			new_hd->hd_first	= ofs + fragment->len;
 			new_hd->hd_last		= hd_found.hd_last;
 			new_hd->hd_next		= hd_found.hd_next;
+
+			/* Check if the hole is more than 8 octets */
+			if (new_hd->hd_last + 1 - new_hd->hd_first < 8)
+			{
+				ERROR_MSG("Fragment would resive existing hole to less than 8 octets; stopping reassembly");
+
+				buf->in_use = 0;
+
+				return ERV_REASM_FAILED;
+			}
 
 			FRAG_MSG("Added hole f=%u l=%u n=%u", new_hd->hd_first, new_hd->hd_last, new_hd->hd_next);
 
