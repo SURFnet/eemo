@@ -240,6 +240,12 @@ eemo_rv eemo_file_capture_init(const char* savefile)
 
 		zpcap_fd = gzopen(open_file, "r");
 
+		/* Increase read buffer size */
+		if (gzbuffer(zpcap_fd, 1024*1024) != 0)
+		{
+			ERROR_MSG("Failed to increase gzip read buffer size to 1M");
+		}
+
 		if (zpcap_fd == NULL)
 		{
 			ERROR_MSG("Failed to open %s as gzip stream", open_file);
