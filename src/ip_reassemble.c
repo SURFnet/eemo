@@ -617,7 +617,7 @@ static eemo_rv eemo_reasm_int_process_fragment(const ip_reasm_id* id, const eemo
 			/* Check if the hole is more than 8 octets */
 			if (new_hd->hd_last + 1 - new_hd->hd_first < 8)
 			{
-				ERROR_MSG("Fragment would resive existing hole to less than 8 octets; stopping reassembly");
+				ERROR_MSG("Fragment would resize existing hole to less than 8 octets; stopping reassembly");
 
 				buf->in_use = 0;
 
