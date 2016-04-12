@@ -71,7 +71,7 @@ static unsigned long long	q_saturated_count	= 0;
 
 static time_t			last_prune		= (time_t) 0;
 
-static int			prune_interval		= 1800;
+static int			prune_interval		= 600;
 
 static eemo_export_fn_table_ptr eemo_fn_tab		= NULL;
 
@@ -135,7 +135,7 @@ static void eemo_darkscanex_int_stats(void)
 			if (ht_it->ip_count == 1)
 			{
 				/* Single destination IP, has been there for at least a minute, prune it */
-				if ((last_prune - ht_it->first_seen) > 60)
+				if ((last_prune - ht_it->first_seen) >= 60)
 				{
 					HASH_DEL(query_ht, ht_it);
 					free(ht_it);
@@ -143,8 +143,8 @@ static void eemo_darkscanex_int_stats(void)
 			}
 			else if (ht_it->ip_count <= q_threshold)
 			{
-				/* Less than the threshold, has been there for at least half the prune interval */
-				if ((last_prune - ht_it->first_seen) > (prune_interval / 2))
+				/* Less than the threshold, has been there for at one prune interval */
+				if ((last_prune - ht_it->first_seen) >= prune_interval)
 				{
 					HASH_DEL(query_ht, ht_it);
 					free(ht_it);
