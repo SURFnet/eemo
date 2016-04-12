@@ -319,7 +319,7 @@ eemo_rv eemo_darkscanex_init(eemo_export_fn_table_ptr eemo_fn, const char* conf_
 
 	INFO_MSG("Assuming queries to %d or more IP addresses are scans", q_threshold);
 
-	if (((eemo_fn->conf_get_int)(conf_base_path, "prune_interval", &prune_interval, 1800) != ERV_OK) || (prune_interval < 0))
+	if (((eemo_fn->conf_get_int)(conf_base_path, "prune_interval", &prune_interval, prune_interval) != ERV_OK) || (prune_interval < 0))
 	{
 		ERROR_MSG("Failed to retrieve the hash table prune interval from the configuration");
 
