@@ -147,7 +147,6 @@ static void eemo_darkscanex_int_stats(void)
 				if ((last_prune - ht_it->first_seen) > (prune_interval / 2))
 				{
 					HASH_DEL(query_ht, ht_it);
-					free(ht_it->hll_ipcount);
 					free(ht_it);
 				}
 			}
@@ -178,7 +177,7 @@ eemo_rv eemo_darkscanex_dns_handler(eemo_ip_packet_info ip_info, int is_tcp, con
 			return ERV_SKIPPED;
 		}
 
-		if (pkt->questions != NULL)
+		if ((pkt->questions != NULL) && (pkt->questions->qname != NULL))
 		{
 			char		qname_qc_qt_edns[512]	= { 0 };
 			dscan_ht_ent*	query_ent		= NULL;
@@ -249,6 +248,10 @@ eemo_rv eemo_darkscanex_dns_handler(eemo_ip_packet_info ip_info, int is_tcp, con
 						INFO_MSG("Storage for query %s saturated, starting probabilistic counting", qname_qc_qt_edns);
 
 						query_ent->hll_ipcount = (hll_stor*) malloc(sizeof(hll_stor));
+
+						assert(query_ent->hll_ipcount != NULL);
+
+						eemo_fn_tab->hll_init(*(query_ent->hll_ipcount));
 	
 						for (i = 0; i < UNIQ_IP_STORAGE; i++)
 						{

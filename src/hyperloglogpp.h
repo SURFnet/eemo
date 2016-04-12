@@ -52,11 +52,15 @@
 #define HLL_P			14				/* larger p-value implies smaller error */
 #define HLL_REGISTERS		(1<<HLL_P)			/* #registers, for p=14 this is 16384 */
 #define HLL_P_MASK		(HLL_REGISTERS-1)
-#define HLL_BITS		6				/* bits per register, 6 for a 64-bit hash */
-#define HLL_REGISTER_MAX	((1<<HLL_BITS)-1)
-#define HLL_DENSE_SIZE		((HLL_REGISTERS*HLL_BITS+7)/8)
 
-typedef uint8_t hll_stor[HLL_DENSE_SIZE];
+typedef uint8_t hll_stor[HLL_REGISTERS];
+
+/*
+ * Initialize the HyperLogLog++ counting structure
+ */
+void hll_init(hll_stor registers);
+
+typedef void (*hll_init_fn)(hll_stor);
 
 /* 
  * 'Add' the specified element; returns 1 if the approximate cardinality
@@ -68,7 +72,7 @@ typedef int (*hll_add_fn)(hll_stor, const void*, const size_t);
 
 /* 
  * Return the approximated cardinality of the set based on the harmonic
- * mean of the registers values.
+ * mean of the register values.
  */
 uint64_t hll_count(hll_stor registers);
 

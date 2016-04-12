@@ -1,6 +1,6 @@
 /*
- * Copyright (c) 2010-2015 SURFnet bv
- * Copyright (c) 2015 Roland van Rijswijk-Deij
+ * Copyright (c) 2010-2016 SURFnet bv
+ * Copyright (c) 2015-2016 Roland van Rijswijk-Deij
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -112,6 +112,7 @@ typedef struct
 	/* Probabilistic counting using HyperLogLog++ */
 	hll_add_fn			hll_add;
 	hll_count_fn			hll_count;
+	hll_init_fn			hll_init;
 }
 eemo_export_fn_table, *eemo_export_fn_table_ptr;
 

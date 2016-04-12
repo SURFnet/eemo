@@ -1,7 +1,6 @@
-/* $Id$ */
-
 /*
- * Copyright (c) 2010-2014 SURFnet bv
+ * Copyright (c) 2010-2016 SURFnet bv
+ * Copyright (c) 2015-2016 Roland van Rijswijk-Deij
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -81,7 +80,8 @@ eemo_export_fn_table eemo_function_table =
 	&eemo_cm_match_v4,
 	&eemo_cm_match_v6,
 	&hll_add,
-	&hll_count
+	&hll_count,
+	&hll_init
 };
 
 /* Load and initialise the modules */
