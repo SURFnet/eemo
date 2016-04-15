@@ -276,7 +276,7 @@ static void* eemo_querypop_int_dumpstats_thread(void* params)
 
 			if (inet_ntop(AF_INET, &v4_it->addr, ip_str, INET_ADDRSTRLEN) != NULL)
 			{
-				fprintf(out, "%3d %15s %llu (%.2f%%)\n", i+1, ip_str, v4_it->count, (double) (v4_it->count * 100.0f) / (double) cu_params->v4_q);
+				fprintf(out, "%3d - %15s %llu (%.2f%%)\n", i, ip_str, v4_it->count, (double) (v4_it->count * 100.0f) / (double) cu_params->v4_q);
 			}
 		}
 
@@ -309,7 +309,7 @@ static void* eemo_querypop_int_dumpstats_thread(void* params)
 
 			if (inet_ntop(AF_INET, &v4_it->addr, ip_str, INET_ADDRSTRLEN) != NULL)
 			{
-				fprintf(out, "%3d %13s/24 %llu (%.2f%%)\n", i+1, ip_str, v4_it->count, (double) (v4_it->count * 100.0f) / (double) cu_params->v4_q);
+				fprintf(out, "%3d - %13s/24 %llu (%.2f%%)\n", i, ip_str, v4_it->count, (double) (v4_it->count * 100.0f) / (double) cu_params->v4_q);
 			}
 		}
 
@@ -342,7 +342,7 @@ static void* eemo_querypop_int_dumpstats_thread(void* params)
 
 			if (inet_ntop(AF_INET6, &v6_it->addr, ip_str, INET6_ADDRSTRLEN) != NULL)
 			{
-				fprintf(out, "%3d %39s %llu (%.2f%%)\n", i+1, ip_str, v6_it->count, (double) (v6_it->count * 100.0f) / (double) cu_params->v6_q);
+				fprintf(out, "%3d - %39s %llu (%.2f%%)\n", i, ip_str, v6_it->count, (double) (v6_it->count * 100.0f) / (double) cu_params->v6_q);
 			}
 		}
 
@@ -375,7 +375,7 @@ static void* eemo_querypop_int_dumpstats_thread(void* params)
 
 			if (inet_ntop(AF_INET6, &v6_it->addr, ip_str, INET6_ADDRSTRLEN) != NULL)
 			{
-				fprintf(out, "%3d %21s/64 %llu (%.2f%%)\n", i+1, ip_str, v6_it->count, (double) (v6_it->count * 100.0f) / (double) cu_params->v6_q);
+				fprintf(out, "%3d - %21s/64 %llu (%.2f%%)\n", i, ip_str, v6_it->count, (double) (v6_it->count * 100.0f) / (double) cu_params->v6_q);
 			}
 		}
 
@@ -404,7 +404,7 @@ static void* eemo_querypop_int_dumpstats_thread(void* params)
 	{
 		if ((i++ < top_qnames) && (out != NULL))
 		{
-			fprintf(out, "%3d %63s %llu (%.2f%%)\n", i+1, q_it->name, q_it->count, (double) (q_it->count * 100.0f) / (double) (cu_params->v4_q + cu_params->v6_q));
+			fprintf(out, "%3d - %63s %llu (%.2f%%)\n", i, q_it->name, q_it->count, (double) (q_it->count * 100.0f) / (double) (cu_params->v4_q + cu_params->v6_q));
 		}
 
 		HASH_DEL(cu_params->dump_qname_ht, q_it);
@@ -432,7 +432,7 @@ static void* eemo_querypop_int_dumpstats_thread(void* params)
 	{
 		if ((i++ < top_slds) && (out != NULL))
 		{
-			fprintf(out, "%3d %63s %llu (%.2f%%)\n", i+1, q_it->name, q_it->count, (double) (q_it->count * 100.0f) / (double) (cu_params->v4_q + cu_params->v6_q));
+			fprintf(out, "%3d - %63s %llu (%.2f%%)\n", i, q_it->name, q_it->count, (double) (q_it->count * 100.0f) / (double) (cu_params->v4_q + cu_params->v6_q));
 		}
 
 		HASH_DEL(cu_params->dump_sld_ht, q_it);
