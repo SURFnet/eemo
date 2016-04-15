@@ -114,56 +114,80 @@ static v6_ht_ent*		v6_pfx_ht	= NULL;
 static qname_ht_ent*		qname_ht	= NULL;
 static qname_ht_ent*		sld_ht		= NULL;
 
-/* Macro to update address-based hash tables */
-#define UPDATE_ADDR_HT(ht, ht_type, addr_var, addr_type) \
-{\
-	/* Try to find the entry */ \
-	ht_type*	entry	= NULL; \
-	\
-	HASH_FIND(hh, ht, &addr_var, sizeof(addr_type), entry); \
-	\
-	if (entry == NULL) \
-	{ \
-		/* This is a new entry */ \
-		entry = (ht_type*) malloc(sizeof(ht_type)); \
-		\
-		assert(entry != NULL); \
-		\
-		memset(entry, 0, sizeof(ht_type)); \
-		\
-		memcpy(&entry->addr, &addr_var, sizeof(addr_type)); \
-		\
-		HASH_ADD(hh, ht, addr, sizeof(addr_type), entry); \
-	} \
-	\
-	entry->count++; \
+/* Update address-based hash tables */
+static void update_v4_addr_ht(v4_ht_ent** ht, struct in_addr* addr)
+{
+	/* Try to find the entry */ 
+	v4_ht_ent*	entry	= NULL; 
+	
+	HASH_FIND(hh, *ht, addr, sizeof(struct in_addr), entry);
+	
+	if (entry == NULL) 
+	{ 
+		/* This is a new entry */ 
+		entry = (v4_ht_ent*) malloc(sizeof(v4_ht_ent));
+		
+		assert(entry != NULL); 
+		
+		memset(entry, 0, sizeof(v4_ht_ent)); 
+		
+		memcpy(&entry->addr, &addr, sizeof(struct in_addr));
+		
+		HASH_ADD(hh, *ht, addr, sizeof(struct in_addr), entry); 
+	} 
+	
+	entry->count++;
+}
+
+static void update_v6_addr_ht(v6_ht_ent** ht, struct in6_addr* addr)
+{
+	/* Try to find the entry */ 
+	v6_ht_ent*	entry	= NULL; 
+	
+	HASH_FIND(hh, *ht, addr, sizeof(struct in6_addr), entry);
+	
+	if (entry == NULL) 
+	{ 
+		/* This is a new entry */ 
+		entry = (v6_ht_ent*) malloc(sizeof(v6_ht_ent));
+		
+		assert(entry != NULL); 
+		
+		memset(entry, 0, sizeof(v6_ht_ent)); 
+		
+		memcpy(&entry->addr, &addr, sizeof(struct in6_addr));
+		
+		HASH_ADD(hh, *ht, addr, sizeof(struct in6_addr), entry); 
+	} 
+	
+	entry->count++;
 }
 
 /* Macro to update name-based hash tables */
-#define UPDATE_NAME_HT(ht, name_var) \
-{ \
-	/* Try to find the entry */ \
-	qname_ht_ent*	entry	= NULL; \
-	\
-	HASH_FIND_STR(ht, name_var, entry); \
-	\
-	if (entry == NULL) \
-	{ \
+static void update_qname_ht(qname_ht_ent** ht, const char* name)
+{
+	/* Try to find the entry */ 
+	qname_ht_ent*	entry	= NULL; 
+	
+	HASH_FIND_STR(*ht, name, entry); 
+	
+	if (entry == NULL) 
+	{ 
 		/* This is a new entry */ \
-		entry = (qname_ht_ent*) malloc(sizeof(qname_ht_ent)); \
-		\
-		assert(entry != NULL); \
-		\
-		memset(entry, 0, sizeof(qname_ht_ent)); \
-		\
-		assert(strlen(name_var) < 512); \
-		\
-		strcpy(entry->name, name_var); \
-		\
-		HASH_ADD_STR(ht, name, entry); \
-	} \
-	\
-	entry->count++; \
+		entry = (qname_ht_ent*) malloc(sizeof(qname_ht_ent));
+		
+		assert(entry != NULL); 
+		
+		memset(entry, 0, sizeof(qname_ht_ent));
+		
+		assert(strlen(name) < 512);
+		
+		strcpy(entry->name, name);
+		
+		HASH_ADD_STR(*ht, name, entry);
+	}
+	
+	entry->count++;
 }
 
 /* Extract the TLD and SLD from a domain name string */
@@ -545,8 +569,8 @@ eemo_rv eemo_querypop_dns_handler(eemo_ip_packet_info ip_info, int is_tcp, const
 
 				ip4_prefix = htonl(ntohl(ip4_prefix) & 0xffffff00);
 
-				UPDATE_ADDR_HT(v4_ht, v4_ht_ent, ip_info.src_addr.v4, struct in_addr);
-				UPDATE_ADDR_HT(v4_pfx_ht, v4_ht_ent, ip4_prefix, struct in_addr);
+				update_v4_addr_ht(&v4_ht, (struct in_addr*) &ip_info.src_addr.v4);
+				update_v4_addr_ht(&v4_pfx_ht, (struct in_addr*) &ip4_prefix);
 
 				v4_q_ctr++;
 			}
@@ -561,21 +585,21 @@ eemo_rv eemo_querypop_dns_handler(eemo_ip_packet_info ip_info, int is_tcp, const
 				
 				memcpy(&ip6_prefix, ip6_prefix_creat, 8 * sizeof(uint16_t));
 
-				UPDATE_ADDR_HT(v6_ht, v6_ht_ent, ip_info.src_addr.v6, struct in6_addr);
-				UPDATE_ADDR_HT(v6_pfx_ht, v6_ht_ent, ip6_prefix, struct in6_addr);
+				update_v6_addr_ht(&v6_ht, (struct in6_addr*) &ip_info.src_addr.v6);
+				update_v6_addr_ht(&v6_pfx_ht, (struct in6_addr*) &ip6_prefix);
 
 				v6_q_ctr++;
 			}
 
-			UPDATE_NAME_HT(qname_ht, pkt->questions->qname);
+			update_qname_ht(&qname_ht, pkt->questions->qname);
 
 			if (eemo_querypop_int_extract_tld_sld(pkt->questions->qname, &tld, &sld) == 0)
 			{
-				UPDATE_NAME_HT(sld_ht, sld);
+				update_qname_ht(&sld_ht, sld);
 			}
 			else
 			{
-				UPDATE_NAME_HT(sld_ht, pkt->questions->qname);
+				update_qname_ht(&sld_ht, pkt->questions->qname);
 			}
 		}
 
@@ -805,13 +829,6 @@ eemo_rv eemo_querypop_init(eemo_export_fn_table_ptr eemo_fn, const char* conf_ba
 /* Plugin uninitialisation */
 eemo_rv eemo_querypop_uninit(eemo_export_fn_table_ptr eemo_fn)
 {
-	v4_ht_ent*	v4_it	= NULL;
-	v4_ht_ent*	v4_tmp	= NULL;
-	v6_ht_ent*	v6_it	= NULL;
-	v6_ht_ent*	v6_tmp	= NULL;
-	qname_ht_ent*	q_it	= NULL;
-	qname_ht_ent*	q_tmp	= NULL;
-
 	eemo_querypop_int_dumpstats(1);
 
 	INFO_MSG("Uninitialising querypop plugin");
@@ -829,42 +846,6 @@ eemo_rv eemo_querypop_uninit(eemo_export_fn_table_ptr eemo_fn)
 	free(top_v6_pfx_file);
 	free(top_qname_file);
 	free(top_sld_file);
-
-	HASH_ITER(hh, v4_ht, v4_it, v4_tmp)
-	{
-		HASH_DEL(v4_ht, v4_it);
-		free(v4_it);
-	}
-
-	HASH_ITER(hh, v4_pfx_ht, v4_it, v4_tmp)
-	{
-		HASH_DEL(v4_pfx_ht, v4_it);
-		free(v4_it);
-	}
-
-	HASH_ITER(hh, v6_ht, v6_it, v6_tmp)
-	{
-		HASH_DEL(v6_ht, v6_it);
-		free(v6_it);
-	}
-
-	HASH_ITER(hh, v6_pfx_ht, v6_it, v6_tmp)
-	{
-		HASH_DEL(v6_pfx_ht, v6_it);
-		free(v6_it);
-	}
-
-	HASH_ITER(hh, qname_ht, q_it, q_tmp)
-	{
-		HASH_DEL(qname_ht, q_it);
-		free(q_it);
-	}
-
-	HASH_ITER(hh, sld_ht, q_it, q_tmp)
-	{
-		HASH_DEL(sld_ht, q_it);
-		free(q_it);
-	}
 
 	INFO_MSG("Finished uninitialising querypop plugin");
 
