@@ -412,11 +412,23 @@ lib_libeemo_udprexmit_la_LDFLAGS =	-version-info @EEMO_UDPREXMIT_VERSION_INFO@
 # darkscanex plugin
 lib_LTLIBRARIES +=			lib/libeemo_darkscanex.la
 
-lib_libeemo_darkscanex_la_CFLAGS =	-Isrc -Isrc/plugins -Isrc/plugins/darkscanex @LIBCONFIG_CFLAGS@ @PTHREAD_CFLAGS@ @SQLITE3_CFLAGS@
+lib_libeemo_darkscanex_la_CFLAGS =	-Isrc -Isrc/plugins -Isrc/plugins/darkscanex @LIBCONFIG_CFLAGS@ @PTHREAD_CFLAGS@
 
 lib_libeemo_darkscanex_la_SOURCES =	src/plugins/darkscanex/darkscanex.c \
 					src/plugins/eemo_plugin_log.c \
 					src/plugins/eemo_plugin_log.h \
 					src/uthash.h
 
-lib_libeemo_darkscanex_la_LDFLAGS =	-version-info @EEMO_DARKSCANEX_VERSION_INFO@ @PTHREAD_LIBS@ @SQLITE3_LDFLAGS@
+lib_libeemo_darkscanex_la_LDFLAGS =	-version-info @EEMO_DARKSCANEX_VERSION_INFO@ @PTHREAD_LIBS@
+
+# querypop plugin
+lib_LTLIBRARIES +=			lib/libeemo_querypop.la
+
+lib_libeemo_querypop_la_CFLAGS =	-Isrc -Isrc/plugins -Isrc/plugins/querypop @LIBCONFIG_CFLAGS@ @PTHREAD_CFLAGS@
+
+lib_libeemo_querypop_la_SOURCES =	src/plugins/querypop/querypop.c \
+					src/plugins/eemo_plugin_log.c \
+					src/plugins/eemo_plugin_log.h \
+					src/uthash.h
+
+lib_libeemo_querypop_la_LDFLAGS =	-version-info @EEMO_QUERYPOP_VERSION_INFO@ @PTHREAD_LIBS@

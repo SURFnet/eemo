@@ -92,6 +92,11 @@ define([EEMO_DARKSCANEX_CURRENT], [1])
 define([EEMO_DARKSCANEX_REVISION], [0])
 define([EEMO_DARKSCANEX_AGE], [0])
 
+# Plugin that measures query and client populations
+define([EEMO_QUERYPOP_CURRENT], [1])
+define([EEMO_QUERYPOP_REVISION], [0])
+define([EEMO_QUERYPOP_AGE], [0])
+
 ################################################################################
 # Configuration functions                                                      #
 ################################################################################
@@ -135,6 +140,8 @@ EEMO_UNIQDNSIP_VERSION_INFO="EEMO_UNIQDNSIP_CURRENT:EEMO_UNIQDNSIP_REVISION:EEMO
 AC_SUBST(EEMO_UNIQDNSIP_VERSION_INFO)
 EEMO_DARKSCANEX_VERSION_INFO="EEMO_DARKSCANEX_CURRENT:EEMO_DARKSCANEX_REVISION:EEMO_DARKSCANEX_AGE"
 AC_SUBST(EEMO_DARKSCANEX_VERSION_INFO)
+EEMO_QUERYPOP_VERSION_INFO="EEMO_QUERYPOP_CURRENT:EEMO_QUERYPOP_REVISION:EEMO_QUERYPOP_AGE"
+AC_SUBST(EEMO_QUERYPOP_VERSION_INFO)
 
 # Checks for compilers and other programs
 AC_PROG_CC_C99
