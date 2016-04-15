@@ -133,7 +133,7 @@ static void update_v4_addr_ht(v4_ht_ent** ht, struct in_addr* addr)
 		
 		memcpy(&entry->addr, &addr, sizeof(struct in_addr));
 		
-		HASH_ADD(hh, *ht, addr, sizeof(struct in_addr), entry); 
+		HASH_ADD(hh, (*ht), addr, sizeof(struct in_addr), entry); 
 	} 
 	
 	entry->count++;
@@ -157,7 +157,7 @@ static void update_v6_addr_ht(v6_ht_ent** ht, struct in6_addr* addr)
 		
 		memcpy(&entry->addr, &addr, sizeof(struct in6_addr));
 		
-		HASH_ADD(hh, *ht, addr, sizeof(struct in6_addr), entry); 
+		HASH_ADD(hh, (*ht), addr, sizeof(struct in6_addr), entry); 
 	} 
 	
 	entry->count++;
@@ -184,7 +184,7 @@ static void update_qname_ht(qname_ht_ent** ht, const char* name)
 		
 		strcpy(entry->name, name);
 		
-		HASH_ADD_STR(*ht, name, entry);
+		HASH_ADD_STR((*ht), name, entry);
 	}
 	
 	entry->count++;
@@ -475,10 +475,8 @@ static void* eemo_querypop_int_dumpstats_thread(void* params)
 static void eemo_querypop_int_dumpstats(const int is_exiting)
 {
 	static time_t		mark	= 0;
-	dump_thread_params*	cu	= (dump_thread_params*) malloc(sizeof(dump_thread_params));
+	dump_thread_params*	cu	= NULL;
 	pthread_t		cu_thr;
-
-	assert(cu != NULL);
 
 	if (!is_exiting)
 	{
@@ -497,6 +495,10 @@ static void eemo_querypop_int_dumpstats(const int is_exiting)
 	}
 
 	/* Dump statistics */
+	cu = (dump_thread_params*) malloc(sizeof(dump_thread_params));
+
+	assert(cu != NULL);
+
 	cu->dump_v4_ht		= v4_ht;
 	v4_ht			= NULL;
 	cu->dump_v4_pfx_ht	= v4_pfx_ht;
