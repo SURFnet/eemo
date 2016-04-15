@@ -131,7 +131,7 @@ static void update_v4_addr_ht(v4_ht_ent** ht, struct in_addr* addr)
 		
 		memset(entry, 0, sizeof(v4_ht_ent)); 
 		
-		memcpy(&entry->addr, &addr, sizeof(struct in_addr));
+		memcpy(&entry->addr, addr, sizeof(struct in_addr));
 		
 		HASH_ADD(hh, (*ht), addr, sizeof(struct in_addr), entry); 
 	} 
@@ -155,7 +155,7 @@ static void update_v6_addr_ht(v6_ht_ent** ht, struct in6_addr* addr)
 		
 		memset(entry, 0, sizeof(v6_ht_ent)); 
 		
-		memcpy(&entry->addr, &addr, sizeof(struct in6_addr));
+		memcpy(&entry->addr, addr, sizeof(struct in6_addr));
 		
 		HASH_ADD(hh, (*ht), addr, sizeof(struct in6_addr), entry); 
 	} 
