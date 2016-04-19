@@ -199,6 +199,8 @@ static int eemo_querypop_int_extract_tld_sld(const char* string, const char** tl
 
 	const char*	dotloc	= strrchr(string, '.');
 
+	if (dotloc == NULL) return -1;
+
 	if (strlen(string) < 1)
 	{
 		return -1;
@@ -538,7 +540,7 @@ static void eemo_querypop_int_dumpstats(const int is_exiting)
 eemo_rv eemo_querypop_dns_handler(eemo_ip_packet_info ip_info, int is_tcp, const eemo_dns_packet* pkt)
 {
 	/* Only look at valid queries */
-	if (!pkt->qr_flag && (pkt->questions != NULL) && (pkt->questions->qname != NULL))
+	if (!pkt->qr_flag && !pkt->is_partial && (pkt->questions != NULL) && (pkt->questions->qname != NULL))
 	{
 		int	dst_match	= 0;
 
