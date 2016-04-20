@@ -1,6 +1,6 @@
 /*
- * Copyright (c) 2010-2015 SURFnet bv
- * Copyright (c) 2015 Roland van Rijswijk-Deij
+ * Copyright (c) 2010-2016 SURFnet bv
+ * Copyright (c) 2015-2016 Roland van Rijswijk-Deij
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -44,6 +44,7 @@
 #include "dns_parser.h"
 #include "eemo_log.h"
 #include "ip_metadata.h"
+#include "eemo_config.h"
 
 /*#define DNS_PARSE_DEBUG*/  /* define to enable extensive debug logging of DNS parsing */
 #undef DNS_PARSE_DEBUG
@@ -70,6 +71,9 @@ eemo_hdr_dns;
 
 /* Maximum number of pointers in a DNS name */
 #define MAX_DNS_NAME_PTR	256
+
+/* Log DNS parsing errors? */
+static int	log_dns_parse_err	= 1;
 
 /* Free up the RDATA belonging to an RR */
 void eemo_free_dns_rr_rdata(eemo_dns_rr* rr)
@@ -218,7 +222,7 @@ eemo_rv eemo_uncompress_dns_name(const eemo_packet_buf* packet, unsigned long* o
 		/* Check for sane label length */
 		if (label_len > 63)
 		{
-			ERROR_MSG("Invalid length field in QNAME (%d)", label_len);
+			if (log_dns_parse_err) ERROR_MSG("Invalid length field in QNAME (%d)", label_len);
 
 			return ERV_MALFORMED;
 		}
@@ -751,7 +755,7 @@ eemo_rv eemo_parse_dns_rrs(const eemo_packet_buf* packet, eemo_dns_packet* dns_p
 				if (dns_packet->has_edns0)
 				{
 					/* Hmm... this is fishy! */
-					WARNING_MSG("Multiple EDNS0 OPT RRs found in packet, retaining options from the last one");
+					if (log_dns_parse_err) WARNING_MSG("Multiple EDNS0 OPT RRs found in packet, retaining options from the last one");
 				}
 
 				/* The packet has an EDNS0 OPT RR */
@@ -785,7 +789,7 @@ eemo_rv eemo_parse_dns_rrs(const eemo_packet_buf* packet, eemo_dns_packet* dns_p
 						/* Check if there is enough RDATA remaining */
 						if (rdata_len_rem < opt_len)
 						{
-							WARNING_MSG("Malformed EDNS0 OPT RDATA field; less RDATA remaining then the length specified in the option field");
+							if (log_dns_parse_err) WARNING_MSG("Malformed EDNS0 OPT RDATA field; less RDATA remaining then the length specified in the option field");
 
 							break;
 						}
@@ -827,7 +831,7 @@ eemo_rv eemo_parse_dns_rrs(const eemo_packet_buf* packet, eemo_dns_packet* dns_p
 
 									if (resp_scope != 0)
 									{
-										WARNING_MSG("EDNS0 client subnet response scope is not set to 0 in query (set to %u)", resp_scope);
+										if (log_dns_parse_err) WARNING_MSG("EDNS0 client subnet response scope is not set to 0 in query (set to %u)", resp_scope);
 									}
 								}
 
@@ -836,7 +840,7 @@ eemo_rv eemo_parse_dns_rrs(const eemo_packet_buf* packet, eemo_dns_packet* dns_p
 								case 1:	/* AF_INET */
 									if (addrlen > 32)
 									{
-										WARNING_MSG("EDNS0 client subnet scope exceeds limit for IPv4 (%u)", addrlen);
+										if (log_dns_parse_err) WARNING_MSG("EDNS0 client subnet scope exceeds limit for IPv4 (%u)", addrlen);
 										addrlen = 32;
 									}
 									addr_family = AF_INET;
@@ -844,13 +848,13 @@ eemo_rv eemo_parse_dns_rrs(const eemo_packet_buf* packet, eemo_dns_packet* dns_p
 								case 2: /* AF_INET6 */
 									if (addrlen > 128)
 									{
-										WARNING_MSG("EDNS0 client subnet scope exceeds limit for IPv6 (%u)", addrlen);
+										if (log_dns_parse_err) WARNING_MSG("EDNS0 client subnet scope exceeds limit for IPv6 (%u)", addrlen);
 										addrlen = 128;
 									}
 									addr_family = AF_INET6;
 									break;
 								default:
-									WARNING_MSG("Unknown EDNS0 client subnet address family %u", addr_family);
+									if (log_dns_parse_err) WARNING_MSG("Unknown EDNS0 client subnet address family %u", addr_family);
 									break;
 								}
 
@@ -859,7 +863,7 @@ eemo_rv eemo_parse_dns_rrs(const eemo_packet_buf* packet, eemo_dns_packet* dns_p
 
 								if (opt_len != addrbytes)
 								{
-									WARNING_MSG("Malformed EDNS0 client subnet partial IP, expected %u bytes, got %u bytes", addrbytes, opt_len);
+									if (log_dns_parse_err) WARNING_MSG("Malformed EDNS0 client subnet partial IP, expected %u bytes, got %u bytes", addrbytes, opt_len);
 
 									rdata_ofs += opt_len;
 									rdata_len_rem -= opt_len;
@@ -879,7 +883,7 @@ eemo_rv eemo_parse_dns_rrs(const eemo_packet_buf* packet, eemo_dns_packet* dns_p
 									/* Convert to string */
 									if (inet_ntop(addr_family, addr, dns_packet->edns0_client_subnet_ip, INET6_ADDRSTRLEN) == NULL)
 									{
-										WARNING_MSG("Failed to convert EDNS0 client subnet partial IP to string");
+										if (log_dns_parse_err) WARNING_MSG("Failed to convert EDNS0 client subnet partial IP to string");
 									}
 									else
 									{
@@ -910,7 +914,7 @@ eemo_rv eemo_parse_dns_rrs(const eemo_packet_buf* packet, eemo_dns_packet* dns_p
 						}
 						else
 						{
-							WARNING_MSG("Unrecognised EDNS0 option %u", opt_code);
+							if (log_dns_parse_err) WARNING_MSG("Unrecognised EDNS0 option %u", opt_code);
 
 							/* Skip over the option data */
 							rdata_ofs += opt_len;
@@ -921,7 +925,7 @@ eemo_rv eemo_parse_dns_rrs(const eemo_packet_buf* packet, eemo_dns_packet* dns_p
 					if (rdata_len_rem != 0)
 					{
 						/* EDNS0 OPT RDATA was malformed! */
-						WARNING_MSG("Malformed EDNS0 OPT RDATA field");
+						if (log_dns_parse_err) WARNING_MSG("Malformed EDNS0 OPT RDATA field");
 					}
 				}
 
@@ -1131,5 +1135,30 @@ void eemo_free_dns_packet(eemo_dns_packet* dns_packet)
 	free(dns_packet->edns0_client_subnet_as_short);
 	free(dns_packet->edns0_client_subnet_as_full);
 	free(dns_packet->edns0_client_subnet_geo_ip);
+}
+
+/* Initialise DNS parser module */
+eemo_rv eemo_parse_dns_init(void)
+{
+	if (eemo_conf_get_bool("logging", "log_dns_parse_errors", &log_dns_parse_err, log_dns_parse_err) != ERV_OK)
+	{
+		ERROR_MSG("Failed to retrieve configuration setting for logging of DNS parse errors");
+
+		return ERV_CONFIG_ERROR;
+	}
+
+	INFO_MSG("%s log DNS parsing errors", log_dns_parse_err ? "Will" : "Will not");
+
+	INFO_MSG("DNS parsing module initialised");
+
+	return ERV_OK;
+}
+
+/* Uninitialise DNS parser module */
+eemo_rv eemo_parse_dns_finalize(void)
+{
+	INFO_MSG("DNS parser module uninitialised");
+
+	return ERV_OK;
 }
 

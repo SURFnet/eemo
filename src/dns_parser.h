@@ -138,5 +138,11 @@ eemo_rv eemo_parse_dns_packet(const eemo_packet_buf* packet, eemo_dns_packet* dn
 /* Free a DNS packet structure */
 void eemo_free_dns_packet(eemo_dns_packet* dns_packet);
 
+/* Initialise DNS parser module */
+eemo_rv eemo_parse_dns_init(void);
+
+/* Uninitialise DNS parser module */
+eemo_rv eemo_parse_dns_finalize(void);
+
 #endif /* !_EEMO_DNS_PARSER_H */
 

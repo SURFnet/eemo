@@ -242,6 +242,8 @@ eemo_rv eemo_init_dns_handler(void)
 		return rv;
 	}
 
+	rv = eemo_parse_dns_init();
+
 	INFO_MSG("Initialised DNS query handling");
 
 	return rv;
@@ -266,6 +268,8 @@ void eemo_dns_handler_cleanup(void)
 	eemo_unreg_udp_handler(udp_dns_out_handler_handle);
 	eemo_unreg_tcp_handler(tcp_dns_in_handler_handle);
 	eemo_unreg_tcp_handler(tcp_dns_out_handler_handle);
+
+	eemo_parse_dns_finalize();
 
 	INFO_MSG("Uninitialised DNS query handling");
 }
