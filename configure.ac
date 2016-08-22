@@ -97,6 +97,11 @@ define([EEMO_QUERYPOP_CURRENT], [1])
 define([EEMO_QUERYPOP_REVISION], [0])
 define([EEMO_QUERYPOP_AGE], [0])
 
+# Plugin that measures SLD query popularity
+define([EEMO_SLDPOP_CURRENT], [1])
+define([EEMO_SLDPOP_REVISION], [0])
+define([EEMO_SLDPOP_AGE], [0])
+
 ################################################################################
 # Configuration functions                                                      #
 ################################################################################
@@ -142,6 +147,8 @@ EEMO_DARKSCANEX_VERSION_INFO="EEMO_DARKSCANEX_CURRENT:EEMO_DARKSCANEX_REVISION:E
 AC_SUBST(EEMO_DARKSCANEX_VERSION_INFO)
 EEMO_QUERYPOP_VERSION_INFO="EEMO_QUERYPOP_CURRENT:EEMO_QUERYPOP_REVISION:EEMO_QUERYPOP_AGE"
 AC_SUBST(EEMO_QUERYPOP_VERSION_INFO)
+EEMO_SLDPOP_VERSION_INFO="EEMO_SLDPOP_CURRENT:EEMO_SLDPOP_REVISION:EEMO_SLDPOP_AGE"
+AC_SUBST(EEMO_SLDPOP_VERSION_INFO)
 
 # Checks for compilers and other programs
 AC_PROG_CC_C99

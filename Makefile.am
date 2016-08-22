@@ -432,3 +432,15 @@ lib_libeemo_querypop_la_SOURCES =	src/plugins/querypop/querypop.c \
 					src/uthash.h
 
 lib_libeemo_querypop_la_LDFLAGS =	-version-info @EEMO_QUERYPOP_VERSION_INFO@ @PTHREAD_LIBS@
+
+# sldpop plugin
+lib_LTLIBRARIES +=			lib/libeemo_sldpop.la
+
+lib_libeemo_sldpop_la_CFLAGS =	-Isrc -Isrc/plugins -Isrc/plugins/sldpop @LIBCONFIG_CFLAGS@ @PTHREAD_CFLAGS@
+
+lib_libeemo_sldpop_la_SOURCES =	src/plugins/sldpop/sldpop.c \
+					src/plugins/eemo_plugin_log.c \
+					src/plugins/eemo_plugin_log.h \
+					src/uthash.h
+
+lib_libeemo_sldpop_la_LDFLAGS =	-version-info @EEMO_SLDPOP_VERSION_INFO@ @PTHREAD_LIBS@
