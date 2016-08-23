@@ -177,6 +177,7 @@ PKG_CHECK_MODULES([LIBCONFIG], [libconfig >= 1.3.2],, AC_MSG_ERROR([libconfig 1.
 ACX_PTHREAD
 PKG_CHECK_MODULES([OPENSSL], [openssl >= 1.0.1],, AC_MSG_ERROR([OpenSSL 1.0.1 or newer not found]))
 PKG_CHECK_MODULES([ZLIB], [zlib >= 1.2.8],, AC_MSG_ERROR([zlib 1.2.8 or newer not found]))
+PKG_CHECK_MODULES([LIBARCHIVE], [libarchive >= 3.0.0],, AC_MSG_ERROR([libarchive 3.0.0 or newer not found]))
 AX_LIB_SQLITE3(3.7.0)
 
 AM_COND_IF([WITH_SQLITE3], ,AC_MSG_WARN([Not building IP-to-AS or GeoIP support since these depend on SQLite!]))

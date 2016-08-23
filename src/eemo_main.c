@@ -37,6 +37,8 @@
 #include <signal.h>
 #include <sys/types.h>
 #include <pthread.h>
+#include <archive.h>
+#include <archive_entry.h>
 #include "eemo.h"
 #include "eemo_api.h"
 #include "eemo_packet.h"
@@ -76,7 +78,8 @@ void usage(void)
 	printf("Usage:\n");
 	printf("\teemo [-i <if>] [-f] [-c <config>] [-p <pidfile>]\n");
 	printf("\teemo [-s <savefile>]\n");
-	printf("\teemo [-D <directory>] [-a] [-t]\n\n");
+	printf("\teemo [-D <directory>] [-a] [-t]\n");
+	printf("\teemo [-A <archive list>] [-T <tmppath>]\n");
 	printf("\teemo -h\n");
 	printf("\teemo -v\n");
 	printf("\n");
@@ -103,6 +106,11 @@ void usage(void)
 	printf("\t-t             Sort files read from the directory specified with -D in\n");
 	printf("\t               chronological order from oldest to newest.\n");
 	printf("\t               (this is the default sorting order)\n");
+	printf("\n");
+	printf("\t-A <arclist>   Read from .tar.gz files listed in <arclist>\n");
+	printf("\t-T <tmppath>   Uncompress files temporarily to <tmppath>\n");
+	printf("\t               (if you have enough memory, it is recommended to create a\n");
+	printf("\t                RAM disk for this purpose)\n");
 	printf("\n");
 	printf("\t-h             Print this help message\n");
 	printf("\n");
@@ -226,6 +234,113 @@ void playback_directory(const char* dir_path, const int sort_mode)
 	INFO_MSG("Processed final file in %s", dir_path);
 }
 
+void playback_archives(const char* arclist_file, const char* tmppath)
+{
+	FILE*	arclist_fd		= fopen(arclist_file, "r");
+	char	arcname[4096]		= { 0 };
+	char	pcap_tmp_path[1024]	= { 0 };
+	char	tmp_dir[512]		= { 0 };
+
+	if (arclist_fd == NULL)
+	{
+		ERROR_MSG("Failed to open %s for reading", arclist_file);
+
+		return;
+	}
+
+	if (tmppath != NULL)
+	{
+		snprintf(tmp_dir, 512, "%s", tmppath);
+	}
+	else
+	{
+		snprintf(tmp_dir, 512, "/tmp");
+	}
+
+	snprintf(pcap_tmp_path, 1024, "%s/arctmp", tmp_dir);
+
+	INFO_MSG("Reading archives to process from %s", arclist_file);
+
+	while (!feof(arclist_fd))
+	{
+		struct archive*		arc		= NULL;
+		struct archive_entry*	arc_entry	= NULL;
+		FILE*			tmp		= NULL;
+
+		if (fgets(arcname, 4096, arclist_fd) == NULL)
+		{
+			break;
+		}
+
+		/* Strip <CR><LF> */
+		while (strrchr(arcname, '\n') != NULL) *strrchr(arcname, '\n') = '\0';
+		while (strrchr(arcname, '\r') != NULL) *strrchr(arcname, '\r') = '\0';
+
+		if (strlen(arcname) == 0) continue;
+
+		arc = archive_read_new();
+
+		archive_read_support_filter_all(arc);
+		archive_read_support_format_all(arc);
+
+		/* Try to open the archive */
+		if (archive_read_open_filename(arc, arcname, 1024*1024) != ARCHIVE_OK)
+		{
+			ERROR_MSG("Failed to open archive %s", arcname);
+
+			archive_read_free(arc);
+
+			continue;
+		}
+
+		while (archive_read_next_header(arc, &arc_entry) == ARCHIVE_OK)
+		{
+			INFO_MSG("Extracting %s from %s", archive_entry_pathname(arc_entry), arcname);
+
+			tmp = fopen(pcap_tmp_path, "w");
+
+			if (tmp == NULL)
+			{
+				ERROR_MSG("Failed to open %s for writing", pcap_tmp_path);
+				continue;
+			}
+
+			if (archive_read_data_into_fd(arc, fileno(tmp)) != ARCHIVE_OK)
+			{
+				ERROR_MSG("Extraction failed");
+
+				fclose(tmp);
+
+				unlink(pcap_tmp_path);
+
+				continue;
+			}
+
+			fclose(tmp);
+
+			/* Process the data in the PCAP */
+			if (eemo_capture_init(NULL, pcap_tmp_path) != ERV_OK)
+			{
+				ERROR_MSG("Failed to initialise capture, giving up");
+			}
+			else
+			{
+				eemo_capture_run();
+		
+				eemo_capture_finalize();
+			}
+
+			unlink(pcap_tmp_path);
+		}
+
+		archive_read_free(arc);
+	}
+
+	INFO_MSG("Finished processing archives from %s", arclist_file);
+
+	fclose(arclist_fd);
+}
+
 int main(int argc, char* argv[])
 {
 	char*	interface	= NULL;
@@ -233,6 +348,9 @@ int main(int argc, char* argv[])
 	char*	pid_path	= NULL;
 	char*	savefile_path	= NULL;
 	char*	savefile_dir	= NULL;
+	char*	arclist_file	= NULL;
+	char*	tmppath		= NULL;
+	int	arclist_set	= 0;
 	int	daemon		= 1;
 	int	c		= 0;
 	int	pid_path_set	= 0;
@@ -243,7 +361,7 @@ int main(int argc, char* argv[])
 	int	dir_sort	= DIR_SORT_CHRONO;
 	pid_t	pid		= 0;
 	
-	while ((c = getopt(argc, argv, "i:s:fc:p:D:athv")) != -1)
+	while ((c = getopt(argc, argv, "i:s:fc:p:D:atA:T:hv")) != -1)
 	{
 		switch(c)
 		{
@@ -276,6 +394,17 @@ int main(int argc, char* argv[])
 			break;
 		case 't':
 			dir_sort = DIR_SORT_CHRONO;
+			break;
+		case 'A':
+			arclist_file = strdup(optarg);
+			arclist_set = 1;
+
+			/* Always run in the foreground when reading from archives */
+			daemon = 0;
+			daemon_set = 1;
+			break;
+		case 'T':
+			tmppath = strdup(optarg);
 			break;
 		case 'f':
 			daemon = 0;
@@ -333,9 +462,9 @@ int main(int argc, char* argv[])
 		}
 	}
 
-	if (interface_set && (savefile_set || savedir_set))
+	if (interface_set && (savefile_set || savedir_set || arclist_set))
 	{
-		fprintf(stderr, "Cannot combine live capture (-i) and savefile playback (-s, -D), exiting\n");
+		fprintf(stderr, "Cannot combine live capture (-i) and savefile playback (-s, -D, -A), exiting\n");
 
 		return ERV_CONFIG_ERROR;
 	}
@@ -343,6 +472,13 @@ int main(int argc, char* argv[])
 	if (savefile_set && savedir_set)
 	{
 		fprintf(stderr, "Cannot combine reading individual savefile (-s) with directory playback (-D), exiting\n");
+
+		return ERV_CONFIG_ERROR;
+	}
+
+	if (savefile_set && arclist_set)
+	{
+		fprintf(stderr, "Cannot combine reading individual savefile (s) with reading from archives (-A), exiting\n");
 
 		return ERV_CONFIG_ERROR;
 	}
@@ -527,6 +663,10 @@ int main(int argc, char* argv[])
 	{
 		playback_directory(savefile_dir, dir_sort);
 	}
+	else if (arclist_set)
+	{
+		playback_archives(arclist_file, tmppath);
+	}
 	else
 	{
 		/* Start capturing */
@@ -596,6 +736,8 @@ int main(int argc, char* argv[])
 	free(config_path);
 	free(savefile_path);
 	free(savefile_dir);
+	free(arclist_file);
+	free(tmppath);
 
 	if (interface != NULL)
 	{

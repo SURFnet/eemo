@@ -1,7 +1,6 @@
-/* $Id$ */
-
 /*
- * Copyright (c) 2010-2014 SURFnet bv
+ * Copyright (c) 2010-2016 SURFnet bv
+ * Copyright (c) 2016 Roland van Rijswijk-Deij
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -53,9 +52,9 @@ eemo_rv eemo_dnsqrlog_entry(eemo_export_fn_table_ptr eemo_fn, const char* conf_b
 	char** 	ips 		= NULL;
 	int 	ipcount 	= 0;
 	char**	domains		= NULL;
-	int		domcount	= 0;
+	int	domcount	= 0;
 	char*	logfile		= NULL;
-	eemo_rv rv			= ERV_OK;
+	eemo_rv rv		= ERV_OK;
 
 	/* Initialise logging for the plugin */
 	eemo_init_plugin_log(eemo_fn->log);
