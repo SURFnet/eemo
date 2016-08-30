@@ -223,7 +223,7 @@ eemo_rv eemo_darkmon_udp_handler(const eemo_packet_buf* pkt, eemo_ip_packet_info
 	port_ht_entry*	udp_ht_ent	= NULL;
 	int		port		= dstport;
 
-	HASH_FIND_INT(tcp_ht, &port, udp_ht_ent);
+	HASH_FIND_INT(udp_ht, &port, udp_ht_ent);
 
 	if (udp_ht_ent == NULL)
 	{
