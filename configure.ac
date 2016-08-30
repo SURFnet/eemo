@@ -102,6 +102,11 @@ define([EEMO_SLDPOP_CURRENT], [1])
 define([EEMO_SLDPOP_REVISION], [0])
 define([EEMO_SLDPOP_AGE], [0])
 
+# Plugin for darknet monitoring
+define([EEMO_DARKMON_CURRENT], [1])
+define([EEMO_DARKMON_REVISION], [0])
+define([EEMO_DARKMON_AGE], [0])
+
 ################################################################################
 # Configuration functions                                                      #
 ################################################################################
@@ -149,6 +154,8 @@ EEMO_QUERYPOP_VERSION_INFO="EEMO_QUERYPOP_CURRENT:EEMO_QUERYPOP_REVISION:EEMO_QU
 AC_SUBST(EEMO_QUERYPOP_VERSION_INFO)
 EEMO_SLDPOP_VERSION_INFO="EEMO_SLDPOP_CURRENT:EEMO_SLDPOP_REVISION:EEMO_SLDPOP_AGE"
 AC_SUBST(EEMO_SLDPOP_VERSION_INFO)
+EEMO_DARKMON_VERSION_INFO="EEMO_DARKMON_CURRENT:EEMO_DARKMON_REVISION:EEMO_DARKMON_AGE"
+AC_SUBST(EEMO_DARKMON_VERSION_INFO)
 
 # Checks for compilers and other programs
 AC_PROG_CC_C99

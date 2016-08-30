@@ -444,3 +444,15 @@ lib_libeemo_sldpop_la_SOURCES =	src/plugins/sldpop/sldpop.c \
 					src/uthash.h
 
 lib_libeemo_sldpop_la_LDFLAGS =	-version-info @EEMO_SLDPOP_VERSION_INFO@ @PTHREAD_LIBS@
+
+# darkmon plugin
+lib_LTLIBRARIES +=			lib/libeemo_darkmon.la
+
+lib_libeemo_darkmon_la_CFLAGS =	-Isrc -Isrc/plugins -Isrc/plugins/darkmon @LIBCONFIG_CFLAGS@ @PTHREAD_CFLAGS@
+
+lib_libeemo_darkmon_la_SOURCES =	src/plugins/darkmon/darkmon.c \
+					src/plugins/eemo_plugin_log.c \
+					src/plugins/eemo_plugin_log.h \
+					src/uthash.h
+
+lib_libeemo_darkmon_la_LDFLAGS =	-version-info @EEMO_DARKMON_VERSION_INFO@ @PTHREAD_LIBS@
