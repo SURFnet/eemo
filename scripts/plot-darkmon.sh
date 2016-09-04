@@ -1,5 +1,8 @@
 #!/usr/bin/env python
 
+import matplotlib
+matplotlib.use('SVG')
+
 import matplotlib.patches as mpatches
 import matplotlib.pyplot as pp
 import json
