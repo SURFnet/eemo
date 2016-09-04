@@ -165,6 +165,7 @@ def plot_ts(top_list, timestamps, ts, output_file):
 	plot_ax = pp.subplot2grid((1,17), (0, 0), colspan=15)
 
 	plot_ax.stackplot(timestamps, ts, colors=plotcolors, edgecolor='none')
+	plot_ax.grid(True)
 
 	legend_patches = []
 	legend_labels = []
