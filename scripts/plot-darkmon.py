@@ -13,7 +13,10 @@ import time
 def dt_to_epoch(timestamp):
 	return int(time.mktime(timestamp.timetuple()))
 
-def read_hour_csvs(csv_dir, from_time):
+def ts_to_top_ts(csv_dir, from_time, x):
+	udp_dict = dict()
+	tcp_dict = dict()
+
 	# Start by generating the timestamps of the hourly epoch files to read
 	hour_ts = []
 
@@ -28,8 +31,6 @@ def read_hour_csvs(csv_dir, from_time):
 		cur_hour += 3600
 
 	# Read date from individual hour files
-	json_ts = []
-
 	for hour in hour_ts:
 		hour_name = '{}/darknet_{}.csv'.format(csv_dir, hour)
 
@@ -49,41 +50,33 @@ def read_hour_csvs(csv_dir, from_time):
 
 					if int(json_data['timestamp']) >= start_ts and \
 					   int(json_data['timestamp']) <= end_ts:
-						json_ts.append(json_data)
+						for udp_datum in json_data['udp']:
+							port = udp_datum['port']
+							seen = udp_datum['seen_count']
+				
+							current_seen = udp_dict.get(port, 0)
+							current_seen += seen
+				
+							udp_dict[port] = current_seen
+
+						for tcp_datum in json_data['tcp']:
+							port = tcp_datum['port']
+							seen = tcp_datum['seen_count']
+				
+							current_seen = tcp_dict.get(port, 0)
+							current_seen += seen
+				
+							tcp_dict[port] = current_seen
+
 						read_count += 1
 				except:
 					print 'JSON parse error on line {}'.format(line_no)
 
 			hour_file.close()
 
-			print 'Added {} entries from {}'.format(read_count, hour_name)
+			print 'Processed {} entries from {}'.format(read_count, hour_name)
 		except:
 			print 'Could not open hour file {} for reading, skipping'.format(hour_name)
-	
-	return json_ts
-
-def ts_to_top_ts(json_ts, x):
-	udp_dict = dict()
-	tcp_dict = dict()
-
-	for json_data in json_ts:
-		for udp_datum in json_data['udp']:
-			port = udp_datum['port']
-			seen = udp_datum['seen_count']
-
-			current_seen = udp_dict.get(port, 0)
-			current_seen += seen
-
-			udp_dict[port] = current_seen
-
-		for tcp_datum in json_data['tcp']:
-			port = tcp_datum['port']
-			seen = tcp_datum['seen_count']
-
-			current_seen = tcp_dict.get(port, 0)
-			current_seen += seen
-
-			tcp_dict[port] = current_seen
 
 	udp_tuples = []
 	tcp_tuples = []
@@ -120,23 +113,52 @@ def ts_to_top_ts(json_ts, x):
 
 	timestamps = []
 
-	for json_data in json_ts:
-		timestamps.append(datetime.datetime.fromtimestamp(json_data['timestamp']))
+	# Read date from individual hour files
+	for hour in hour_ts:
+		hour_name = '{}/darknet_{}.csv'.format(csv_dir, hour)
 
-		for i in range(0, x):
-			udp_seen_count = 0
-			tcp_seen_count = 0
+		try:
+			hour_file = open(hour_name, 'r')
 
-			for udp_datum in json_data['udp']:
-				if udp_datum['port'] == top_udp_list[i]:
-					udp_seen_count = udp_datum['seen_count']
+			print 'Reading data from hour file {}'.format(hour_name)
 
-			for tcp_datum in json_data['tcp']:
-				if tcp_datum['port'] == top_tcp_list[i]:
-					tcp_seen_count = tcp_datum['seen_count']
+			line_no = 0
+			read_count = 0
 
-			udp_ts[i].append(udp_seen_count)
-			tcp_ts[i].append(tcp_seen_count)
+			for line in hour_file:
+				line_no += 1
+
+				try:
+					json_data = json.loads(line)
+
+					if int(json_data['timestamp']) >= start_ts and \
+					   int(json_data['timestamp']) <= end_ts:
+						timestamps.append(datetime.datetime.fromtimestamp(json_data['timestamp']))
+
+						for i in range(0, x):
+							udp_seen_count = 0
+							tcp_seen_count = 0
+				
+							for udp_datum in json_data['udp']:
+								if udp_datum['port'] == top_udp_list[i]:
+									udp_seen_count = udp_datum['seen_count']
+				
+							for tcp_datum in json_data['tcp']:
+								if tcp_datum['port'] == top_tcp_list[i]:
+									tcp_seen_count = tcp_datum['seen_count']
+				
+							udp_ts[i].append(udp_seen_count)
+							tcp_ts[i].append(tcp_seen_count)
+
+						read_count += 1
+				except:
+					print 'JSON parse error on line {}'.format(line_no)
+
+			hour_file.close()
+
+			print 'Processed {} entries from {}'.format(read_count, hour_name)
+		except:
+			print 'Could not open hour file {} for reading, skipping'.format(hour_name)
 
 	udp_tot_counts = []
 	tcp_tot_counts = []
@@ -219,9 +241,7 @@ def main():
 	print 'Processing data until {}'.format(now)
 	print 'Reading input CSVs from {}'.format(csv_dir)
 
-	json_ts = read_hour_csvs(csv_dir, now)
-
-	top_udp_list, top_tcp_list, timestamps, udp_ts, tcp_ts, udp_tot_counts, udp_other, tcp_tot_counts, tcp_other  = ts_to_top_ts(json_ts, 10)
+	top_udp_list, top_tcp_list, timestamps, udp_ts, tcp_ts, udp_tot_counts, udp_other, tcp_tot_counts, tcp_other  = ts_to_top_ts(csv_dir, now, 10)
 
 	plot_ts(top_udp_list, timestamps, udp_ts, '{}/udp_timeseries.svg'.format(output_dir))
 	plot_ts(top_tcp_list, timestamps, tcp_ts, '{}/tcp_timeseries.svg'.format(output_dir))
