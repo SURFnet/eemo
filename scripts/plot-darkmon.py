@@ -174,8 +174,8 @@ def plot_ts(top_list, timestamps, ts, output_file):
 		legend_patches.append(mpatches.Patch(color = plotcolors[i]))
 		legend_labels.append('{}'.format(top_list[i]))
 
-	legend_patches.reverse()
-	legend_labels.reverse()
+	#legend_patches.reverse()
+	#legend_labels.reverse()
 
 	legend_ax = pp.subplot2grid((1, 17), (0, 15), colspan=2)
 
