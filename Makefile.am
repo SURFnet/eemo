@@ -456,3 +456,15 @@ lib_libeemo_darkmon_la_SOURCES =	src/plugins/darkmon/darkmon.c \
 					src/uthash.h
 
 lib_libeemo_darkmon_la_LDFLAGS =	-version-info @EEMO_DARKMON_VERSION_INFO@ @PTHREAD_LIBS@
+
+# csvqlog plugin
+lib_LTLIBRARIES +=			lib/libeemo_csvqlog.la
+
+lib_libeemo_csvqlog_la_CFLAGS =	-Isrc -Isrc/plugins -Isrc/plugins/csvqlog @LIBCONFIG_CFLAGS@ @PTHREAD_CFLAGS@
+
+lib_libeemo_csvqlog_la_SOURCES =	src/plugins/csvqlog/csvqlog.c \
+					src/plugins/eemo_plugin_log.c \
+					src/plugins/eemo_plugin_log.h \
+					src/uthash.h
+
+lib_libeemo_csvqlog_la_LDFLAGS =	-version-info @EEMO_CSVQLOG_VERSION_INFO@ @PTHREAD_LIBS@

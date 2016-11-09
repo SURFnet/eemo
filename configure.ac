@@ -107,6 +107,11 @@ define([EEMO_DARKMON_CURRENT], [1])
 define([EEMO_DARKMON_REVISION], [0])
 define([EEMO_DARKMON_AGE], [0])
 
+# Plugin for compact CSV DNS query logging
+define([EEMO_CSVQLOG_CURRENT], [1])
+define([EEMO_CSVQLOG_REVISION], [0])
+define([EEMO_CSVQLOG_AGE], [0])
+
 ################################################################################
 # Configuration functions                                                      #
 ################################################################################
@@ -156,6 +161,8 @@ EEMO_SLDPOP_VERSION_INFO="EEMO_SLDPOP_CURRENT:EEMO_SLDPOP_REVISION:EEMO_SLDPOP_A
 AC_SUBST(EEMO_SLDPOP_VERSION_INFO)
 EEMO_DARKMON_VERSION_INFO="EEMO_DARKMON_CURRENT:EEMO_DARKMON_REVISION:EEMO_DARKMON_AGE"
 AC_SUBST(EEMO_DARKMON_VERSION_INFO)
+EEMO_CSVQLOG_VERSION_INFO="EEMO_CSVQLOG_CURRENT:EEMO_CSVQLOG_REVISION:EEMO_CSVQLOG_AGE"
+AC_SUBST(EEMO_CSVQLOG_VERSION_INFO)
 
 # Checks for compilers and other programs
 AC_PROG_CC_C99
