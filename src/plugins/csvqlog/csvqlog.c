@@ -64,11 +64,8 @@ eemo_rv eemo_csvqlog_dns_handler(eemo_ip_packet_info ip_info, int is_tcp, const 
 	/* Skip responses immediately */
 	if (pkt->qr_flag) return ERV_SKIPPED;
 
-	/* Log query details */
-	/*fprintf(csvqlog, "timestamp,src_ip,qname,qclass,qtype,has_edns0,edns0_bufsize,edns0_do,is_tcp\n");*/
-
 	/* Log query timestamp with microsecond precision */
-	fprintf(csvqlog_file, "%u.%6d,", (unsigned int) ip_info.ts.tv_sec, (int) ip_info.ts.tv_usec);
+	fprintf(csvqlog_file, "%u.%06d,", (unsigned int) ip_info.ts.tv_sec, (int) ip_info.ts.tv_usec);
 
 	/* Log source IP from which the query originated */
 	fprintf(csvqlog_file, "%s,", ip_info.ip_src);
