@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2010-2011 SURFnet bv
- * Copyright (c) 2014-2015 Roland van Rijswijk-Deij
+ * Copyright (c) 2014-2016 Roland van Rijswijk-Deij
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -166,8 +166,10 @@ static void eemo_pcap_callback(u_char* user_ptr, const struct pcap_pkthdr* hdr, 
 /* Initialise direct capturing */
 eemo_rv eemo_ether_capture_init(const char* interface)
 {
-	const char*	cap_if				= NULL;
-	char 		errbuf[PCAP_ERRBUF_SIZE]	= { 0 };
+	const char*		cap_if				= NULL;
+	char 			errbuf[PCAP_ERRBUF_SIZE]	= { 0 };
+	char*			capture_filter			= NULL;
+	struct bpf_program	packet_filter;
 	
 	handle = NULL;
 
@@ -179,6 +181,7 @@ eemo_rv eemo_ether_capture_init(const char* interface)
 	eemo_conf_get_int("capture", "stats_interval", &capture_stats_interval, 0);
 	eemo_conf_get_bool("capture", "debug_log_packet", &log_current_packet, 0);
 	eemo_conf_get_int("capture", "bufsize", &cap_buf_size, 32);
+	eemo_conf_get_string("capture", "filter", &capture_filter, NULL);
 
 	if (capture_stats_interval > 0)
 	{
@@ -254,6 +257,35 @@ eemo_rv eemo_ether_capture_init(const char* interface)
 	else
 	{
 		INFO_MSG("Set capture buffer size to %d bytes", cap_buf_size*1024*1024);
+	}
+
+	/* Compile and set capture filter if configured */
+	if (capture_filter != NULL)
+	{
+		INFO_MSG("Compiling capture packet filter rule '%s'", capture_filter);
+
+		if (pcap_compile(handle, &packet_filter, capture_filter, 0, 0) == -1)
+		{
+			ERROR_MSG("Failed to compile the filter expression, giving up");
+
+			pcap_close(handle);
+
+			return ERV_INVALID_FILTER;
+		}
+
+		if (pcap_setfilter(handle, &packet_filter) == -1)
+		{
+			ERROR_MSG("Failed to activate capture filter, giving up");
+
+			pcap_freecode(&packet_filter);
+			pcap_close(handle);
+
+			return ERV_INVALID_FILTER;
+		}
+
+		pcap_freecode(&packet_filter);
+
+		INFO_MSG("Capture packet filter activated");
 	}
 
 	/* Activate capture */
