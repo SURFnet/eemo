@@ -259,6 +259,20 @@ eemo_rv eemo_ether_capture_init(const char* interface)
 		INFO_MSG("Set capture buffer size to %d bytes", cap_buf_size*1024*1024);
 	}
 
+	/* Activate capture */
+	if (pcap_activate(handle) != 0)
+	{
+		ERROR_MSG("Failed to activate packet capture, giving up");
+
+		pcap_close(handle);
+
+		return ERV_GENERAL_ERROR;
+	}
+	else
+	{
+		INFO_MSG("Activated capture");
+	}
+
 	/* Compile and set capture filter if configured */
 	if (capture_filter != NULL)
 	{
@@ -286,20 +300,6 @@ eemo_rv eemo_ether_capture_init(const char* interface)
 		pcap_freecode(&packet_filter);
 
 		INFO_MSG("Capture packet filter activated");
-	}
-
-	/* Activate capture */
-	if (pcap_activate(handle) != 0)
-	{
-		ERROR_MSG("Failed to activate packet capture, giving up");
-
-		pcap_close(handle);
-
-		return ERV_GENERAL_ERROR;
-	}
-	else
-	{
-		INFO_MSG("Activated capture");
 	}
 
 	INFO_MSG("%s configured for capturing", cap_if);
