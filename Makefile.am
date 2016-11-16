@@ -468,3 +468,15 @@ lib_libeemo_csvqlog_la_SOURCES =	src/plugins/csvqlog/csvqlog.c \
 					src/uthash.h
 
 lib_libeemo_csvqlog_la_LDFLAGS =	-version-info @EEMO_CSVQLOG_VERSION_INFO@ @PTHREAD_LIBS@
+
+# qrsizedist plugin
+lib_LTLIBRARIES +=			lib/libeemo_qrsizedist.la
+
+lib_libeemo_qrsizedist_la_CFLAGS =	-Isrc -Isrc/plugins -Isrc/plugins/qrsizedist @LIBCONFIG_CFLAGS@ @PTHREAD_CFLAGS@
+
+lib_libeemo_qrsizedist_la_SOURCES =	src/plugins/qrsizedist/qrsizedist.c \
+					src/plugins/eemo_plugin_log.c \
+					src/plugins/eemo_plugin_log.h \
+					src/uthash.h
+
+lib_libeemo_qrsizedist_la_LDFLAGS =	-version-info @EEMO_QRSIZEDIST_VERSION_INFO@ @PTHREAD_LIBS@
