@@ -90,6 +90,7 @@ static int		dup_ht_keys		= 0;
 static int		missing_queries		= 0;
 static int		oversize_queries	= 0;
 static int		oversize_responses	= 0;
+static int		processed		= 0;
 
 /* State */
 static int*		qrdist_matrix		= NULL;
@@ -181,7 +182,9 @@ static void eemo_qrsizedist_int_prune_qht(void)
 /* Write to file if applicable */
 static void eemo_qrsizedist_int_write(const struct timeval* ts, const int force)
 {
-	if (force || (ts->tv_sec >= next_write))
+	time_t	now	= time(NULL);
+
+	if (force || (now >= next_write))
 	{
 		char	out_name[512]	= { 0 };
 		FILE*	out_fd		= NULL;
@@ -215,13 +218,14 @@ static void eemo_qrsizedist_int_write(const struct timeval* ts, const int force)
 		INFO_MSG("%d missing queries encountered in this interval", missing_queries);
 		INFO_MSG("%d oversize queries encountered in this interval", oversize_queries);
 		INFO_MSG("%d oversize responses encountered in this interval", oversize_responses);
+		INFO_MSG("%d queries/responses matched and processed", processed);
 
-		dup_ht_keys = missing_queries = oversize_queries = oversize_responses = 0;
+		processed = dup_ht_keys = missing_queries = oversize_queries = oversize_responses = 0;
 
 		/* Prune the state table */
 		eemo_qrsizedist_int_prune_qht();
 
-		next_write += 3600;
+		next_write += write_interval;
 	}
 }
 
@@ -292,10 +296,27 @@ eemo_rv eemo_qrsizedist_dns_handler(eemo_ip_packet_info ip_info, int is_tcp, con
 			{
 				/* Update the matrix */
 				int rsize = pkt->udp_len;
+
+				if (rsize > max_rsize)
+				{
+					oversize_responses++;
+				}
+
+				if (qsize > max_qsize)
+				{
+					oversize_queries++;
+				}
+
+				if ((rsize > max_rsize) || (qsize > max_qsize))
+				{
+					return ERV_SKIPPED;
+				}
+
 				rsize -= 1;
 				qsize -= 1;
 
-				qrdist_matrix[(rsize * max_rsize) + qsize]++;
+				qrdist_matrix[(rsize * max_qsize) + qsize]++;
+				processed++;
 			}
 		}
 	}
@@ -412,7 +433,7 @@ eemo_rv eemo_qrsizedist_init(eemo_export_fn_table_ptr eemo_fn, const char* conf_
 	INFO_MSG("Allocated %dx%d matrix of %d bytes", max_qsize, max_rsize, max_qsize * max_rsize * sizeof(int));
 
 	/* Register DNS handler */
-	if ((eemo_fn->reg_dns_handler)(&eemo_qrsizedist_dns_handler, PARSE_QUERY|PARSE_CANONICALIZE_NAME, &dns_handler_handle) != ERV_OK)
+	if ((eemo_fn->reg_dns_handler)(&eemo_qrsizedist_dns_handler, PARSE_QUERY|PARSE_RESPONSE|PARSE_CANONICALIZE_NAME, &dns_handler_handle) != ERV_OK)
 	{
 		ERROR_MSG("Failed to register qrsizedist DNS handler");
 
