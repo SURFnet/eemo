@@ -67,11 +67,21 @@ typedef struct
 }
 port_ht_entry;
 
+typedef struct 
+{
+	int			ipid;
+	unsigned long long	seen_count;
+	hll_stor		ips_prob_count;
+	UT_hash_handle		hh;
+}
+ipid_ht_entry;
+
 /* State */
 static int			last_write		= 0;
 
 static port_ht_entry*		tcp_ht			= NULL;
 static port_ht_entry*		udp_ht			= NULL;
+static ipid_ht_entry*		ipid_ht			= NULL;
 
 static eemo_export_fn_table_ptr	eemo_fn_exp		= NULL;
 
@@ -80,6 +90,7 @@ typedef struct
 {
 	port_ht_entry*	write_udp_ht;
 	port_ht_entry*	write_tcp_ht;
+	ipid_ht_entry*	write_ipid_ht;
 	int		dump_time;
 }
 writer_thread_params;
@@ -90,7 +101,8 @@ writer_thread_params;
  * {
 	 "timestamp":<epoch timestamp>,
 	 "udp": [ {"port": <port>, "seen_count": <seen_count>, "ips_prob_count": <ips_prob_count>}, ... ],
-	 "tcp": [ {"port": <port>, "seen_count": <seen_count>, "ips_prob_count": <ips_prob_count>}, ... ]
+	 "tcp": [ {"port": <port>, "seen_count": <seen_count>, "ips_prob_count": <ips_prob_count>}, ... ],
+	 "ipid": [ {"ipid": <IP ID>, "seen_count": <seen_count>, "ips_prob_count": <ips_prob_count>}, ... ],
  * }
  *
  */
@@ -104,8 +116,10 @@ static void* eemo_darkmon_writer_thread(void* params)
 	char			out_name[1024]	= { 0 };
 	int			out_hour	= (writer_params->dump_time / 3600) * 3600;
 	FILE*			out_file	= NULL;
-	port_ht_entry*		ht_it		= NULL;
-	port_ht_entry*		ht_tmp		= NULL;
+	port_ht_entry*		pht_it		= NULL;
+	port_ht_entry*		pht_tmp		= NULL;
+	ipid_ht_entry*		iht_it		= NULL;
+	ipid_ht_entry*		iht_tmp		= NULL;
 
 	snprintf(out_name, 1024, "%s/darknet_%d.csv", output_dir, out_hour);
 
@@ -121,7 +135,7 @@ static void* eemo_darkmon_writer_thread(void* params)
 
 		fprintf(out_file, "\"udp\": [");
 
-		HASH_ITER(hh, writer_params->write_udp_ht, ht_it, ht_tmp)
+		HASH_ITER(hh, writer_params->write_udp_ht, pht_it, pht_tmp)
 		{
 			if (!is_first)
 			{
@@ -132,10 +146,10 @@ static void* eemo_darkmon_writer_thread(void* params)
 				is_first = 0;
 			}
 
-			fprintf(out_file, "{ \"port\": %d, \"seen_count\": %llu, \"ips_prob_count\": %llu }", ht_it->port, ht_it->seen_count, (unsigned long long) eemo_fn_exp->hll_count(ht_it->ips_prob_count));
+			fprintf(out_file, "{ \"port\": %d, \"seen_count\": %llu, \"ips_prob_count\": %llu }", pht_it->port, pht_it->seen_count, (unsigned long long) eemo_fn_exp->hll_count(pht_it->ips_prob_count));
 
-			HASH_DEL(writer_params->write_udp_ht, ht_it);
-			free(ht_it);
+			HASH_DEL(writer_params->write_udp_ht, pht_it);
+			free(pht_it);
 		}
 
 		fprintf(out_file, " ],");
@@ -144,7 +158,7 @@ static void* eemo_darkmon_writer_thread(void* params)
 
 		fprintf(out_file, "\"tcp\": [");
 
-		HASH_ITER(hh, writer_params->write_tcp_ht, ht_it, ht_tmp)
+		HASH_ITER(hh, writer_params->write_tcp_ht, pht_it, pht_tmp)
 		{
 			if (!is_first)
 			{
@@ -155,10 +169,33 @@ static void* eemo_darkmon_writer_thread(void* params)
 				is_first = 0;
 			}
 
-			fprintf(out_file, "{ \"port\": %d, \"seen_count\": %llu, \"ips_prob_count\": %llu }", ht_it->port, ht_it->seen_count, (unsigned long long) eemo_fn_exp->hll_count(ht_it->ips_prob_count));
+			fprintf(out_file, "{ \"port\": %d, \"seen_count\": %llu, \"ips_prob_count\": %llu }", pht_it->port, pht_it->seen_count, (unsigned long long) eemo_fn_exp->hll_count(pht_it->ips_prob_count));
 
-			HASH_DEL(writer_params->write_tcp_ht, ht_it);
-			free(ht_it);
+			HASH_DEL(writer_params->write_tcp_ht, pht_it);
+			free(pht_it);
+		}
+
+		fprintf(out_file, " ],");
+
+		is_first = 1;
+
+		fprintf(out_file, "\"ipid\": [");
+
+		HASH_ITER(hh, writer_params->write_ipid_ht, iht_it, iht_tmp)
+		{
+			if (!is_first)
+			{
+				fprintf(out_file, ",");
+			}
+			else
+			{
+				is_first = 0;
+			}
+
+			fprintf(out_file, "{ \"ipid\": %d, \"seen_count\": %llu, \"ips_prob_count\": %llu }", iht_it->ipid, iht_it->seen_count, (unsigned long long) eemo_fn_exp->hll_count(iht_it->ips_prob_count));
+
+			HASH_DEL(writer_params->write_ipid_ht, iht_it);
+			free(iht_it);
 		}
 
 		fprintf(out_file, " ]");
@@ -169,16 +206,22 @@ static void* eemo_darkmon_writer_thread(void* params)
 	}
 	else
 	{
-		HASH_ITER(hh, writer_params->write_udp_ht, ht_it, ht_tmp)
+		HASH_ITER(hh, writer_params->write_udp_ht, pht_it, pht_tmp)
 		{
-			HASH_DEL(writer_params->write_udp_ht, ht_it);
-			free(ht_it);
+			HASH_DEL(writer_params->write_udp_ht, pht_it);
+			free(pht_it);
 		}
 
-		HASH_ITER(hh, writer_params->write_tcp_ht, ht_it, ht_tmp)
+		HASH_ITER(hh, writer_params->write_tcp_ht, pht_it, pht_tmp)
 		{
-			HASH_DEL(writer_params->write_tcp_ht, ht_it);
-			free(ht_it);
+			HASH_DEL(writer_params->write_tcp_ht, pht_it);
+			free(pht_it);
+		}
+
+		HASH_ITER(hh, writer_params->write_ipid_ht, iht_it, iht_tmp)
+		{
+			HASH_DEL(writer_params->write_ipid_ht, iht_it);
+			free(iht_it);
 		}
 
 		ERROR_MSG("Failed to append %s", out_name);
@@ -202,9 +245,11 @@ static void write_if_needed(int timestamp)
 		writer_params->dump_time	= timestamp;
 		writer_params->write_udp_ht	= udp_ht;
 		writer_params->write_tcp_ht	= tcp_ht;
+		writer_params->write_ipid_ht	= ipid_ht;
 
-		udp_ht = NULL;
-		tcp_ht = NULL;
+		udp_ht	= NULL;
+		tcp_ht	= NULL;
+		ipid_ht	= NULL;
 
 		if (pthread_create(&writer_thread, NULL, eemo_darkmon_writer_thread, writer_params) != 0)
 		{
@@ -221,6 +266,7 @@ static void write_if_needed(int timestamp)
 eemo_rv eemo_darkmon_udp_handler(const eemo_packet_buf* pkt, eemo_ip_packet_info ip_info, u_short srcport, u_short dstport, u_short length)
 {
 	port_ht_entry*	udp_ht_ent	= NULL;
+	ipid_ht_entry*	ipid_ht_ent	= NULL;
 	int		port		= dstport;
 
 	HASH_FIND_INT(udp_ht, &port, udp_ht_ent);
@@ -242,6 +288,25 @@ eemo_rv eemo_darkmon_udp_handler(const eemo_packet_buf* pkt, eemo_ip_packet_info
 
 	eemo_fn_exp->hll_add(udp_ht_ent->ips_prob_count, &ip_info.dst_addr.v4, sizeof(uint32_t));
 
+	HASH_FIND_INT(ipid_ht, &ip_info.ip_id, ipid_ht_ent);
+
+	if (ipid_ht_ent == NULL)
+	{
+		ipid_ht_ent = (ipid_ht_entry*) malloc(sizeof(ipid_ht_entry));
+
+		memset(ipid_ht_ent, 0, sizeof(ipid_ht_entry));
+
+		ipid_ht_ent->ipid = (int) ip_info.ip_id;
+
+		eemo_fn_exp->hll_init(ipid_ht_ent->ips_prob_count);
+
+		HASH_ADD_INT(ipid_ht, ipid, ipid_ht_ent);
+	}
+
+	ipid_ht_ent->seen_count++;
+
+	eemo_fn_exp->hll_add(ipid_ht_ent->ips_prob_count, &ip_info.dst_addr.v4, sizeof(uint32_t));
+
 	write_if_needed(ip_info.ts.tv_sec);
 
 	return ERV_HANDLED;
@@ -251,6 +316,7 @@ eemo_rv eemo_darkmon_udp_handler(const eemo_packet_buf* pkt, eemo_ip_packet_info
 eemo_rv eemo_darkmon_tcp_handler(const eemo_packet_buf* pkt, eemo_ip_packet_info ip_info, eemo_tcp_packet_info tcp_info)
 {
 	port_ht_entry*	tcp_ht_ent	= NULL;
+	ipid_ht_entry*	ipid_ht_ent	= NULL;
 	int		port		= tcp_info.dstport;
 
 	HASH_FIND_INT(tcp_ht, &port, tcp_ht_ent);
@@ -271,6 +337,25 @@ eemo_rv eemo_darkmon_tcp_handler(const eemo_packet_buf* pkt, eemo_ip_packet_info
 	tcp_ht_ent->seen_count++;
 
 	eemo_fn_exp->hll_add(tcp_ht_ent->ips_prob_count, &ip_info.dst_addr.v4, sizeof(uint32_t));
+
+	HASH_FIND_INT(ipid_ht, &ip_info.ip_id, ipid_ht_ent);
+
+	if (ipid_ht_ent == NULL)
+	{
+		ipid_ht_ent = (ipid_ht_entry*) malloc(sizeof(ipid_ht_entry));
+
+		memset(ipid_ht_ent, 0, sizeof(ipid_ht_entry));
+
+		ipid_ht_ent->ipid = (int) ip_info.ip_id;
+
+		eemo_fn_exp->hll_init(ipid_ht_ent->ips_prob_count);
+
+		HASH_ADD_INT(ipid_ht, ipid, ipid_ht_ent);
+	}
+
+	ipid_ht_ent->seen_count++;
+
+	eemo_fn_exp->hll_add(ipid_ht_ent->ips_prob_count, &ip_info.dst_addr.v4, sizeof(uint32_t));
 
 	write_if_needed(ip_info.ts.tv_sec);
 
