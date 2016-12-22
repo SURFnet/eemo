@@ -16,6 +16,7 @@ def dt_to_epoch(timestamp):
 def ts_to_top_ts(csv_dir, from_time, x):
 	udp_dict = dict()
 	tcp_dict = dict()
+	ipid_dict = dict()
 
 	# Start by generating the timestamps of the hourly epoch files to read
 	hour_ts = []
@@ -68,6 +69,16 @@ def ts_to_top_ts(csv_dir, from_time, x):
 				
 							tcp_dict[port] = current_seen
 
+						if json_data.has_key('ipid'):
+							for ipid_datum in json_data['ipid']:
+								ipid = ipid_datum['ipid']
+								seen = ipid_datum['seen_count']
+
+								current_seen = ipid_dict.get(ipid, 0)
+								current_seen += seen
+
+								ipid_dict[ipid] = current_seen
+
 						read_count += 1
 				except:
 					print 'JSON parse error on line {}'.format(line_no)
@@ -80,6 +91,7 @@ def ts_to_top_ts(csv_dir, from_time, x):
 
 	udp_tuples = []
 	tcp_tuples = []
+	ipid_tuples = []
 
 	for port in udp_dict.keys():
 		udp_tuples.append((port, udp_dict[port]))
@@ -87,29 +99,39 @@ def ts_to_top_ts(csv_dir, from_time, x):
 	for port in tcp_dict.keys():
 		tcp_tuples.append((port, tcp_dict[port]))
 
+	for ipid in ipid_dict.keys():
+		ipid_tuples.append((ipid, ipid_dict[ipid]))
+
 	udp_tuples.sort(key=lambda tup: tup[1])
 	tcp_tuples.sort(key=lambda tup: tup[1])
+	ipid_tuples.sort(key=lambda tup: tup[1])
 
 	udp_tuples.reverse()
 	tcp_tuples.reverse()
+	ipid_tuples.reverse()
 
 	# Cut to top x
 	top_udp_list = []
 	top_tcp_list = []
+	top_ipid_list = []
 
 	for i in range(0, x):
 		top_udp_list.append(udp_tuples[i][0])
 		top_tcp_list.append(tcp_tuples[i][0])
+		top_ipid_list.append(ipid_tuples[i][0])
 
 	print 'Top UDP ports over period: {}'.format(top_udp_list)
 	print 'Top TCP ports over period: {}'.format(top_tcp_list)
+	print 'Top IP IDs over period: {}'.format(top_ipid_list)
 
 	udp_ts = []
 	tcp_ts = []
+	ipid_ts = []
 
 	for i in range(0, x):
 		udp_ts.append([])
 		tcp_ts.append([])
+		ipid_ts.append([])
 
 	timestamps = []
 
@@ -138,6 +160,7 @@ def ts_to_top_ts(csv_dir, from_time, x):
 						for i in range(0, x):
 							udp_seen_count = 0
 							tcp_seen_count = 0
+							ipid_seen_count = 0
 				
 							for udp_datum in json_data['udp']:
 								if udp_datum['port'] == top_udp_list[i]:
@@ -146,9 +169,15 @@ def ts_to_top_ts(csv_dir, from_time, x):
 							for tcp_datum in json_data['tcp']:
 								if tcp_datum['port'] == top_tcp_list[i]:
 									tcp_seen_count = tcp_datum['seen_count']
+
+							if json_data.has_key('ipid'):
+								for ipid_datum in json_data['ipid']:
+									if ipid_datum['ipid'] == top_ipid_list[i]:
+										ipid_seen_count = ipid_datum['seen_count']
 				
 							udp_ts[i].append(udp_seen_count)
 							tcp_ts[i].append(tcp_seen_count)
+							ipid_ts[i].append(ipid_seen_count)
 
 						read_count += 1
 				except:
@@ -162,12 +191,15 @@ def ts_to_top_ts(csv_dir, from_time, x):
 
 	udp_tot_counts = []
 	tcp_tot_counts = []
+	ipid_tot_counts = []
 	udp_other = 0
 	tcp_other = 0
+	ipid_other = 0
 
 	for i in range(0, x):
 		udp_tot_counts.append(udp_tuples[i][1])
 		tcp_tot_counts.append(tcp_tuples[i][1])
+		ipid_tot_counts.append(ipid_tuples[i][1])
 
 	if len(udp_tuples) > x:
 		for i in range(x, len(udp_tuples)):
@@ -177,7 +209,11 @@ def ts_to_top_ts(csv_dir, from_time, x):
 		for i in range(x, len(tcp_tuples)):
 			tcp_other += tcp_tuples[i][1]
 
-	return top_udp_list,top_tcp_list,timestamps,udp_ts,tcp_ts,udp_tot_counts,udp_other,tcp_tot_counts,tcp_other
+	if len(ipid_tuples) > x:
+		for i in range(x, len(ipid_tuples)):
+			ipid_other += ipid_tuples[i][1]
+
+	return top_udp_list,top_tcp_list,top_ipid_list,timestamps,udp_ts,tcp_ts,ipid_ts,udp_tot_counts,udp_other,tcp_tot_counts,tcp_other,ipid_tot_counts,ipid_other
 
 plotcolors = ["#332288", "#88CCEE", "#44AA99", "#117733", "#999933", "#DDCC77", "#661100", "#CC6677", "#882255", "#AA4499", "#C0C0C0"]
 
@@ -241,13 +277,15 @@ def main():
 	print 'Processing data until {}'.format(now)
 	print 'Reading input CSVs from {}'.format(csv_dir)
 
-	top_udp_list, top_tcp_list, timestamps, udp_ts, tcp_ts, udp_tot_counts, udp_other, tcp_tot_counts, tcp_other  = ts_to_top_ts(csv_dir, now, 10)
+	top_udp_list, top_tcp_list, top_ipid_list, timestamps, udp_ts, tcp_ts, ipid_ts, udp_tot_counts, udp_other, tcp_tot_counts, tcp_other, ipid_tot_counts, ipid_other = ts_to_top_ts(csv_dir, now, 10)
 
 	plot_ts(top_udp_list, timestamps, udp_ts, '{}/udp_timeseries.svg'.format(output_dir))
 	plot_ts(top_tcp_list, timestamps, tcp_ts, '{}/tcp_timeseries.svg'.format(output_dir))
+	plot_ts(top_ipid_list, timestamps, ipid_ts, '{}/ipid_timeseries.svg'.format(output_dir))
 
 	plot_port_pie(top_udp_list, udp_tot_counts, udp_other, '{}/udp_distribution.svg'.format(output_dir))
 	plot_port_pie(top_tcp_list, tcp_tot_counts, tcp_other, '{}/tcp_distribution.svg'.format(output_dir))
+	plot_port_pie(top_ipid_list, ipid_tot_counts, ipid_other, '{}/ipid_distribution.svg'.format(output_dir))
 
 if __name__ == '__main__':
 	main()
