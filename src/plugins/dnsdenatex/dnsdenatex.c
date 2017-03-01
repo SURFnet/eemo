@@ -1,6 +1,6 @@
 /*
- * Copyright (c) 2010-2016 SURFnet bv
- * Copyright (c) 2016 Roland van Rijswijk-Deij
+ * Copyright (c) 2010-2017 SURFnet bv
+ * Copyright (c) 2017 Roland van Rijswijk-Deij
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -31,7 +31,7 @@
 
 /*
  * The Extensible Ethernet Monitor (EEMO)
- * Query/response size distribution 
+ * DNS de-NAT data extraction plugin
  */
 
 #include "config.h"
@@ -103,6 +103,7 @@ eemo_rv eemo_dnsdenatex_dns_handler(eemo_ip_packet_info ip_info, int is_tcp, con
 		fprintf(out_csv, ",%s", ip_info.ip_dst);
 		fprintf(out_csv, ",%u", (unsigned int) ip_info.ip_id);
 		fprintf(out_csv, ",%u", (unsigned int) pkt->dstport);
+		fprintf(out_csv, ",%u", (unsigned int) pkt->query_id);
 		fprintf(out_csv, ",%u", (unsigned int) pkt->questions->qtype);
 		fprintf(out_csv, ",%u", (unsigned int) pkt->questions->qclass);
 		fprintf(out_csv, ",%s", pkt->questions->qname);
@@ -151,7 +152,7 @@ eemo_rv eemo_dnsdenatex_init(eemo_export_fn_table_ptr eemo_fn, const char* conf_
 
 	out_csv = fopen(out_name, "w");
 
-	fprintf(out_csv, "timestamp,src_ip,ip_ipid,udp_srcport,dns_qtype,dns_qclass,dns_qname,dns_edns0,dns_edns0_do,dns_edns0_maxsize\n");
+	fprintf(out_csv, "timestamp,client_ip,ip_ipid,udp_srcport,dns_qid,dns_qtype,dns_qclass,dns_qname,dns_edns0,dns_edns0_do,dns_edns0_maxsize\n");
 
 	INFO_MSG("Writing data to %s", out_name);
 
