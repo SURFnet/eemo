@@ -480,3 +480,14 @@ lib_libeemo_qrsizedist_la_SOURCES =	src/plugins/qrsizedist/qrsizedist.c \
 					src/uthash.h
 
 lib_libeemo_qrsizedist_la_LDFLAGS =	-version-info @EEMO_QRSIZEDIST_VERSION_INFO@ @PTHREAD_LIBS@
+
+# dnsdenatex plugin
+lib_LTLIBRARIES +=			lib/libeemo_dnsdenatex.la
+
+lib_libeemo_dnsdenatex_la_CFLAGS =	-Isrc -Isrc/plugins -Isrc/plugins/dnsdenatex @LIBCONFIG_CFLAGS@ @PTHREAD_CFLAGS@
+
+lib_libeemo_dnsdenatex_la_SOURCES =	src/plugins/dnsdenatex/dnsdenatex.c \
+					src/plugins/eemo_plugin_log.c \
+					src/plugins/eemo_plugin_log.h
+
+lib_libeemo_dnsdenatex_la_LDFLAGS =	-version-info @EEMO_DNSDENATEX_VERSION_INFO@ @PTHREAD_LIBS@
