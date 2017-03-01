@@ -20,7 +20,7 @@ def anonymise_dnsdenatex(in_csv, out_csv, salt):
 	header = header.strip('\n')
 	header = header.strip('\r')
 
-	if header != 'timestamp,src_ip,ip_ipid,udp_srcport,dns_qtype,dns_qclass,dns_qname,dns_edns0,dns_edns0_do,dns_edns0_maxsize':
+	if header != 'timestamp,client_ip,ip_ipid,udp_srcport,dns_qid,dns_qtype,dns_qclass,dns_qname,dns_edns0,dns_edns0_do,dns_edns0_maxsize':
 		print 'Invalid CSV header in {}'.format(in_csv)
 		in_fd.close()
 		out_fd.close()
@@ -31,7 +31,7 @@ def anonymise_dnsdenatex(in_csv, out_csv, salt):
 	line_ct = 0
 
 	# fields[1] = src_ip
-	# fields[6] = qname
+	# fields[7] = qname
 	#
 	for line in in_fd:
 		line = line.strip('\n')
@@ -39,8 +39,8 @@ def anonymise_dnsdenatex(in_csv, out_csv, salt):
 
 		fields = line.split(',')
 
-		if len(fields) != 10:
-			print 'Line {} has an invalid number of fields ({} != 10), skipping'.format(line_ct + 2, len(fields))
+		if len(fields) != 11:
+			print 'Line {} has an invalid number of fields ({} != 11), skipping'.format(line_ct + 2, len(fields))
 			continue
 
 		# Initialise hash
@@ -56,8 +56,8 @@ def anonymise_dnsdenatex(in_csv, out_csv, salt):
 		# Anonymise the query name; not clearing the hash object
 		# ensures that query names from other source IPs cannot
 		# be matched to the same hash value
-		md.update(fields[6])
-		fields[6] = md.hexdigest()
+		md.update(fields[7])
+		fields[7] = md.hexdigest()
 
 		out_fd.write('{}\n'.format(','.join(fields)))
 
