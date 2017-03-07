@@ -110,7 +110,7 @@ static void eemo_dnsdenatex_roll_outfile(const time_t epoch)
 
 	/* Write headers */
 	fprintf(out_query_csv,    "timestamp,client_ip,ip_ipid,ip_ttl,udp_srcport,dns_qid,dns_qtype,dns_qclass,dns_qname,dns_edns0,dns_edns0_do,dns_edns0_maxsize\n");
-	fprintf(out_response_csv, "timestamp,client_ip,ip_ipid,ip_ttl,udp_srcport,dns_qid,dns_qtype,dns_qclass,dns_qname,first_response_ttl,dns_edns0,dns_edns0_do,dns_edns0_maxsize\n");
+	fprintf(out_response_csv, "timestamp,client_ip,ip_ipid,ip_ttl,udp_dstport,dns_qid,dns_qtype,dns_qclass,dns_qname,first_response_ttl,dns_edns0,dns_edns0_do,dns_edns0_maxsize\n");
 
 	INFO_MSG("Opened %s for queries", csv_name_queries);
 	INFO_MSG("Opened %s for responses", csv_name_responses);
@@ -156,10 +156,10 @@ eemo_rv eemo_dnsdenatex_dns_handler(eemo_ip_packet_info ip_info, int is_tcp, con
 		if (pkt->questions != NULL)
 		{
 			fprintf(out_query_csv, "%u.%u", (unsigned int) ip_info.ts.tv_sec, (unsigned int) ip_info.ts.tv_usec);
-			fprintf(out_query_csv, ",%s", ip_info.ip_dst);
+			fprintf(out_query_csv, ",%s", ip_info.ip_src);
 			fprintf(out_query_csv, ",%u", (unsigned int) ip_info.ip_id);
 			fprintf(out_query_csv, ",%u", (unsigned int) ip_info.ttl);
-			fprintf(out_query_csv, ",%u", (unsigned int) pkt->dstport);
+			fprintf(out_query_csv, ",%u", (unsigned int) pkt->srcport);
 			fprintf(out_query_csv, ",%u", (unsigned int) pkt->query_id);
 			fprintf(out_query_csv, ",%u", (unsigned int) pkt->questions->qtype);
 			fprintf(out_query_csv, ",%u", (unsigned int) pkt->questions->qclass);
