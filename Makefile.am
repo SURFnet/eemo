@@ -491,3 +491,14 @@ lib_libeemo_dnsdenatex_la_SOURCES =	src/plugins/dnsdenatex/dnsdenatex.c \
 					src/plugins/eemo_plugin_log.h
 
 lib_libeemo_dnsdenatex_la_LDFLAGS =	-version-info @EEMO_DNSDENATEX_VERSION_INFO@ @PTHREAD_LIBS@
+
+# qsrcips plugin
+lib_LTLIBRARIES +=			lib/libeemo_qsrcips.la
+
+lib_libeemo_qsrcips_la_CFLAGS =		-Isrc -Isrc/plugins -Isrc/plugins/qsrcips @LIBCONFIG_CFLAGS@ @PTHREAD_CFLAGS@
+
+lib_libeemo_qsrcips_la_SOURCES =	src/plugins/qsrcips/qsrcips.c \
+					src/plugins/eemo_plugin_log.c \
+					src/plugins/eemo_plugin_log.h
+
+lib_libeemo_qsrcips_la_LDFLAGS =	-version-info @EEMO_QSRCIPS_VERSION_INFO@ @PTHREAD_LIBS@
