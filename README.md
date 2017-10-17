@@ -1,13 +1,15 @@
-Copyright (c) 2010-2015 SURFnet bv
+# EEMO
+## The Extensible Ethernet MOnitor
+
+Copyright (c) 2010-2017 SURFnet bv
 http://www.surf.nl/en/about-surf/subsidiaries/surfnet
 
-Copyright (c) 2014-2015 Roland van Rijswijk-Deij
+Copyright (c) 2014-2017 Roland van Rijswijk-Deij
 http://wwwhome.ewi.utwente.nl/~rijswijkrm/
 
 All rights reserved. This tool is distributed under a BSD-style license. For more information, see LICENSE
 
-1. INTRODUCTION
-===============
+## 1. INTRODUCTION
 
 For efficient network monitoring, administration and research, having a flexible tool that can capture network traffic and perform on-the-fly analysis is indispensable. There are already many good tools out there, such as tcpdump and WireShark. What these tools lack is the ability to perform continuous unsupervised monitoring and analysis of network traffic. This is where eemo comes in. As the long name (Extensible Ethernet MOnitor) suggests, eemo is a tool that does network monitoring and is highly extensible through a comprehensive plug-in API.
 
@@ -25,8 +27,7 @@ I will not make empty promises and say that I intend to provide comprehensive do
 
 Since version 0.3 eemo now includes the option of running a local sensor that does the capturing (eemo_sensor) and can forward the captured data stream to a sensor multiplexer (eemo_mux). The eemo executable itself can connect to a multiplexer and request access to multiple feeds. Transportation of the feeds is over TLS to ensure confidentiality of the captured data.
 
-2. PREREQUISITES
-================
+## 2. PREREQUISITES
 
 To build eemo, you will need a modern set of autotools installed and the following dependencies:
 
@@ -35,8 +36,7 @@ To build eemo, you will need a modern set of autotools installed and the followi
  - libconfig >= 1.3.2
  - OpenSSL 1.0.1 or up (NOTE: changed since r0.3.136 -- higher version required for ephemeral DH using ECC in sensor, multiplexer and client TLS connections)
 
-3. BUILDING
-===========
+## 3. BUILDING
 
 To build eemo fresh from the repository, execute the following commands:
 
@@ -45,8 +45,7 @@ To build eemo fresh from the repository, execute the following commands:
     make
 
 
-4. INSTALLING
-=============
+## 4. INSTALLING
 
 Installation is simple, execute:
 
@@ -55,8 +54,7 @@ Installation is simple, execute:
 From the base directory in the repository.
 
 
-5. USING THE TOOL
-=================
+## 5. USING THE TOOL
 
 Normally, eemo will run as a daemon. The default configuration file is in /etc/eemo.conf, but you can specify a different configuration file on the command-line. There is also a basic init.d script provided, as well as an RPM specification for Red Hat, CentOS and Fedora systems. To learn more about how eemo works, have a look at the sample configuration sample-eemo.conf provided in the repository in the config directory.
 
@@ -64,12 +62,11 @@ To learn the basics about eemo's command-line options, execute:
 
     src/eemo -h
 
-6. QUICK SETUP GUIDE FOR SENSOR/MULTIPLEXER/CLIENT CONFIGURATION
-================================================================
+## 6. QUICK SETUP GUIDE FOR SENSOR/MULTIPLEXER/CLIENT CONFIGURATION
 
 Since version 0.3, eemo supports a capture and forward system. Below is a quick start guide.
 
-## CAPTURING WITH THE SENSOR
+### CAPTURING WITH THE SENSOR
 
 To capture with a sensor, you will need the eemo_sensor tool. For more information on its command-line options, execute:
 
@@ -97,7 +94,7 @@ All you need to do now is configure your sensor, a template configuration is inc
 
     c_rehash .
 
-## MULTIPLEXER
+### MULTIPLEXER
 
 Sensors send their data to a centrally located multiplexer. The executable for the multiplexer is eemo_mux and to learn more about it, execute:
 
@@ -113,7 +110,7 @@ Generating a new certificate for the multiplexer works the same as for the senso
 
     c_rehash .
 
-## CLIENT
+### CLIENT
 
 The eemo executable can connect to a multiplexer by configuring it accordingly (for an example, see config/sample-eemo.conf). To set up eemo as client for a multiplexer, you will need:
 
@@ -124,8 +121,7 @@ Again, if you add a multiplexer certificate, remember to execute:
 
     c_rehash .
 
-7. CONTACT
-==========
+# 7. CONTACT
 
 Questions/remarks/suggestions/praise on this tool can be sent to:
 
