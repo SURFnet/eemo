@@ -70,6 +70,9 @@ static struct
 }
 qandas_today = { 0, 0, 0, 0 };
 
+/* eemo exported functions */
+static eemo_export_fn_table_ptr eemo_fn_exp	= NULL;
+
 /* Thread that processes files on day change */
 void* eemo_qandaslog_int_on_day_changed_threadproc(void* param)
 {
@@ -229,6 +232,8 @@ static int eemo_qandaslog_int_open_day_file(time_t ts)
 /* DNS handler */
 eemo_rv eemo_qandaslog_dns_handler(eemo_ip_packet_info ip_info, int is_tcp, const eemo_dns_packet* pkt)
 {
+	const char*	cidr_desc	= NULL;
+
 	/* Skip responses immediately */
 	if (pkt->qr_flag) return ERV_SKIPPED;
 
@@ -239,30 +244,46 @@ eemo_rv eemo_qandaslog_dns_handler(eemo_ip_packet_info ip_info, int is_tcp, cons
 		return ERV_SKIPPED;
 	}
 
-	/* Log every query */
-	fprintf(qandaslog_file, "%u;%u;%s;%s",
-		(unsigned int) ip_info.ts.tv_sec,
-		pkt->questions->qtype,
-		ip_info.ip_src,
-		ip_info.src_as_short);
-
-	if (pkt->questions->qname != NULL)
+	/* Check if the query destination matches one of the monitored IP blocks */
+	if (((ip_info.ip_type == 4) && ((eemo_fn_exp->cm_match_v4)(ip_info.dst_addr.v4, &cidr_desc) == ERV_OK)) ||
+	    ((ip_info.ip_type == 6) && ((eemo_fn_exp->cm_match_v6)(ip_info.dst_addr.v6, &cidr_desc) == ERV_OK)))
+	
 	{
-		fprintf(qandaslog_file, ";%s\n", pkt->questions->qname);
+		/* Log every query */
+		fprintf(qandaslog_file, "%u;%u;%s;%s",
+			(unsigned int) ip_info.ts.tv_sec,
+			pkt->questions->qtype,
+			ip_info.ip_src,
+			ip_info.src_as_short);
+	
+		if (pkt->questions->qname != NULL)
+		{
+			fprintf(qandaslog_file, ";%s\n", pkt->questions->qname);
+		}
+		else
+		{
+			fprintf(qandaslog_file, ";(NULL)\n");
+		}
+	
+		return ERV_HANDLED;
 	}
 	else
 	{
-		fprintf(qandaslog_file, ";(NULL)\n");
+		return ERV_SKIPPED;
 	}
-
-	return ERV_HANDLED;
 }
 
 /* Plugin initialisation */
 eemo_rv eemo_qandaslog_init(eemo_export_fn_table_ptr eemo_fn, const char* conf_base_path)
 {
+	char**	monitor_subnets		= NULL;
+	int	monitor_subnets_ct	= 0;
+	int	i			= 0;
+
 	/* Initialise logging for the plugin */
 	eemo_init_plugin_log(eemo_fn->log);
+
+	eemo_fn_exp = eemo_fn;
 
 	INFO_MSG("Initialising qandaslog plugin");
 
@@ -279,6 +300,24 @@ eemo_rv eemo_qandaslog_init(eemo_export_fn_table_ptr eemo_fn, const char* conf_b
 
 		return ERV_CONFIG_ERROR;
 	}
+
+	if ((eemo_fn->conf_get_string_array(conf_base_path, "monitor_subnets", &monitor_subnets, &monitor_subnets_ct) != ERV_OK) || (monitor_subnets_ct <= 0) || (monitor_subnets_ct % 2 != 0))
+	{
+		ERROR_MSG("Failed to retrieve the subnets to monitor from the configuration");
+
+		return ERV_CONFIG_ERROR;
+	}
+
+	/* Register CIDR blocks */
+	for (i = 0; i < monitor_subnets_ct; i+=2)
+	{
+		if ((eemo_fn->cm_add_block)(monitor_subnets[i], monitor_subnets[i+1]) != ERV_OK)
+		{
+			ERROR_MSG("Failed to add monitored subnet %s (%s)", monitor_subnets[i], monitor_subnets[i+1]);
+		}
+	}
+
+	(eemo_fn->conf_free_string_array)(monitor_subnets, monitor_subnets_ct);
 
 	/* Register DNS handler */
 	if ((eemo_fn->reg_dns_handler)(&eemo_qandaslog_dns_handler, PARSE_QUERY, &dns_handler_handle) != ERV_OK)
