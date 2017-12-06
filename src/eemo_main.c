@@ -699,14 +699,14 @@ int main(int argc, char* argv[])
 	eemo_ether_handler_cleanup();
 	eemo_raw_handler_cleanup();
 
-	/* Uninitialise CIDR matching */
-	eemo_cm_finalize();
-
 	/* Uninitialise IP reassembly module */
 	eemo_reasm_finalize();
 
 	/* Uninitialise metadata handling */
 	eemo_md_finalize();
+
+	/* Uninitialise CIDR matching */
+	eemo_cm_finalize();
 
 	/* Unload the configuration */
 	if (eemo_uninit_config_handling() != ERV_OK)

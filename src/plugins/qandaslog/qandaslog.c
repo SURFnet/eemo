@@ -315,6 +315,10 @@ eemo_rv eemo_qandaslog_init(eemo_export_fn_table_ptr eemo_fn, const char* conf_b
 		{
 			ERROR_MSG("Failed to add monitored subnet %s (%s)", monitor_subnets[i], monitor_subnets[i+1]);
 		}
+		else
+		{
+			INFO_MSG("Added query destination subnet %s (%s)", monitor_subnets[i], monitor_subnets[i+1]);
+		}
 	}
 
 	(eemo_fn->conf_free_string_array)(monitor_subnets, monitor_subnets_ct);
