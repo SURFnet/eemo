@@ -237,6 +237,9 @@ eemo_rv eemo_qandaslog_dns_handler(eemo_ip_packet_info ip_info, int is_tcp, cons
 	/* Skip responses immediately */
 	if (pkt->qr_flag) return ERV_SKIPPED;
 
+	/* Skip malformed queries */
+	if (pkt->questions == NULL) return ERV_SKIPPED;
+
 	if (eemo_qandaslog_int_open_day_file(ip_info.ts.tv_sec) != 0)
 	{
 		ERROR_MSG("Failed to open (new) output CSV");
