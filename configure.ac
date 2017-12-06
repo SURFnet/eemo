@@ -127,6 +127,11 @@ define([EEMO_QSRCIPS_CURRENT], [1])
 define([EEMO_QSRCIPS_REVISION], [0])
 define([EEMO_QSRCIPS_AGE], [0])
 
+# Plugin for logging query src IPs with high-precision timestamps
+define([EEMO_QANDASLOG_CURRENT], [1])
+define([EEMO_QANDASLOG_REVISION], [0])
+define([EEMO_QANDASLOG_AGE], [0])
+
 ################################################################################
 # Configuration functions                                                      #
 ################################################################################
@@ -184,6 +189,8 @@ EEMO_DNSDENATEX_VERSION_INFO="EEMO_DNSDENATEX_CURRENT:EEMO_DNSDENATEX_REVISION:E
 AC_SUBST(EEMO_DNSDENATEX_VERSION_INFO)
 EEMO_QSRCIPS_VERSION_INFO="EEMO_QSRCIPS_CURRENT:EEMO_QSRCIPS_REVISION:EEMO_QSRCIPS_AGE"
 AC_SUBST(EEMO_QSRCIPS_VERSION_INFO)
+EEMO_QANDASLOG_VERSION_INFO="EEMO_QANDASLOG_CURRENT:EEMO_QANDASLOG_REVISION:EEMO_QANDASLOG_AGE"
+AC_SUBST(EEMO_QANDASLOG_VERSION_INFO)
 
 # Checks for compilers and other programs
 AC_PROG_CC_C99
