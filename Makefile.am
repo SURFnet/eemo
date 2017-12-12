@@ -502,3 +502,14 @@ lib_libeemo_qsrcips_la_SOURCES =	src/plugins/qsrcips/qsrcips.c \
 					src/plugins/eemo_plugin_log.h
 
 lib_libeemo_qsrcips_la_LDFLAGS =	-version-info @EEMO_QSRCIPS_VERSION_INFO@ @PTHREAD_LIBS@
+
+# qandaslog plugin
+lib_LTLIBRARIES +=			lib/libeemo_qandaslog.la
+
+lib_libeemo_qandaslog_la_CFLAGS =	-Isrc -Isrc/plugins -Isrc/plugins/qandaslog @LIBCONFIG_CFLAGS@ @PTHREAD_CFLAGS@
+
+lib_libeemo_qandaslog_la_SOURCES =	src/plugins/qandaslog/qandaslog.c \
+					src/plugins/eemo_plugin_log.c \
+					src/plugins/eemo_plugin_log.h
+
+lib_libeemo_qandaslog_la_LDFLAGS =	-version-info @EEMO_QSRCIPS_VERSION_INFO@ @PTHREAD_LIBS@

@@ -152,7 +152,7 @@ eemo_rv eemo_cm_add_block(const char* block_str, const char* block_desc)
 
 		if (block_desc != NULL) new_ent->desc = strdup(block_desc);
 
-		while (mask >= 16)
+		while (mask > 16)
 		{
 			new_ent->v6_mask[mask_ofs++] = 0xffff;
 			mask -= 16;
@@ -171,6 +171,8 @@ eemo_rv eemo_cm_add_block(const char* block_str, const char* block_desc)
 		memcpy(new_ent->v6_partial, &addr, sizeof(struct in6_addr));
 
 		LL_APPEND(v6_blocks, new_ent);
+
+		INFO_MSG("Added CIDR block %s for matching with description %s", block_str, new_ent->desc);
 	}
 	else if (strchr(block_dup, '.') != NULL)
 	{
@@ -208,6 +210,8 @@ eemo_rv eemo_cm_add_block(const char* block_str, const char* block_desc)
 		memcpy(&new_ent->v4_partial, &addr, sizeof(struct in_addr));
 
 		LL_APPEND(v4_blocks, new_ent);
+
+		INFO_MSG("Added CIDR block %s for matching with description %s", block_str, new_ent->desc);
 	}
 	else
 	{

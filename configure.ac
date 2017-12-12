@@ -127,6 +127,11 @@ define([EEMO_QSRCIPS_CURRENT], [1])
 define([EEMO_QSRCIPS_REVISION], [0])
 define([EEMO_QSRCIPS_AGE], [0])
 
+# Plugin for logging query src IPs with high-precision timestamps
+define([EEMO_QANDASLOG_CURRENT], [1])
+define([EEMO_QANDASLOG_REVISION], [0])
+define([EEMO_QANDASLOG_AGE], [0])
+
 ################################################################################
 # Configuration functions                                                      #
 ################################################################################
@@ -184,6 +189,8 @@ EEMO_DNSDENATEX_VERSION_INFO="EEMO_DNSDENATEX_CURRENT:EEMO_DNSDENATEX_REVISION:E
 AC_SUBST(EEMO_DNSDENATEX_VERSION_INFO)
 EEMO_QSRCIPS_VERSION_INFO="EEMO_QSRCIPS_CURRENT:EEMO_QSRCIPS_REVISION:EEMO_QSRCIPS_AGE"
 AC_SUBST(EEMO_QSRCIPS_VERSION_INFO)
+EEMO_QANDASLOG_VERSION_INFO="EEMO_QANDASLOG_CURRENT:EEMO_QANDASLOG_REVISION:EEMO_QANDASLOG_AGE"
+AC_SUBST(EEMO_QANDASLOG_VERSION_INFO)
 
 # Checks for compilers and other programs
 AC_PROG_CC_C99
@@ -211,7 +218,7 @@ ACX_PCAP
 PKG_CHECK_MODULES([LIBCONFIG], [libconfig >= 1.3.2],, AC_MSG_ERROR([libconfig 1.3.2 or newer not found]))
 ACX_PTHREAD
 PKG_CHECK_MODULES([OPENSSL], [openssl >= 1.0.1],, AC_MSG_ERROR([OpenSSL 1.0.1 or newer not found]))
-PKG_CHECK_MODULES([ZLIB], [zlib >= 1.2.8],, AC_MSG_ERROR([zlib 1.2.8 or newer not found]))
+PKG_CHECK_MODULES([ZLIB], [zlib >= 0.2.0],, AC_MSG_ERROR([zlib 1.2.8 or newer not found]))
 PKG_CHECK_MODULES([LIBARCHIVE], [libarchive >= 3.0.0],, AC_MSG_ERROR([libarchive 3.0.0 or newer not found]))
 AX_LIB_SQLITE3(3.7.0)
 
