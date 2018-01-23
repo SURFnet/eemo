@@ -159,7 +159,6 @@ eemo_rv dnsinflux_collector_init(const int stats_interval, eemo_export_fn_table_
 	dnsinflux_add_remotestat("q_ra_set_ctr",		1, 1);
 	dnsinflux_add_remotestat("q_ad_set_ctr",		1, 1);
 	dnsinflux_add_remotestat("q_cd_set_ctr",		1, 1);
-	dnsinflux_add_remotestat("q_edns0_do_set_ctr",		1, 1);
 
 	/* Query EDNS0 information */
 	dnsinflux_add_remotestat("q_has_edns0_ctr",		1, 1);
@@ -251,7 +250,6 @@ eemo_rv dnsinflux_collector_init(const int stats_interval, eemo_export_fn_table_
 	/* Response status codes */
 	dnsinflux_add_remotestat("r_rcode_nodata_ctr",		1, 1);
 	dnsinflux_add_remotestat("r_rcode_referral_ctr",	1, 1);
-	dnsinflux_add_remotestat("r_rcode_unknown_ctr",		1, 1);
 	dnsinflux_add_remotestat("r_rcode_noerror_ctr",		1, 1);
 	dnsinflux_add_remotestat("r_rcode_formerr_ctr",		1, 1);
 	dnsinflux_add_remotestat("r_rcode_servfail_ctr",	1, 1);
