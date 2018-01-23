@@ -48,6 +48,9 @@
 #define DNS_TCFLAG	0x0200
 #define DNS_RDFLAG	0x0100
 #define DNS_RAFLAG	0x0080
+#define DNS_ZFLAG	0x0040
+#define DNS_ADFLAG	0x0020
+#define DNS_CDFLAG	0x0010
 #define DNS_OPCODE(flags) ((flags & 0x7800) >> 11)
 #define DNS_RCODE(flags) (flags & 0x000f)
 
@@ -57,6 +60,7 @@
 #define DNS_QTYPE_AAAA		28		/* AAAA record (IPv6 address) */
 #define DNS_QTYPE_AFSDB		18		/* Andrew Filesystem DB */
 #define DNS_QTYPE_APL		42		/* Address Prefix List */
+#define DNS_QTYPE_CAA		257		/* Certificate Authority Authorization */
 #define DNS_QTYPE_CERT		37		/* Digital certificate (PKIX, SPKI, PGP) */
 #define DNS_QTYPE_CNAME		5		/* Canonical name */
 #define DNS_QTYPE_DHCID		49		/* DHCP ID */
@@ -85,6 +89,7 @@
 #define DNS_QTYPE_SSHFP		44		/* SSH fingerprint */
 #define DNS_QTYPE_TA		32768		/* Trusted Authority */
 #define DNS_QTYPE_TKEY		249		/* Trusted Key secret */
+#define DNS_QTYPE_TLSA		52		/* TLS Authentication */
 #define DNS_QTYPE_TSIG		250		/* Transaction Signature */
 #define DNS_QTYPE_TXT		16		/* Text Record */
 

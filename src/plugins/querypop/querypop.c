@@ -471,7 +471,7 @@ static void* eemo_querypop_int_dumpstats_thread(void* params)
 
 	free(cu_params);
 
-	INFO_MSG("Statistics cleanup complete");
+	DEBUG_MSG("Statistics cleanup complete");
 
 	return NULL;
 }
@@ -541,6 +541,8 @@ static void eemo_querypop_int_dumpstats(const int is_exiting)
 /* Query handler */
 eemo_rv eemo_querypop_dns_handler(eemo_ip_packet_info ip_info, int is_tcp, const eemo_dns_packet* pkt)
 {
+	eemo_rv rv = ERV_SKIPPED;
+
 	/* Only look at valid queries */
 	if (!pkt->qr_flag && !pkt->is_partial && (pkt->questions != NULL) && (pkt->questions->qname != NULL))
 	{
@@ -607,12 +609,14 @@ eemo_rv eemo_querypop_dns_handler(eemo_ip_packet_info ip_info, int is_tcp, const
 			{
 				update_qname_ht(&sld_ht, pkt->questions->qname);
 			}
+
+			rv = ERV_HANDLED;
 		}
 
 		eemo_querypop_int_dumpstats(0);
 	}
 
-	return ERV_SKIPPED;
+	return rv;
 }
 
 /* Plugin initialisation */

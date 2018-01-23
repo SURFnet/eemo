@@ -101,6 +101,8 @@ typedef struct eemo_dns_packet
 	unsigned char		tc_flag;
 	unsigned char		ra_flag;
 	unsigned char		rd_flag;
+	unsigned char		ad_flag;
+	unsigned char		cd_flag;
 	unsigned char		opcode;
 	unsigned char		rcode;
 	eemo_dns_query*		questions;

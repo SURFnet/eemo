@@ -407,6 +407,7 @@ char* eemo_rdata_to_string(eemo_dns_rr* rr)
 		break;
 	case DNS_QTYPE_AFSDB:
 	case DNS_QTYPE_APL:
+	case DNS_QTYPE_CAA:
 	case DNS_QTYPE_CERT:
 	case DNS_QTYPE_DHCID:
 	case DNS_QTYPE_DLV:
@@ -432,6 +433,7 @@ char* eemo_rdata_to_string(eemo_dns_rr* rr)
 	case DNS_QTYPE_SRV:
 	case DNS_QTYPE_SSHFP:
 	case DNS_QTYPE_TA:
+	case DNS_QTYPE_TLSA:
 	case DNS_QTYPE_TKEY:
 	case DNS_QTYPE_TSIG:
 	default:
@@ -1013,6 +1015,8 @@ eemo_rv eemo_parse_dns_packet(const eemo_packet_buf* packet, eemo_dns_packet* dn
 	dns_packet->tc_flag 	= FLAG_SET(hdr.dns_flags, DNS_TCFLAG);
 	dns_packet->ra_flag 	= FLAG_SET(hdr.dns_flags, DNS_RAFLAG);
 	dns_packet->rd_flag	= FLAG_SET(hdr.dns_flags, DNS_RDFLAG);
+	dns_packet->ad_flag	= FLAG_SET(hdr.dns_flags, DNS_ADFLAG);
+	dns_packet->cd_flag	= FLAG_SET(hdr.dns_flags, DNS_CDFLAG);
 	dns_packet->opcode	= DNS_OPCODE(hdr.dns_flags);
 	dns_packet->rcode	= DNS_RCODE(hdr.dns_flags);
 	dns_packet->ans_count	= hdr.dns_ancount;
@@ -1020,12 +1024,14 @@ eemo_rv eemo_parse_dns_packet(const eemo_packet_buf* packet, eemo_dns_packet* dn
 	dns_packet->add_count	= hdr.dns_arcount;
 
 	PARSE_MSG("Query ID: %d", dns_packet->query_id);
-	PARSE_MSG("Flags:%s%s%s%s%s",
+	PARSE_MSG("Flags:%s%s%s%s%s%s%s",
 		dns_packet->qr_flag ? " QR" : "",
 		dns_packet->aa_flag ? " AA" : "",
 		dns_packet->tc_flag ? " TC" : "",
 		dns_packet->ra_flag ? " RA" : "",
-		dns_packet->rd_flag ? " RD" : "");
+		dns_packet->rd_flag ? " RD" : "",
+		dns_packet->ad_flag ? " AD" : "",
+		dns_packet->cd_flag ? " CD" : "");
 	PARSE_MSG("OPCODE: %d", dns_packet->opcode);
 	PARSE_MSG("RCODE: %d", dns_packet->rcode);
 

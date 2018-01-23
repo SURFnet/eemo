@@ -512,4 +512,19 @@ lib_libeemo_qandaslog_la_SOURCES =	src/plugins/qandaslog/qandaslog.c \
 					src/plugins/eemo_plugin_log.c \
 					src/plugins/eemo_plugin_log.h
 
-lib_libeemo_qandaslog_la_LDFLAGS =	-version-info @EEMO_QSRCIPS_VERSION_INFO@ @PTHREAD_LIBS@
+lib_libeemo_qandaslog_la_LDFLAGS =	-version-info @EEMO_QANDASLOG_VERSION_INFO@ @PTHREAD_LIBS@
+
+# dnsinflux plugin
+lib_LTLIBRARIES +=			lib/libeemo_dnsinflux.la
+
+lib_libeemo_dnsinflux_la_CFLAGS =	-Isrc -Isrc/plugins -Isrc/plugins/dnsinflux @LIBCONFIG_CFLAGS@ @PTHREAD_CFLAGS@
+
+lib_libeemo_dnsinflux_la_SOURCES =	src/plugins/dnsinflux/dnsinflux_entry.c \
+					src/plugins/dnsinflux/dnsinflux_itemmgr.c \
+					src/plugins/dnsinflux/dnsinflux_itemmgr.h \
+					src/plugins/dnsinflux/dnsinflux_collector.c \
+					src/plugins/dnsinflux/dnsinflux_collector.h \
+					src/plugins/eemo_plugin_log.c \
+					src/plugins/eemo_plugin_log.h
+
+lib_libeemo_dnsinflux_la_LDFLAGS =	-version-info @EEMO_DNSINFLUX_VERSION_INFO@ @PTHREAD_LIBS@

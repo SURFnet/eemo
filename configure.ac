@@ -127,10 +127,15 @@ define([EEMO_QSRCIPS_CURRENT], [1])
 define([EEMO_QSRCIPS_REVISION], [0])
 define([EEMO_QSRCIPS_AGE], [0])
 
-# Plugin for logging query src IPs with high-precision timestamps
+# Plugin for logging query src IPs and AS
 define([EEMO_QANDASLOG_CURRENT], [1])
 define([EEMO_QANDASLOG_REVISION], [0])
 define([EEMO_QANDASLOG_AGE], [0])
+
+# Plugin for DNS statistics collection for InfluxDB
+define([EEMO_DNSINFLUX_CURRENT], [1])
+define([EEMO_DNSINFLUX_REVISION], [0])
+define([EEMO_DNSINFLUX_AGE], [0])
 
 ################################################################################
 # Configuration functions                                                      #
@@ -191,6 +196,8 @@ EEMO_QSRCIPS_VERSION_INFO="EEMO_QSRCIPS_CURRENT:EEMO_QSRCIPS_REVISION:EEMO_QSRCI
 AC_SUBST(EEMO_QSRCIPS_VERSION_INFO)
 EEMO_QANDASLOG_VERSION_INFO="EEMO_QANDASLOG_CURRENT:EEMO_QANDASLOG_REVISION:EEMO_QANDASLOG_AGE"
 AC_SUBST(EEMO_QANDASLOG_VERSION_INFO)
+EEMO_DNSINFLUX_VERSION_INFO="EEMO_DNSINFLUX_CURRENT:EEMO_DNSINFLUX_REVISION:EEMO_DNSINFLUX_AGE"
+AC_SUBST(EEMO_DNSINFLUX_VERSION_INFO)
 
 # Checks for compilers and other programs
 AC_PROG_CC_C99
