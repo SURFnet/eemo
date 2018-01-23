@@ -311,7 +311,7 @@ static void* dnsinflux_int_write_remotestats_threadproc(void* params)
 	dnsinflux_list*			list_it		= NULL;
 	dnsinflux_list*			list_tmp	= NULL;
 	int				exit_status	= 0;
-	unsigned long long		nano_epoch	= (tp->ts) * 1000 * 1000;
+	unsigned long long		nano_epoch	= (tp->ts) * 1000 * 1000 * 1000;
 
 	DEBUG_MSG("Entering remote statistics writer thread");
 
