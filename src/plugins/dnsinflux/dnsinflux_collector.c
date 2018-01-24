@@ -52,11 +52,14 @@ static time_t	next_stats_output	= 0;
 static int	di_stats_interval	= 0;
 
 #define CURRENT_QPS		"Current queries per second            "
+#define CURRENT_RPS		"Current responses per second          "
 #define TOTAL_QUERIES		"Total queries                         "
 #define QUERIES_TODAY		"Queries today                         "
 #define QUERIES_YESTERDAY	"Queries yesterday                     "
 #define CURRENT_INBOUND		"Current inbound DNS traffic (bytes/s) "
 #define CURRENT_OUTBOUND	"Current outbound DNS traffic (bytes/s)"
+#define AVG_QSIZE		"Average query size (bytes)            "
+#define AVG_RSIZE		"Average response size (bytes)         "
 
 /* Initialise the collector module */
 eemo_rv dnsinflux_collector_init(const int stats_interval, eemo_export_fn_table_ptr eemo_fn_table)
@@ -70,11 +73,16 @@ eemo_rv dnsinflux_collector_init(const int stats_interval, eemo_export_fn_table_
 
 	/* Register local statistics */
 	dnsinflux_add_localstat(CURRENT_QPS		, 0, 1);
+	dnsinflux_add_localstat(CURRENT_RPS		, 0, 1);
 	dnsinflux_add_localstat(TOTAL_QUERIES		, 1, 0);
 	dnsinflux_add_localstat(QUERIES_TODAY		, 1, 0);
 	dnsinflux_add_localstat(QUERIES_YESTERDAY	, 1, 0);
 	dnsinflux_add_localstat(CURRENT_INBOUND		, 0, 1);
 	dnsinflux_add_localstat(CURRENT_OUTBOUND	, 0, 1);
+
+	/* Register local average statistics */
+	dnsinflux_add_localavg(AVG_QSIZE, CURRENT_INBOUND, CURRENT_QPS);
+	dnsinflux_add_localavg(AVG_RSIZE, CURRENT_OUTBOUND, CURRENT_RPS);
 
 	/* Register remote statistics */
 
@@ -182,6 +190,10 @@ eemo_rv dnsinflux_collector_init(const int stats_interval, eemo_export_fn_table_
 	dnsinflux_add_remotestat("r_class_UNKNOWN_ctr",		1, 1);
 
 	/* Response types */
+	dnsinflux_add_remotestat("r_total_rec_ctr",		1, 1);
+	dnsinflux_add_remotestat("r_total_ans_rec_ctr",		1, 1);
+	dnsinflux_add_remotestat("r_total_aut_rec_ctr",		1, 1);
+	dnsinflux_add_remotestat("r_total_add_rec_ctr",		1, 1);
 	dnsinflux_add_remotestat("r_type_A_ctr",		1, 1);
 	dnsinflux_add_remotestat("r_type_AAAA_ctr",		1, 1);
 	dnsinflux_add_remotestat("r_type_AFSDB_ctr",		1, 1);
@@ -261,6 +273,14 @@ eemo_rv dnsinflux_collector_init(const int stats_interval, eemo_export_fn_table_
 	/* DNS notification */
 	dnsinflux_add_remotestat("notify_in_ctr",		1, 1);
 	dnsinflux_add_remotestat("notify_out_ctr",		1, 1);
+
+	/* Remote average statistics */
+	dnsinflux_add_remoteavg("avg_qsize", "dnstraf_inbound", "q_ctr");
+	dnsinflux_add_remoteavg("avg_rsize", "dnstraf_outbound", "r_ctr");
+	dnsinflux_add_remoteavg("avg_recs_per_r", "r_total_rec_ctr", "r_ctr");
+	dnsinflux_add_remoteavg("avg_ans_per_r", "r_total_ans_rec_ctr", "r_ctr");
+	dnsinflux_add_remoteavg("avg_aut_per_r", "r_total_aut_rec_ctr", "r_ctr");
+	dnsinflux_add_remoteavg("avg_add_per_r", "r_total_add_rec_ctr", "r_ctr");
 
 	INFO_MSG("Initialised DNS InfluxDB statistics collector");
 
@@ -583,6 +603,7 @@ static eemo_rv dnsinflux_handle_r(eemo_ip_packet_info ip_info, int is_tcp, const
 	    ((ip_info.ip_type == 6) && ((eemo_fn->cm_match_v6)(ip_info.src_addr.v6, &cidr_desc) == ERV_OK)))
 	{
 		/* Update local statistics */
+		dnsinflux_inc_localstat(CURRENT_RPS);
 		dnsinflux_addto_localstat(CURRENT_OUTBOUND, dns_packet->udp_len);
 	
 		/* Update general inbound query statistics */
@@ -632,6 +653,11 @@ static eemo_rv dnsinflux_handle_r(eemo_ip_packet_info ip_info, int is_tcp, const
 		{
 			dnsinflux_inc_remotestat("r_udp_ctr");
 		}
+	
+		dnsinflux_addto_remotestat("r_total_rec_ctr", dns_packet->ans_count + dns_packet->aut_count + dns_packet->add_count);
+		dnsinflux_addto_remotestat("r_total_ans_rec_ctr", dns_packet->ans_count);
+		dnsinflux_addto_remotestat("r_total_aut_rec_ctr", dns_packet->aut_count);
+		dnsinflux_addto_remotestat("r_total_add_rec_ctr", dns_packet->add_count);
 
 		/* Count answer classes and types */
 		LL_FOREACH(dns_packet->answers, answer_it)

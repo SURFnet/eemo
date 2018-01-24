@@ -55,6 +55,12 @@ eemo_rv dnsinflux_add_localstat(const char* item_name, const int is_absolute, co
 /* Add a new remote statistics item */
 eemo_rv dnsinflux_add_remotestat(const char* item_name, const int is_absolute, const int reset_on_flush);
 
+/* Add a local average item */
+eemo_rv dnsinflux_add_localavg(const char* item_name, const char* left_item, const char* right_item);
+
+/* Add a remote average item */
+eemo_rv dnsinflux_add_remoteavg(const char* item_name, const char* left_item, const char* right_item);
+
 /* Flush local stats */
 eemo_rv dnsinflux_flush_localstats(const time_t ts);
 

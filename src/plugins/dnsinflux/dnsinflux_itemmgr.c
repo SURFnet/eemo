@@ -63,14 +63,27 @@ typedef struct _dnsinflux_list
 {
 	char*			name;
 	unsigned long long	value;
+	double			real_value;
 	int			is_absolute;
+	int			is_avg;
 	struct _dnsinflux_list*	next;
 }
 dnsinflux_list;
 
+typedef struct _dnsinflux_avg_item
+{
+	char*				name;
+	dnsinflux_item*			left;
+	dnsinflux_item*			right;
+	struct _dnsinflux_avg_item*	next;
+}
+dnsinflux_avg_item;
+
 /* Statistics repositories */
-static dnsinflux_item*	di_local_stats	= NULL;
-static dnsinflux_item*	di_remote_stats	= NULL;
+static dnsinflux_item*		di_local_stats	= NULL;
+static dnsinflux_item*		di_remote_stats	= NULL;
+static dnsinflux_avg_item*	di_local_avgs	= NULL;
+static dnsinflux_avg_item*	di_remote_avgs	= NULL;
 
 /* Configuration */
 static char*	di_influx_file		= NULL;
@@ -89,6 +102,8 @@ eemo_rv dnsinflux_itemmgr_init(const char* influx_file, const char* influx_cmd, 
 	assert(hostname != NULL);
 	assert(di_local_stats == NULL);
 	assert(di_remote_stats == NULL);
+	assert(di_local_avgs == NULL);
+	assert(di_remote_avgs == NULL);
 
 	di_influx_file		= strdup(influx_file);
 	di_influx_cmd		= strdup(influx_cmd);
@@ -104,10 +119,12 @@ eemo_rv dnsinflux_itemmgr_init(const char* influx_file, const char* influx_cmd, 
 /* Uninitialise the item manager */
 eemo_rv dnsinflux_itemmgr_finalise(void)
 {
-	dnsinflux_item*	item_it		= NULL;
-	dnsinflux_item*	item_tmp	= NULL;
-	int		local_count	= 0;
-	int		remote_count	= 0;
+	dnsinflux_item*		item_it		= NULL;
+	dnsinflux_item*		item_tmp	= NULL;
+	dnsinflux_avg_item*	avg_it		= NULL;
+	dnsinflux_avg_item*	avg_tmp		= NULL;
+	int			local_count	= 0;
+	int			remote_count	= 0;
 
 	/* Clean up items */
 	HASH_ITER(hh, di_local_stats, item_it, item_tmp)
@@ -128,8 +145,22 @@ eemo_rv dnsinflux_itemmgr_finalise(void)
 		remote_count++;
 	}
 
+	LL_FOREACH_SAFE(di_local_avgs, avg_it, avg_tmp)
+	{
+		free(avg_it->name);
+		free(avg_it);
+	}
+
+	LL_FOREACH_SAFE(di_remote_avgs, avg_it, avg_tmp)
+	{
+		free(avg_it->name);
+		free(avg_it);
+	}
+
 	di_local_stats = NULL;
 	di_remote_stats = NULL;
+	di_local_avgs = NULL;
+	di_remote_avgs = NULL;
 
 	free(di_influx_file);
 	free(di_influx_cmd);
@@ -187,13 +218,84 @@ eemo_rv dnsinflux_add_remotestat(const char* item_name, const int is_absolute, c
 	return dnsinflux_int_add_item(&di_remote_stats, item_name, is_absolute, reset_on_flush);
 }
 
+/* Add an average item */
+static eemo_rv dnsinflux_int_add_avgitem(dnsinflux_avg_item** avg_list, dnsinflux_item* ht, const char* item_name, const char* left_item, const char* right_item)
+{
+	assert(avg_list != NULL);
+	assert(item_name != NULL);
+	assert(left_item != NULL);
+	assert(right_item != NULL);
+
+	dnsinflux_item*		left_ptr	= NULL;
+	dnsinflux_item*		right_ptr	= NULL;
+	dnsinflux_avg_item*	new_item	= NULL;
+
+	HASH_FIND_STR(ht, left_item, left_ptr);
+	HASH_FIND_STR(ht, right_item, right_ptr);
+
+	if (left_ptr == NULL)
+	{
+		ERROR_MSG("Left item '%s' not found while adding average item '%s'", left_item, item_name);
+
+		return ERV_GENERAL_ERROR;
+	}
+
+	if (right_ptr == NULL)
+	{
+		ERROR_MSG("Right item '%s' not found while adding average item '%s'", right_item, item_name);
+
+		return ERV_GENERAL_ERROR;
+	}
+
+	new_item = (dnsinflux_avg_item*) malloc(sizeof(dnsinflux_avg_item));
+
+	memset(new_item, 0, sizeof(dnsinflux_avg_item));
+
+	new_item->name	= strdup(item_name);
+	new_item->left	= left_ptr;
+	new_item->right	= right_ptr;
+
+	LL_APPEND(*avg_list, new_item);
+
+	DEBUG_MSG("Added new average item '%s' as '%s'/'%s'", item_name, left_item, right_item);
+
+	return ERV_OK;
+}
+
+/* Add a local average item */
+eemo_rv dnsinflux_add_localavg(const char* item_name, const char* left_item, const char* right_item)
+{
+	return dnsinflux_int_add_avgitem(&di_local_avgs, di_local_stats, item_name, left_item, right_item);
+}
+
+/* Add a remote average item */
+eemo_rv dnsinflux_add_remoteavg(const char* item_name, const char* left_item, const char* right_item)
+{
+	return dnsinflux_int_add_avgitem(&di_remote_avgs, di_remote_stats, item_name, left_item, right_item);
+}
+
 /* Copy item states into a list and reset the reset-on-flush items */
-static dnsinflux_list* dnsinflux_int_copystates(dnsinflux_item* ht)
+static dnsinflux_list* dnsinflux_int_copystates(dnsinflux_item* ht, dnsinflux_avg_item* avgs)
 {
 
-	dnsinflux_list*	itemlist	= NULL;
-	dnsinflux_item*	item_it		= NULL;
-	dnsinflux_item*	item_tmp	= NULL;
+	dnsinflux_list*		itemlist	= NULL;
+	dnsinflux_item*		item_it		= NULL;
+	dnsinflux_item*		item_tmp	= NULL;
+	dnsinflux_avg_item*	avg_it		= NULL;
+
+	LL_FOREACH(avgs, avg_it)
+	{
+		dnsinflux_list*	new_listent	= (dnsinflux_list*) malloc(sizeof(dnsinflux_list));
+
+		memset(new_listent, 0, sizeof(dnsinflux_list));
+
+		new_listent->name		= strdup(avg_it->name);
+		new_listent->real_value		= (double) avg_it->left->value/(double) avg_it->right->value;
+		new_listent->is_absolute	= 0;
+		new_listent->is_avg		= 1;
+
+		LL_APPEND(itemlist, new_listent);
+	}
 
 	HASH_ITER(hh, ht, item_it, item_tmp)
 	{
@@ -204,6 +306,7 @@ static dnsinflux_list* dnsinflux_int_copystates(dnsinflux_item* ht)
 		new_listent->name		= strdup(item_it->name);
 		new_listent->value		= item_it->value;
 		new_listent->is_absolute	= item_it->is_absolute;
+		new_listent->is_avg		= 0;
 
 		/* Reset if necessary */
 		if (item_it->reset_on_flush) item_it->value = 0;
@@ -258,15 +361,23 @@ static void* dnsinflux_int_write_localstats_threadproc(void* params)
 
 	LL_FOREACH_SAFE(tp->items, list_it, list_tmp)
 	{
-		if (list_it->is_absolute)
+		if (list_it->is_avg)
 		{
-			fprintf(out_fd, "%s: %llu\n", list_it->name, list_it->value);
-			DEBUG_MSG("%s: %llu", list_it->name, list_it->value);
+			fprintf(out_fd, "%s: %0.2f\n", list_it->name, list_it->real_value);
+			DEBUG_MSG("%s: %0.2f\n", list_it->name, list_it->real_value);
 		}
 		else
 		{
-			fprintf(out_fd, "%s: %0.2f\n", list_it->name, (double) list_it->value/(double) di_stats_interval);
-			DEBUG_MSG("%s: %0.2f", list_it->name, (double) list_it->value/(double) di_stats_interval);
+			if (list_it->is_absolute)
+			{
+				fprintf(out_fd, "%s: %llu\n", list_it->name, list_it->value);
+				DEBUG_MSG("%s: %llu", list_it->name, list_it->value);
+			}
+			else
+			{
+				fprintf(out_fd, "%s: %0.2f\n", list_it->name, (double) list_it->value/(double) di_stats_interval);
+				DEBUG_MSG("%s: %0.2f", list_it->name, (double) list_it->value/(double) di_stats_interval);
+			}
 		}
 
 		free(list_it->name);
@@ -289,7 +400,7 @@ eemo_rv dnsinflux_flush_localstats(const time_t ts)
 	pthread_t			tid;
 
 	tp->ts = ts;
-	tp->items = dnsinflux_int_copystates(di_local_stats);
+	tp->items = dnsinflux_int_copystates(di_local_stats, di_local_avgs);
 
 	if (pthread_create(&tid, NULL, dnsinflux_int_write_localstats_threadproc, tp) != 0)
 	{
@@ -335,13 +446,20 @@ static void* dnsinflux_int_write_remotestats_threadproc(void* params)
 
 	LL_FOREACH_SAFE(tp->items, list_it, list_tmp)
 	{
-		if (list_it->is_absolute)
+		if (list_it->is_avg)
 		{
-			fprintf(out_fd, "%s,host=%s value=%llu %llu\n", list_it->name, di_hostname, list_it->value, nano_epoch);
+			fprintf(out_fd, "%s,host=%s value=%0.2f %llu\n", list_it->name, di_hostname, list_it->real_value, nano_epoch);
 		}
 		else
 		{
-			fprintf(out_fd, "%s,host=%s value=%0.2f %llu\n", list_it->name, di_hostname, (double) list_it->value/(double) di_stats_interval, nano_epoch);
+			if (list_it->is_absolute)
+			{
+				fprintf(out_fd, "%s,host=%s value=%llu %llu\n", list_it->name, di_hostname, list_it->value, nano_epoch);
+			}
+			else
+			{
+				fprintf(out_fd, "%s,host=%s value=%0.2f %llu\n", list_it->name, di_hostname, (double) list_it->value/(double) di_stats_interval, nano_epoch);
+			}
 		}
 
 		free(list_it->name);
@@ -381,7 +499,7 @@ eemo_rv dnsinflux_flush_remotestats(const time_t ts)
 	pthread_t			tid;
 
 	tp->ts = ts;
-	tp->items = dnsinflux_int_copystates(di_remote_stats);
+	tp->items = dnsinflux_int_copystates(di_remote_stats, di_remote_avgs);
 
 	if (pthread_create(&tid, NULL, dnsinflux_int_write_remotestats_threadproc, tp) != 0)
 	{
