@@ -1,6 +1,6 @@
 /*
- * Copyright (c) 2010-2015 SURFnet bv
- * Copyright (c) 2015 Roland van Rijswijk-Deij
+ * Copyright (c) 2010-2018 SURFnet bv
+ * Copyright (c) 2015-2018 Roland van Rijswijk-Deij
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -218,7 +218,7 @@ static int eemo_ecsmonitor_int_open_day_file(time_t ts)
 	/* Write CSV header */
 	if (ftell(edns0_mon_file) == 0)
 	{
-		fprintf(edns0_mon_file, "timestamp;qtype;q_src;ecs_ip;ecs_scope;q_as;q_geoip;ecs_ip_as;ecs_ip_geoip;qname\n");
+		fprintf(edns0_mon_file, "timestamp;qtype;q_src;ecs_ip;ecs_scope;q_as;q_geoip;ecs_ip_as;ecs_ip_prefix;ecs_ip_geoip;qname\n");
 	}
 
 	INFO_MSG("Started new file on %04d-%02d-%02d (%s)", ecsmon_today.year, ecsmon_today.month, ecsmon_today.day, day_file_name);

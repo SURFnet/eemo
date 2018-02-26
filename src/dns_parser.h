@@ -123,6 +123,7 @@ typedef struct eemo_dns_packet
 	int			has_edns0_exp_opt;
 	char*			edns0_client_subnet_as_short;
 	char*			edns0_client_subnet_as_full;
+	char*			edns0_client_subnet_prefix;
 	char*			edns0_client_subnet_geo_ip;
 }
 eemo_dns_packet;

@@ -52,8 +52,9 @@ static sqlite3*	asdb_handle	= NULL;
 static sqlite3*	geoipdb_handle	= NULL;
 #endif /* HAVE_SQLITE3 */
 
-#define ULL_HI(x)	(x>>32)
-#define ULL_LO(x)	(x&0xffffffff)
+#define ULL_HI(x)		(x>>32)
+#define ULL_LO(x)		(x&0xffffffff)
+#define ULHILO_TO_ULL(hi,lo)	(((unsigned  long long ) hi << 32) + (unsigned long long) lo)
 
 #ifdef HAVE_SQLITE3
 static void eemo_md_db_to_mem(sqlite3** db_handle, const char* desc)
@@ -199,6 +200,7 @@ eemo_rv eemo_md_finalize(void)
 /* Convert an IPv4 address to an integer */
 static void v4_to_uint(struct in_addr* addr, unsigned int* uint_val)
 {
+	assert(addr != NULL);
 	assert(uint_val != NULL);
 
 	unsigned int*	addr_uint_p	= (unsigned int*) addr;
@@ -206,9 +208,20 @@ static void v4_to_uint(struct in_addr* addr, unsigned int* uint_val)
 	*uint_val = ntohl(*addr_uint_p);
 }
 
+/* Convert an unsigned integer back to an IPv4 address */
+static void uint_to_v4(unsigned int uint_val, struct in_addr* addr)
+{
+	assert(addr != NULL);
+
+	unsigned int*	addr_uint_p	= (unsigned int*) addr;
+
+	*addr_uint_p = htonl(uint_val);
+}
+
 /* Convert an IPv6 address to two 64-bit integers */
 static void v6_to_ull(struct in6_addr* addr, unsigned long long* hi_val, unsigned long long* lo_val)
 {
+	assert(addr != NULL);
 	assert(hi_val != NULL);
 	assert(lo_val != NULL);
 
@@ -229,18 +242,38 @@ static void v6_to_ull(struct in6_addr* addr, unsigned long long* hi_val, unsigne
 	}
 }
 
+/* Convert two 64-bit integers back to an IPv6 address */
+static void ull_to_v6(unsigned long long hi_val, unsigned long long lo_val, struct in6_addr* addr)
+{
+	assert(addr != NULL);
+
+	unsigned char*	addr_buf	= (unsigned char*) addr;
+	int		i		= 0;
+
+	/* Convert 128-bit IPv6 address to network byte order */
+	for (i = 0; i < 8; i++)
+	{
+		addr_buf[i] = hi_val >> 56;
+		hi_val <<= 8;
+
+		addr_buf[i + 8] = lo_val >> 56;
+		lo_val <<= 8;
+	}
+}
+
 typedef struct ip2as_cb_rv
 {
-	char**	AS;
-	char**	AS_full;
-	int	sel_count;
+	char**		AS;
+	char**		AS_full;
+	char**		prefix;
+	int		sel_count;
 }
 ip2as_cb_rv;
 
 static int ip2as_lookup_cb(void* data, int argc, char* argv[], char* colname[])
 {
 	assert(data != NULL);
-	assert(argc == 3);
+	assert((argc == 4) || (argc == 7));
 
 	ip2as_cb_rv* rv = (ip2as_cb_rv*) data;
 
@@ -253,6 +286,58 @@ static int ip2as_lookup_cb(void* data, int argc, char* argv[], char* colname[])
 
 	*(rv->AS) = strdup(argv[0]);
 	*(rv->AS_full) = strdup(argv[1]);
+
+	if (argc == 4)
+	{
+		/* This an IPv4 lookup, determine the prefix */
+		struct in_addr	pfx_addr;
+		char		ip_str[INET_ADDRSTRLEN];
+		unsigned int	ip_val		= strtoul(argv[2], NULL, 10);
+		unsigned int	prefix_len	= atoi(argv[3]);
+
+		uint_to_v4(ip_val, &pfx_addr);
+
+		if (inet_ntop(AF_INET, &pfx_addr, ip_str, INET_ADDRSTRLEN) == 0)
+		{
+			/* Allocate memory for IP + /xx for prefix */
+			*(rv->prefix) = (char*) malloc((strlen(ip_str) + 3 + 1) * sizeof(char));
+			memset(*(rv->prefix), 0, (strlen(ip_str) + 3 + 1) * sizeof(char));
+
+			snprintf(*(rv->prefix), strlen(ip_str) + 3 + 1, "%s/%d", ip_str, prefix_len);
+		}
+		else
+		{
+			ERROR_MSG("IPv4 address to string conversion failed");
+			*(rv->prefix) = strdup("error");
+		}
+	}
+	else
+	{
+		/* This is an IPv6 lookup, determine the prefix */
+		struct in6_addr	pfx_addr;
+		char		ip_str[INET6_ADDRSTRLEN];
+		unsigned int	ip_val1		= strtoul(argv[2], NULL, 10);
+		unsigned int	ip_val2		= strtoul(argv[3], NULL, 10);
+		unsigned int	ip_val3		= strtoul(argv[4], NULL, 10);
+		unsigned int	ip_val4		= strtoul(argv[5], NULL, 10);
+		unsigned int	prefix_len	= atoi(argv[6]);
+
+		ull_to_v6(ULHILO_TO_ULL(ip_val1, ip_val2), ULHILO_TO_ULL(ip_val3, ip_val4), &pfx_addr);
+
+		if (inet_ntop(AF_INET6, &pfx_addr, ip_str, INET6_ADDRSTRLEN) == 0)
+		{
+			/* Allocate memory for IP + /xxx for prefix */
+			*(rv->prefix) = (char*) malloc((strlen(ip_str) + 4 + 1) * sizeof(char));
+			memset(*(rv->prefix), 0, (strlen(ip_str) + 4 + 1) * sizeof(char));
+
+			snprintf(*(rv->prefix), strlen(ip_str) + 4 + 1, "%s/%d", ip_str, prefix_len);
+		}
+		else
+		{
+			ERROR_MSG("IPv4 address to string conversion failed");
+			*(rv->prefix) = strdup("error");
+		}
+	}
 
 	rv->sel_count++;
 
@@ -284,8 +369,8 @@ static int i2l_lookup_cb(void* data, int argc, char* argv[], char* colname[])
 }
 #endif /* HAVE_SQLITE3 */
 
-/* Look up the AS for an IPv4 address */
-eemo_rv eemo_md_lookup_as_v4(struct in_addr* addr, char** AS_short, char** AS_full)
+/* Look up the AS for an IPv4 address and include the closest enclosing prefix */
+eemo_rv eemo_md_lookup_as_and_prefix_v4(struct in_addr* addr, char** AS_short, char** AS_full, char** prefix)
 {
 #ifdef HAVE_SQLITE3
 	assert(AS_full != NULL);
@@ -308,7 +393,7 @@ eemo_rv eemo_md_lookup_as_v4(struct in_addr* addr, char** AS_short, char** AS_fu
 
 	v4_to_uint(addr, &addr_uint);
 
-	sql =	"SELECT as_single,as_full,prefix FROM (SELECT * FROM IP4_TO_AS WHERE from_ip <= %u ORDER BY from_ip DESC,prefix DESC LIMIT 1) WHERE to_ip >= %u;";
+	sql =	"SELECT as_single,as_full,from_ip,prefix FROM (SELECT * FROM IP4_TO_AS WHERE from_ip <= %u ORDER BY from_ip DESC,prefix DESC LIMIT 1) WHERE to_ip >= %u;";
 
 	snprintf(sql_buf, 4096, sql, addr_uint, addr_uint);
 
@@ -329,7 +414,7 @@ eemo_rv eemo_md_lookup_as_v4(struct in_addr* addr, char** AS_short, char** AS_fu
 		 * necessary; we first try limiting to 5, as that is more efficient,
 		 * if that does not work we drop the limit altogether.
 		 */
-		sql =	"SELECT as_single,as_full,prefix FROM (SELECT * FROM IP4_TO_AS WHERE from_ip <= %u ORDER BY from_ip DESC,prefix DESC LIMIT 5) WHERE to_ip >= %u LIMIT 1;";
+		sql =	"SELECT as_single,as_full,from_ip,prefix FROM (SELECT * FROM IP4_TO_AS WHERE from_ip <= %u ORDER BY from_ip DESC,prefix DESC LIMIT 5) WHERE to_ip >= %u LIMIT 1;";
 	
 		snprintf(sql_buf, 4096, sql, addr_uint, addr_uint);
 	
@@ -344,7 +429,7 @@ eemo_rv eemo_md_lookup_as_v4(struct in_addr* addr, char** AS_short, char** AS_fu
 
 		if (sel_rv.sel_count == 0)
 		{
-			sql =	"SELECT as_single,as_full,prefix FROM (SELECT * FROM IP4_TO_AS WHERE from_ip <= %u ORDER BY from_ip DESC,prefix DESC) WHERE to_ip >= %u LIMIT 1;";
+			sql =	"SELECT as_single,as_full,from_ip,prefix FROM (SELECT * FROM IP4_TO_AS WHERE from_ip <= %u ORDER BY from_ip DESC,prefix DESC) WHERE to_ip >= %u LIMIT 1;";
 		
 			snprintf(sql_buf, 4096, sql, addr_uint, addr_uint);
 		
@@ -368,8 +453,21 @@ eemo_rv eemo_md_lookup_as_v4(struct in_addr* addr, char** AS_short, char** AS_fu
 	return ERV_OK;
 }
 
-/* Look up the AS for an IPv6 address */
-eemo_rv eemo_md_lookup_as_v6(struct in6_addr* addr, char** AS_short, char** AS_full)
+/* Look up the AS for an IPv4 address */
+eemo_rv eemo_md_lookup_as_v4(struct in_addr* addr, char** AS_short, char** AS_full)
+{
+	char*	prefix_discard	= NULL;
+	eemo_rv	rv		= ERV_OK;
+
+	rv = eemo_md_lookup_as_and_prefix_v4(addr, AS_short, AS_full, &prefix_discard);
+
+	free(prefix_discard);
+
+	return rv;
+}
+
+/* Look up the AS for an IPv6 address and include the closest enclosing prefix */
+eemo_rv eemo_md_lookup_as_and_prefix_v6(struct in6_addr* addr, char** AS_short, char** AS_full, char** prefix)
 {
 #ifdef HAVE_SQLITE3
 	assert(AS_full != NULL);
@@ -393,7 +491,7 @@ eemo_rv eemo_md_lookup_as_v6(struct in6_addr* addr, char** AS_short, char** AS_f
 
 	v6_to_ull(addr, &addr_hi, &addr_lo);
 
-	sql =	"SELECT as_single,as_full,prefix FROM (SELECT * FROM IP6_TO_AS WHERE from_i4 <= %u AND from_i3 <= %u AND from_i2 <= %u AND from_i1 <= %u ORDER BY from_i4 DESC,from_i3 DESC,from_i2 DESC,from_i1 DESC,prefix DESC LIMIT 1) WHERE to_i4 >= %u AND to_i3 >= %u AND to_i2 >= %u AND to_i1 >= %u;";
+	sql =	"SELECT as_single,as_full,from_i4,from_i3,from_i2,from_i1,prefix FROM (SELECT * FROM IP6_TO_AS WHERE from_i4 <= %u AND from_i3 <= %u AND from_i2 <= %u AND from_i1 <= %u ORDER BY from_i4 DESC,from_i3 DESC,from_i2 DESC,from_i1 DESC,prefix DESC LIMIT 1) WHERE to_i4 >= %u AND to_i3 >= %u AND to_i2 >= %u AND to_i1 >= %u;";
 
 	snprintf(sql_buf, 4096, sql, ULL_HI(addr_hi), ULL_LO(addr_hi), ULL_HI(addr_lo), ULL_LO(addr_lo), ULL_HI(addr_hi), ULL_LO(addr_hi), ULL_HI(addr_lo), ULL_LO(addr_lo));
 
@@ -414,7 +512,7 @@ eemo_rv eemo_md_lookup_as_v6(struct in6_addr* addr, char** AS_short, char** AS_f
 		 * necessary; we first try limiting to 5, as that is more efficient,
 		 * if that does not work we drop the limit altogether.
 		 */
-		sql =	"SELECT as_single,as_full,prefix FROM (SELECT * FROM IP6_TO_AS WHERE from_i4 <= %u AND from_i3 <= %u AND from_i2 <= %u AND from_i1 <= %u ORDER BY from_i4 DESC,from_i3 DESC,from_i2 DESC,from_i1 DESC,prefix DESC LIMIT 5) WHERE to_i4 >= %u AND to_i3 >= %u AND to_i2 >= %u AND to_i1 >= %u LIMIT 1;";
+		sql =	"SELECT as_single,as_full,from_i4,from_i3,from_i2,from_i1,prefix FROM (SELECT * FROM IP6_TO_AS WHERE from_i4 <= %u AND from_i3 <= %u AND from_i2 <= %u AND from_i1 <= %u ORDER BY from_i4 DESC,from_i3 DESC,from_i2 DESC,from_i1 DESC,prefix DESC LIMIT 5) WHERE to_i4 >= %u AND to_i3 >= %u AND to_i2 >= %u AND to_i1 >= %u LIMIT 1;";
 	
 		snprintf(sql_buf, 4096, sql, ULL_HI(addr_hi), ULL_LO(addr_hi), ULL_HI(addr_lo), ULL_LO(addr_lo), ULL_HI(addr_hi), ULL_LO(addr_hi), ULL_HI(addr_lo), ULL_LO(addr_lo));
 	
@@ -429,7 +527,7 @@ eemo_rv eemo_md_lookup_as_v6(struct in6_addr* addr, char** AS_short, char** AS_f
 
 		if (sel_rv.sel_count == 0)
 		{
-			sql =	"SELECT as_single,as_full,prefix FROM (SELECT * FROM IP6_TO_AS WHERE from_i4 <= %u AND from_i3 <= %u AND from_i2 <= %u AND from_i1 <= %u ORDER BY from_i4 DESC,from_i3 DESC,from_i2 DESC,from_i1 DESC,prefix DESC) WHERE to_i4 >= %u AND to_i3 >= %u AND to_i2 >= %u AND to_i1 >= %u LIMIT 1;";
+			sql =	"SELECT as_single,as_full,from_i4,from_i3,from_i2,from_i1,prefix FROM (SELECT * FROM IP6_TO_AS WHERE from_i4 <= %u AND from_i3 <= %u AND from_i2 <= %u AND from_i1 <= %u ORDER BY from_i4 DESC,from_i3 DESC,from_i2 DESC,from_i1 DESC,prefix DESC) WHERE to_i4 >= %u AND to_i3 >= %u AND to_i2 >= %u AND to_i1 >= %u LIMIT 1;";
 		
 			snprintf(sql_buf, 4096, sql, ULL_HI(addr_hi), ULL_LO(addr_hi), ULL_HI(addr_lo), ULL_LO(addr_lo), ULL_HI(addr_hi), ULL_LO(addr_hi), ULL_HI(addr_lo), ULL_LO(addr_lo));
 		
@@ -451,6 +549,19 @@ eemo_rv eemo_md_lookup_as_v6(struct in6_addr* addr, char** AS_short, char** AS_f
 #endif /* HAVE_SQLITE3 */
 
 	return ERV_OK;
+}
+
+/* Look up the AS for an IPv6 address */
+eemo_rv eemo_md_lookup_as_v6(struct in6_addr* addr, char** AS_short, char** AS_full)
+{
+	char*	prefix_discard	= NULL;
+	eemo_rv	rv		= ERV_OK;
+
+	rv = eemo_md_lookup_as_and_prefix_v6(addr, AS_short, AS_full, &prefix_discard);
+
+	free(prefix_discard);
+
+	return rv;
 }
 
 /* Look up Geo IP for an IPv4 address */

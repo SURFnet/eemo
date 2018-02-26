@@ -54,6 +54,12 @@ eemo_rv eemo_md_lookup_as_v4(struct in_addr* addr, char** AS_short, char** AS_fu
 /* Look up the AS for an IPv6 address */
 eemo_rv eemo_md_lookup_as_v6(struct in6_addr* addr, char** AS_short, char** AS_full);
 
+/* Look up the AS for an IPv4 address and include the closest enclosing prefix */
+eemo_rv eemo_md_lookup_as_and_prefix_v4(struct in_addr* addr, char** AS_short, char** AS_full, char** prefix);
+
+/* Look up the AS for an IPv6 address and include the closest enclosing prefix */
+eemo_rv eemo_md_lookup_as_and_prefix_v6(struct in6_addr* addr, char** AS_short, char** AS_full, char** prefix);
+
 /* Look up Geo IP for an IPv4 address */
 eemo_rv eemo_md_lookup_geoip_v4(struct in_addr* addr, char** country);
 
