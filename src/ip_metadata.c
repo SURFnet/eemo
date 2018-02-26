@@ -297,7 +297,7 @@ static int ip2as_lookup_cb(void* data, int argc, char* argv[], char* colname[])
 
 		uint_to_v4(ip_val, &pfx_addr);
 
-		if (inet_ntop(AF_INET, &pfx_addr, ip_str, INET_ADDRSTRLEN) == 0)
+		if (inet_ntop(AF_INET, &pfx_addr, ip_str, INET_ADDRSTRLEN) != NULL)
 		{
 			/* Allocate memory for IP + /xx for prefix */
 			*(rv->prefix) = (char*) malloc((strlen(ip_str) + 3 + 1) * sizeof(char));
@@ -308,7 +308,7 @@ static int ip2as_lookup_cb(void* data, int argc, char* argv[], char* colname[])
 		else
 		{
 			ERROR_MSG("IPv4 address to string conversion failed");
-			*(rv->prefix) = strdup("error");
+			*(rv->prefix) = NULL;
 		}
 	}
 	else
@@ -324,7 +324,7 @@ static int ip2as_lookup_cb(void* data, int argc, char* argv[], char* colname[])
 
 		ull_to_v6(ULHILO_TO_ULL(ip_val1, ip_val2), ULHILO_TO_ULL(ip_val3, ip_val4), &pfx_addr);
 
-		if (inet_ntop(AF_INET6, &pfx_addr, ip_str, INET6_ADDRSTRLEN) == 0)
+		if (inet_ntop(AF_INET6, &pfx_addr, ip_str, INET6_ADDRSTRLEN) != NULL)
 		{
 			/* Allocate memory for IP + /xxx for prefix */
 			*(rv->prefix) = (char*) malloc((strlen(ip_str) + 4 + 1) * sizeof(char));
@@ -334,8 +334,8 @@ static int ip2as_lookup_cb(void* data, int argc, char* argv[], char* colname[])
 		}
 		else
 		{
-			ERROR_MSG("IPv4 address to string conversion failed");
-			*(rv->prefix) = strdup("error");
+			ERROR_MSG("IPv6 address to string conversion failed");
+			*(rv->prefix) = NULL;
 		}
 	}
 
@@ -380,7 +380,7 @@ eemo_rv eemo_md_lookup_as_and_prefix_v4(struct in_addr* addr, char** AS_short, c
 	char*			sql		= NULL;
 	char*			errmsg		= NULL;
 	char			sql_buf[4096]	= { 0 };
-	ip2as_cb_rv		sel_rv		= { AS_short, AS_full, 0 };
+	ip2as_cb_rv		sel_rv		= { AS_short, AS_full, prefix, 0 };
 
 	/* Exit early if we have no open database */
 	if (asdb_handle == NULL)
@@ -478,7 +478,7 @@ eemo_rv eemo_md_lookup_as_and_prefix_v6(struct in6_addr* addr, char** AS_short, 
 	char*			sql		= NULL;
 	char*			errmsg		= NULL;
 	char			sql_buf[4096]	= { 0 };
-	ip2as_cb_rv		sel_rv		= { AS_short, AS_full, 0 };
+	ip2as_cb_rv		sel_rv		= { AS_short, AS_full, prefix, 0 };
 
 	/* Exit early if we have no open database */
 	if (asdb_handle == NULL)

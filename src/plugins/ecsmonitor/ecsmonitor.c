@@ -242,7 +242,7 @@ eemo_rv eemo_ecsmonitor_dns_handler(eemo_ip_packet_info ip_info, int is_tcp, con
 			return ERV_SKIPPED;
 		}
 
-		fprintf(edns0_mon_file, "%u;%u;%s;%s;%u;%s;%s;%s;%s",
+		fprintf(edns0_mon_file, "%u;%u;%s;%s;%u;%s;%s;%s;%s;%s",
 			(unsigned int) ip_info.ts.tv_sec,
 			pkt->questions->qtype,
 			ip_info.ip_src,
@@ -251,6 +251,7 @@ eemo_rv eemo_ecsmonitor_dns_handler(eemo_ip_packet_info ip_info, int is_tcp, con
 			ip_info.src_as_short,
 			ip_info.src_geo_ip,
 			pkt->edns0_client_subnet_as_short,
+			pkt->edns0_client_subnet_prefix,
 			pkt->edns0_client_subnet_geo_ip);
 
 		if (pkt->questions->qname != NULL)
