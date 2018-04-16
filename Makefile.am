@@ -528,3 +528,14 @@ lib_libeemo_dnsinflux_la_SOURCES =	src/plugins/dnsinflux/dnsinflux_entry.c \
 					src/plugins/eemo_plugin_log.h
 
 lib_libeemo_dnsinflux_la_LDFLAGS =	-version-info @EEMO_DNSINFLUX_VERSION_INFO@ @PTHREAD_LIBS@
+
+# honas plugin
+lib_LTLIBRARIES +=			lib/libeemo_honas.la
+
+lib_libeemo_honas_la_CFLAGS =		-Isrc -Isrc/plugins -Isrc/plugins/honas @LIBCONFIG_CFLAGS@ @PTHREAD_CFLAGS@
+
+lib_libeemo_honas_la_SOURCES =		src/plugins/honas/honas.c \
+					src/plugins/eemo_plugin_log.c \
+					src/plugins/eemo_plugin_log.h
+
+lib_libeemo_honas_la_LDFLAGS =		-version-info @EEMO_HONAS_VERSION_INFO@ @PTHREAD_LIBS@

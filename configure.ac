@@ -137,6 +137,11 @@ define([EEMO_DNSINFLUX_CURRENT], [1])
 define([EEMO_DNSINFLUX_REVISION], [0])
 define([EEMO_DNSINFLUX_AGE], [0])
 
+# Plugin for Honas Bloom Filter software
+define([EEMO_HONAS_CURRENT], [1])
+define([EEMO_HONAS_REVISION], [0])
+define([EEMO_HONAS_AGE], [0])
+
 ################################################################################
 # Configuration functions                                                      #
 ################################################################################
@@ -198,6 +203,8 @@ EEMO_QANDASLOG_VERSION_INFO="EEMO_QANDASLOG_CURRENT:EEMO_QANDASLOG_REVISION:EEMO
 AC_SUBST(EEMO_QANDASLOG_VERSION_INFO)
 EEMO_DNSINFLUX_VERSION_INFO="EEMO_DNSINFLUX_CURRENT:EEMO_DNSINFLUX_REVISION:EEMO_DNSINFLUX_AGE"
 AC_SUBST(EEMO_DNSINFLUX_VERSION_INFO)
+EEMO_HONAS_VERSION_INFO="EEMO_HONAS_CURRENT:EEMO_HONAS_REVISION:EEMO_HONAS_AGE"
+AC_SUBST(EEMO_HONAS_VERSION_INFO)
 
 # Checks for compilers and other programs
 AC_PROG_CC_C99
