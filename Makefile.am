@@ -539,3 +539,14 @@ lib_libeemo_honas_la_SOURCES =		src/plugins/honas/honas.c \
 					src/plugins/eemo_plugin_log.h
 
 lib_libeemo_honas_la_LDFLAGS =		-version-info @EEMO_HONAS_VERSION_INFO@ @PTHREAD_LIBS@
+
+# dnsuniq plugin
+lib_LTLIBRARIES +=			lib/libeemo_dnsuniq.la
+
+lib_libeemo_dnsuniq_la_CFLAGS =		-Isrc -Isrc/plugins -Isrc/plugins/dnsuniq @LIBCONFIG_CFLAGS@ @PTHREAD_CFLAGS@
+
+lib_libeemo_dnsuniq_la_SOURCES =	src/plugins/dnsuniq/dnsuniq.c \
+					src/plugins/eemo_plugin_log.c \
+					src/plugins/eemo_plugin_log.h
+
+lib_libeemo_dnsuniq_la_LDFLAGS =	-version-info @EEMO_DNSUNIQ_VERSION_INFO@ @PTHREAD_LIBS@

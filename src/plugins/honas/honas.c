@@ -158,7 +158,7 @@ eemo_rv eemo_honas_dns_handler(eemo_ip_packet_info ip_info, int is_tcp, const ee
 					, (struct sockaddr*)&addr, sizeof(struct sockaddr_un));
 				if (bytes_written == -1)
 				{
-					ERROR_MSG("Failed to write %zu bytes to the Unix socket! Error code: %i", bytes_written, errno);
+//					ERROR_MSG("Failed to write %zu bytes to the Unix socket! Error code: %i", bytes_written, errno);
 				}
 				else
 				{

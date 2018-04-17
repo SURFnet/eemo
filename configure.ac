@@ -142,6 +142,11 @@ define([EEMO_HONAS_CURRENT], [1])
 define([EEMO_HONAS_REVISION], [0])
 define([EEMO_HONAS_AGE], [0])
 
+# Plugin for counting unique domain names per IP prefix.
+define([EEMO_DNSUNIQ_CURRENT], [1])
+define([EEMO_DNSUNIQ_REVISION], [0])
+define([EEMO_DNSUNIQ_AGE], [0])
+
 ################################################################################
 # Configuration functions                                                      #
 ################################################################################
@@ -205,6 +210,8 @@ EEMO_DNSINFLUX_VERSION_INFO="EEMO_DNSINFLUX_CURRENT:EEMO_DNSINFLUX_REVISION:EEMO
 AC_SUBST(EEMO_DNSINFLUX_VERSION_INFO)
 EEMO_HONAS_VERSION_INFO="EEMO_HONAS_CURRENT:EEMO_HONAS_REVISION:EEMO_HONAS_AGE"
 AC_SUBST(EEMO_HONAS_VERSION_INFO)
+EEMO_DNSUNIQ_VERSION_INFO="EEMO_DNSUNIQ_CURRENT:EEMO_DNSUNIQ_REVISION:EEMO_DNSUNIQ_AGE"
+AC_SUBST(EEMO_DNSUNIQ_VERSION_INFO)
 
 # Checks for compilers and other programs
 AC_PROG_CC_C99
