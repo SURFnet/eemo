@@ -60,9 +60,12 @@ static unsigned long		dns_handler_handle	= 0;
 static eemo_export_fn_table_ptr	eemo_fn_exp		= NULL;
 
 /* Configuration */
-static struct in_addr		v4_dst;				/* IPv4 query destination */
+// Currently we support 8 destinations for matching.
+static struct in_addr		v4_dst[8];				/* IPv4 query destination */
+static int			v4_dst_count		= 0;
 static int			v4_dst_set		= 0;
-static struct in6_addr		v6_dst;				/* IPv6 query destination */
+static struct in6_addr		v6_dst[8];				/* IPv6 query destination */
+static int			v6_dst_count		= 0;
 static int			v6_dst_set		= 0;
 
 static char*			statistics_dir		= NULL;
@@ -302,7 +305,7 @@ static void* eemo_dnsuniq_int_dumpstats_thread(void* params)
 	}
 	else
 	{
-		ERROR_MSG("Could not open output files because the directory is invalid!");
+		ERROR_MSG("Could not open statistics files because the output directory is invalid!");
 	}
 
 	// Reset global HyperLogLog counter.
@@ -310,7 +313,7 @@ static void* eemo_dnsuniq_int_dumpstats_thread(void* params)
 
 	// Free the thread parameters and return.
 	free(cu_params);
-	DEBUG_MSG("Statistics cleanup complete");
+	INFO_MSG("Statistics round for timestamp %i complete!", cu_params->timestamp);
 
 	return NULL;
 }
@@ -353,7 +356,7 @@ static void eemo_dnsuniq_int_dumpstats(const int is_exiting)
 	// Create a separate threat that dumps the statistics to a file.
 	if (pthread_create(&cu_thr, NULL, eemo_dnsuniq_int_dumpstats_thread, cu) != 0)
 	{
-		ERROR_MSG("Failed to spawn cleanup thread");
+		ERROR_MSG("Failed to spawn statistics writing thread!");
 	}
 	else
 	{
@@ -381,52 +384,54 @@ eemo_rv eemo_dnsuniq_dns_handler(eemo_ip_packet_info ip_info, int is_tcp, const 
 		/* Check if the query is directed toward the resolver we're monitoring */
 		if ((ip_info.ip_type == IP_TYPE_V4) && v4_dst_set)
 		{
-			if (memcmp(&ip_info.dst_addr.v4, &v4_dst, sizeof(struct in_addr)) == 0)
+			// Check if any configured IPv4 address matches.
+			for (int i = 0; i < v4_dst_count; ++i)
 			{
-				dst_match = 1;
+				if (memcmp(&ip_info.dst_addr.v4, &v4_dst[i], sizeof(struct in_addr)) == 0)
+				{
+					dst_match = 1;
+					break;
+				}
 			}
 		}
 		else if ((ip_info.ip_type == IP_TYPE_V6) && v6_dst_set)
 		{
-			if (memcmp(&ip_info.dst_addr.v6, &v6_dst, sizeof(struct in6_addr)) == 0)
+			// Check if any configured IPv4 address matches.
+			for (int i = 0; i < v6_dst_count; ++i)
 			{
-				dst_match = 1;
+				if (memcmp(&ip_info.dst_addr.v6, &v6_dst[i], sizeof(struct in6_addr)) == 0)
+				{
+					dst_match = 1;
+					break;
+				}
 			}
 		}
 
 		if (dst_match)
 		{
-			// Iterate the queries in the packet.
-			const eemo_dns_query* next = pkt->questions;
-			do
+			// Take the domain name out of DNS packet, and put it in the hash tables.
+			if (ip_info.ip_type == IP_TYPE_V4)
 			{
-				// Take the domain name out of DNS packet, and put it in the hash tables.
-				if (ip_info.ip_type == IP_TYPE_V4)
-				{
-					uint32_t	ip4_prefix	= 0;
-					memcpy(&ip4_prefix, &ip_info.src_addr.v4, sizeof(uint32_t));
+				uint32_t	ip4_prefix	= 0;
+				memcpy(&ip4_prefix, &ip_info.src_addr.v4, sizeof(uint32_t));
 
-					ip4_prefix = htonl(ntohl(ip4_prefix) & 0xffffff00);
-					update_v4_addr_ht(&v4_ht, (struct in_addr*) &ip4_prefix, next->qname);
-				}
-				else if (ip_info.ip_type == IP_TYPE_V6)
-				{
-					uint16_t	ip6_prefix_creat[8]	= { 0 };
-					struct in6_addr	ip6_prefix;
-
-					memcpy(ip6_prefix_creat, &ip_info.src_addr.v6, sizeof(struct in6_addr));
-					memset(&ip6_prefix_creat[4], 0, 4 * sizeof(uint16_t));
-					memcpy(&ip6_prefix, ip6_prefix_creat, 8 * sizeof(uint16_t));
-					update_v6_addr_ht(&v6_ht, (struct in6_addr*) &ip6_prefix, next->qname);
-				}
-
-				// Add the domain name to the global HyperLogLog counter.
-				eemo_fn_exp->hll_add(global_prob_count, next->qname, strlen(next->qname));
-
-				// Set the next question to be processed.
-				next = pkt->questions->next;
+				// Save the /16 prefix of the IPv4 address.
+				ip4_prefix = htonl(ntohl(ip4_prefix) & 0xffff0000);
+				update_v4_addr_ht(&v4_ht, (struct in_addr*) &ip4_prefix, pkt->questions->qname);
 			}
-			while (next);
+			else if (ip_info.ip_type == IP_TYPE_V6)
+			{
+				uint16_t	ip6_prefix_creat[8]	= { 0 };
+				struct in6_addr	ip6_prefix;
+
+				memcpy(ip6_prefix_creat, &ip_info.src_addr.v6, sizeof(struct in6_addr));
+				memset(&ip6_prefix_creat[4], 0, 4 * sizeof(uint16_t));
+				memcpy(&ip6_prefix, ip6_prefix_creat, 8 * sizeof(uint16_t));
+				update_v6_addr_ht(&v6_ht, (struct in6_addr*) &ip6_prefix, pkt->questions->qname);
+			}
+
+			// Add the domain name to the global HyperLogLog counter.
+			eemo_fn_exp->hll_add(global_prob_count, pkt->questions->qname, strlen(pkt->questions->qname));
 
 			rv = ERV_HANDLED;
 		}
@@ -441,8 +446,8 @@ eemo_rv eemo_dnsuniq_dns_handler(eemo_ip_packet_info ip_info, int is_tcp, const 
 /* Plugin initialisation */
 eemo_rv eemo_dnsuniq_init(eemo_export_fn_table_ptr eemo_fn, const char* conf_base_path)
 {
-	char*	v4_dst_str	= NULL;
-	char*	v6_dst_str	= NULL;
+	char**	v4_dst_str	= NULL;
+	char**	v6_dst_str	= NULL;
 
 	eemo_fn_exp = eemo_fn;
 
@@ -452,55 +457,65 @@ eemo_rv eemo_dnsuniq_init(eemo_export_fn_table_ptr eemo_fn, const char* conf_bas
 	INFO_MSG("Initialising dnsuniq plugin");
 
 	/* Retrieve configuration */
-	if ((eemo_fn->conf_get_string)(conf_base_path, "v4_dst", &v4_dst_str, NULL) != ERV_OK)
+	if ((eemo_fn->conf_get_string_array)(conf_base_path, "v4_dst", &v4_dst_str, &v4_dst_count) != ERV_OK)
 	{
-		ERROR_MSG("Failed to retrieve IPv4 resolver destination address from the configuration");
+		ERROR_MSG("Failed to retrieve IPv4 resolver destination addresses from the configuration");
 
 		return ERV_CONFIG_ERROR;
 	}
 
 	if (v4_dst_str != NULL)
 	{
-		/* Convert string to IPv4 address */
-		if (inet_pton(AF_INET, v4_dst_str, &v4_dst) != 1)
+		// Convert all IPv4 strings to addresses.
+		for (int i = 0; i < v4_dst_count; ++i)
 		{
-			ERROR_MSG("Configured value %s is not a valid IPv4 address", v4_dst_str);
+			if (inet_pton(AF_INET, v4_dst_str[i], &v4_dst[i]) != 1)
+			{
+				ERROR_MSG("Configured value %s is not a valid IPv4 address", v4_dst_str[i]);
 
-			return ERV_CONFIG_ERROR;
+				return ERV_CONFIG_ERROR;
+			}
+
+			v4_dst_set = 1;
 		}
-
-		free(v4_dst_str);
-		v4_dst_set = 1;
 	}
 	else
 	{
 		WARNING_MSG("No IPv4 resolver destination address specified, will not tally queries over IPv4!");
 	}
 
-	if ((eemo_fn->conf_get_string)(conf_base_path, "v6_dst", &v6_dst_str, NULL) != ERV_OK)
+	// Free the IPv4 destination string array.
+	eemo_fn->conf_free_string_array(v4_dst_str, v4_dst_count);
+
+	if ((eemo_fn->conf_get_string_array)(conf_base_path, "v6_dst", &v6_dst_str, &v6_dst_count) != ERV_OK)
 	{
-		ERROR_MSG("Failed to retrieve IPv6 resolver destination address from the configuration");
+		ERROR_MSG("Failed to retrieve IPv6 resolver destination addresses from the configuration");
 
 		return ERV_CONFIG_ERROR;
 	}
 
 	if (v6_dst_str != NULL)
 	{
-		/* Convert string to IPv6 address */
-		if (inet_pton(AF_INET6, v6_dst_str, &v6_dst) != 1)
+		// Convert all IPv4 strings to addresses.
+		for (int i = 0; i < v6_dst_count; ++i)
 		{
-			ERROR_MSG("Configured value %s is not a valid IPv6 address", v6_dst_str);
+			if (inet_pton(AF_INET6, v6_dst_str[i], &v6_dst[i]) != 1)
+			{
+				ERROR_MSG("Configured value %s is not a valid IPv6 address", v6_dst_str[i]);
 
-			return ERV_CONFIG_ERROR;
+				return ERV_CONFIG_ERROR;
+			}
+
+			v6_dst_set = 1;
 		}
-
-		free(v6_dst_str);
-		v6_dst_set = 1;
 	}
 	else
 	{
 		WARNING_MSG("No IPv6 resolver destination address specified, will not tally queries over IPv6!");
 	}
+
+	// Free the IPv6 destination string array.
+	eemo_fn->conf_free_string_array(v6_dst_str, v6_dst_count);
 
 	if ((eemo_fn->conf_get_string)(conf_base_path, "statistics_dir", &statistics_dir, NULL) != ERV_OK)
 	{
