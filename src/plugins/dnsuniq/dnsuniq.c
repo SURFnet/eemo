@@ -69,16 +69,20 @@ static int			v6_dst_count		= 0;
 static int			v6_dst_set		= 0;
 
 static char*			statistics_dir		= NULL;
-static int			dumpstats_interval	= 3600;	/* Dump and reset statistics every <x> seconds */
+
+#define STATISTICS_INTERVAL_HOUR	3600
+#define STATISTICS_INTERVAL_DAY		86400
 
 /* Overall counters */
-static hll_stor			global_prob_count;
+static hll_stor			global_prob_count_hour;
+static hll_stor			global_prob_count_day;
 
 /* Hash table types */
 typedef struct v4_ht_ent
 {
 	struct in_addr		addr;
 	hll_stor		prob_count;
+	unsigned short		prefix_len;
 	UT_hash_handle		hh;
 }
 v4_ht_ent;
@@ -87,16 +91,19 @@ typedef struct v6_ht_ent
 {
 	struct in6_addr		addr;
 	hll_stor		prob_count;
+	unsigned short		prefix_len;
 	UT_hash_handle		hh;
 }
 v6_ht_ent;
 
 /* State */
-static v4_ht_ent*		v4_ht		= NULL;
-static v6_ht_ent*		v6_ht		= NULL;
+static v4_ht_ent*		v4_ht_hour	= NULL;
+static v6_ht_ent*		v6_ht_hour	= NULL;
+static v4_ht_ent*		v4_ht_day	= NULL;
+static v6_ht_ent*		v6_ht_day	= NULL;
 
 /* Update address-based hash tables */
-static void update_v4_addr_ht(v4_ht_ent** ht, struct in_addr* addr, const char* const name)
+static void update_v4_addr_ht(v4_ht_ent** ht, struct in_addr* addr, const char* const name, const unsigned short prefixlen)
 {
 	/* Try to find the entry */
 	v4_ht_ent*	entry	= NULL;
@@ -121,9 +128,12 @@ static void update_v4_addr_ht(v4_ht_ent** ht, struct in_addr* addr, const char* 
 
 	// Update the HyperLogLog counter with the specified domain name.
 	eemo_fn_exp->hll_add(entry->prob_count, name, strlen(name));
+
+	// Update the prefix length of this entry.
+	entry->prefix_len = prefixlen;
 }
 
-static void update_v6_addr_ht(v6_ht_ent** ht, struct in6_addr* addr, const char* const name)
+static void update_v6_addr_ht(v6_ht_ent** ht, struct in6_addr* addr, const char* const name, const unsigned short prefixlen)
 {
 	/* Try to find the entry */
 	v6_ht_ent*	entry	= NULL;
@@ -148,6 +158,9 @@ static void update_v6_addr_ht(v6_ht_ent** ht, struct in6_addr* addr, const char*
 
 	// Update the HyperLogLog counter with the specified domain name.
 	eemo_fn_exp->hll_add(entry->prob_count, name, strlen(name));
+
+	// Update the prefix length of this entry.
+	entry->prefix_len = prefixlen;
 }
 
 // File type definitions.
@@ -156,23 +169,33 @@ typedef int filetype_t;
 #define FILETYPE_IPV4	0x4
 #define FILETYPE_IPV6	0x6
 
+// Dump type definitions (hourly, daily).
+typedef int dumptype_t;
+
+#define DUMPTYPE_HOURLY 1
+#define DUMPTYPE_DAILY	2
+
 // Provides a filename that is specialized for the time interval.
-void timeframe_filename(char* const outFileName, const time_t timestamp, const filetype_t filetype)
+void timeframe_filename(char* const outFileName, const time_t timestamp, const filetype_t filetype, const dumptype_t dumptype)
 {
 	// Can we write the filename to the output buffer?
 	if (outFileName)
 	{
 		// Round the timestamp down to the hour.
+		const int dumpstats_interval = dumptype == DUMPTYPE_HOURLY ? STATISTICS_INTERVAL_HOUR : STATISTICS_INTERVAL_DAY;
 		const time_t rounded = timestamp - (timestamp % dumpstats_interval);
+
+		// Prepare a filename suffix.
+		const char* const suffix = dumptype == DUMPTYPE_HOURLY ? "hour" : "day";
 
 		// Different behavior for different filetypes.
 		switch (filetype)
 		{
 			case FILETYPE_IPV4:
-				sprintf(outFileName, "%s/ipv4prefixes.%li", statistics_dir, rounded);
+				sprintf(outFileName, "%s/ipv4prefixes.%s.%li", statistics_dir, suffix, rounded);
 				break;
 			case FILETYPE_IPV6:
-				sprintf(outFileName, "%s/ipv6prefixes.%li", statistics_dir, rounded);
+				sprintf(outFileName, "%s/ipv6prefixes.%s.%li", statistics_dir, suffix, rounded);
 				break;
 			default:
 				ERROR_MSG("Invalid filetype specified!");
@@ -208,7 +231,7 @@ void write_csv_ht_v4(const char* const filename, v4_ht_ent* p_hashtable, const u
 				char ip_str[INET_ADDRSTRLEN]	= { 0 };
 				if (inet_ntop(AF_INET, &v4_it->addr, ip_str, INET_ADDRSTRLEN) != NULL)
 				{
-					fprintf(out, "%s,%llu\n", ip_str, (unsigned long long) eemo_fn_exp->hll_count(v4_it->prob_count));
+					fprintf(out, "%s,%llu/%i\n", ip_str, (unsigned long long) eemo_fn_exp->hll_count(v4_it->prob_count), v4_it->prefix_len);
 				}
 
 				HASH_DEL(p_hashtable, v4_it);
@@ -252,7 +275,7 @@ void write_csv_ht_v6(const char* const filename, v6_ht_ent* p_hashtable, const u
 				char ip_str[INET6_ADDRSTRLEN]	= { 0 };
 				if (inet_ntop(AF_INET6, &v6_it->addr, ip_str, INET6_ADDRSTRLEN) != NULL)
 				{
-					fprintf(out, "%s,%llu\n", ip_str, (unsigned long long) eemo_fn_exp->hll_count(v6_it->prob_count));
+					fprintf(out, "%s,%llu/%i\n", ip_str, (unsigned long long) eemo_fn_exp->hll_count(v6_it->prob_count), v6_it->prefix_len);
 				}
 
 				HASH_DEL(p_hashtable, v6_it);
@@ -282,10 +305,13 @@ typedef struct dump_thread_params
 
 	// The timestamp for the current timeframe.
 	time_t			timestamp;
+
+	// Is this a dump for hourly or daily statistics?
+	dumptype_t		dumptype;
 }
 dump_thread_params;
 
-// Dumps the statistics to their designated files.
+// Dumps the statistics to their designated files. The statistics will be dumped each hour and each day.
 static void* eemo_dnsuniq_int_dumpstats_thread(void* params)
 {
 	dump_thread_params* cu_params = (dump_thread_params*) params;
@@ -295,12 +321,13 @@ static void* eemo_dnsuniq_int_dumpstats_thread(void* params)
 	{
 		char fn[512];
 
+		// Open the correct output file, we do not want to overwrite anything by accident.
 		// Try to open IPv4 output file for this timeframe, and write the data to it.
-		timeframe_filename(fn, cu_params->timestamp, FILETYPE_IPV4);
+		timeframe_filename(fn, cu_params->timestamp, FILETYPE_IPV4, cu_params->dumptype);
 		write_csv_ht_v4(fn, cu_params->dump_v4_ht, cu_params->globcount);
 
 		// Try to open IPv6 output file for this timeframe, and write the data to it.
-		timeframe_filename(fn, cu_params->timestamp, FILETYPE_IPV6);
+		timeframe_filename(fn, cu_params->timestamp, FILETYPE_IPV6, cu_params->dumptype);
 		write_csv_ht_v6(fn, cu_params->dump_v6_ht, cu_params->globcount);
 	}
 	else
@@ -309,7 +336,8 @@ static void* eemo_dnsuniq_int_dumpstats_thread(void* params)
 	}
 
 	// Reset global HyperLogLog counter.
-	eemo_fn_exp->hll_init(global_prob_count);
+	eemo_fn_exp->hll_init(global_prob_count_hour);
+	eemo_fn_exp->hll_init(global_prob_count_day);
 
 	// Free the thread parameters and return.
 	free(cu_params);
@@ -320,56 +348,113 @@ static void* eemo_dnsuniq_int_dumpstats_thread(void* params)
 
 static void eemo_dnsuniq_int_dumpstats(const int is_exiting)
 {
-	static time_t		mark	= 0;
-	dump_thread_params*	cu	= NULL;
-	pthread_t		cu_thr;
+	static time_t		mark_hour	= 0;
+	static time_t		mark_day	= 0;
+	dump_thread_params*	cu_hour		= NULL;
+	dump_thread_params*	cu_day		= NULL;
+	pthread_t		cu_thr_hour;
+	pthread_t		cu_thr_day;
 
 	// Has the time interval passed?
 	if (!is_exiting)
 	{
-		if (mark == 0)
+		if (mark_hour == 0)
 		{
-			mark = time(NULL);
+			mark_hour = time(NULL);
 			return;
 		}
 
-		if (time(NULL) - mark < dumpstats_interval)
+		if (time(NULL) - mark_hour < STATISTICS_INTERVAL_HOUR)
 		{
 			return;
 		}
 
-		mark = time(NULL);
+		mark_hour = time(NULL);
 	}
 
 	/* Dump statistics */
-	cu = (dump_thread_params*) malloc(sizeof(dump_thread_params));
+	cu_hour = (dump_thread_params*) malloc(sizeof(dump_thread_params));
 
-	assert(cu != NULL);
+	assert(cu_hour != NULL);
 
-	cu->dump_v4_ht		= v4_ht;
-	v4_ht			= NULL;
-	cu->dump_v6_ht		= v6_ht;
-	v6_ht			= NULL;
-	cu->timestamp		= mark;
-	cu->globcount		= (unsigned long long) eemo_fn_exp->hll_count(global_prob_count);
+	cu_hour->dump_v4_ht	= v4_ht_hour;
+	v4_ht_hour		= NULL;
+	cu_hour->dump_v6_ht	= v6_ht_hour;
+	v6_ht_hour		= NULL;
+	cu_hour->timestamp	= mark_hour;
+	cu_hour->globcount	= (unsigned long long) eemo_fn_exp->hll_count(global_prob_count_hour);
+	cu_hour->dumptype	= DUMPTYPE_HOURLY;
 
 	// Create a separate threat that dumps the statistics to a file.
-	if (pthread_create(&cu_thr, NULL, eemo_dnsuniq_int_dumpstats_thread, cu) != 0)
+	if (pthread_create(&cu_thr_hour, NULL, eemo_dnsuniq_int_dumpstats_thread, cu_hour) != 0)
 	{
-		ERROR_MSG("Failed to spawn statistics writing thread!");
+		ERROR_MSG("Failed to spawn hourly statistics writing thread!");
 	}
 	else
 	{
 		if (is_exiting)
 		{
-			pthread_join(cu_thr, NULL);
+			pthread_join(cu_thr_hour, NULL);
 		}
 		else
 		{
-			pthread_detach(cu_thr);
+			pthread_detach(cu_thr_hour);
+		}
+	}
+
+	// Now look if the same information should also be dumped per day!
+	// ---------------------------------------------------------------
+
+	if (!is_exiting)
+	{
+		if (mark_day == 0)
+		{
+			mark_day = time(NULL);
+			return;
+		}
+
+		if (time(NULL) - mark_day < STATISTICS_INTERVAL_DAY)
+		{
+			return;
+		}
+	}
+
+	/* Dump statistics */
+	cu_day = (dump_thread_params*) malloc(sizeof(dump_thread_params));
+
+	assert(cu_day != NULL);
+
+	cu_day->dump_v4_ht	= v4_ht_day;
+	v4_ht_day		= NULL;
+	cu_day->dump_v6_ht	= v6_ht_day;
+	v6_ht_day		= NULL;
+	cu_day->timestamp	= mark_day;
+	cu_day->globcount	= (unsigned long long) eemo_fn_exp->hll_count(global_prob_count_day);
+	cu_day->dumptype	= DUMPTYPE_DAILY;
+
+	// Create a separate threat that dumps the statistics to a file.
+	if (pthread_create(&cu_thr_day, NULL, eemo_dnsuniq_int_dumpstats_thread, cu_day) != 0)
+	{
+		ERROR_MSG("Failed to spawn daily statistics writing thread!");
+	}
+	else
+	{
+		if (is_exiting)
+		{
+			pthread_join(cu_thr_day, NULL);
+		}
+		else
+		{
+			pthread_detach(cu_thr_day);
 		}
 	}
 }
+
+// Prefix length constant definitions.
+#define PREFIX_SLASH24 24
+#define PREFIX_SLASH20 20
+#define PREFIX_SLASH16 16
+#define PREFIX_SLASH64 64
 
 /* Query handler */
 eemo_rv eemo_dnsuniq_dns_handler(eemo_ip_packet_info ip_info, int is_tcp, const eemo_dns_packet* pkt)
@@ -415,9 +500,20 @@ eemo_rv eemo_dnsuniq_dns_handler(eemo_ip_packet_info ip_info, int is_tcp, const 
 				uint32_t	ip4_prefix	= 0;
 				memcpy(&ip4_prefix, &ip_info.src_addr.v4, sizeof(uint32_t));
 
+				// Save the /24 prefix of the IPv4 address.
+				ip4_prefix = htonl(ntohl(ip4_prefix) & 0xffffff00);
+				update_v4_addr_ht(&v4_ht_hour, (struct in_addr*) &ip4_prefix, pkt->questions->qname, PREFIX_SLASH24);
+				update_v4_addr_ht(&v4_ht_day, (struct in_addr*) &ip4_prefix, pkt->questions->qname, PREFIX_SLASH24);
+
+				// Save the /20 prefix of the IPv4 address.
+				ip4_prefix = htonl(ntohl(ip4_prefix) & 0xfffff000);
+				update_v4_addr_ht(&v4_ht_hour, (struct in_addr*) &ip4_prefix, pkt->questions->qname, PREFIX_SLASH20);
+				update_v4_addr_ht(&v4_ht_day, (struct in_addr*) &ip4_prefix, pkt->questions->qname, PREFIX_SLASH20);
+
 				// Save the /16 prefix of the IPv4 address.
 				ip4_prefix = htonl(ntohl(ip4_prefix) & 0xffff0000);
-				update_v4_addr_ht(&v4_ht, (struct in_addr*) &ip4_prefix, pkt->questions->qname);
+				update_v4_addr_ht(&v4_ht_hour, (struct in_addr*) &ip4_prefix, pkt->questions->qname, PREFIX_SLASH16);
+				update_v4_addr_ht(&v4_ht_day, (struct in_addr*) &ip4_prefix, pkt->questions->qname, PREFIX_SLASH16);
 			}
 			else if (ip_info.ip_type == IP_TYPE_V6)
 			{
@@ -427,11 +523,13 @@ eemo_rv eemo_dnsuniq_dns_handler(eemo_ip_packet_info ip_info, int is_tcp, const 
 				memcpy(ip6_prefix_creat, &ip_info.src_addr.v6, sizeof(struct in6_addr));
 				memset(&ip6_prefix_creat[4], 0, 4 * sizeof(uint16_t));
 				memcpy(&ip6_prefix, ip6_prefix_creat, 8 * sizeof(uint16_t));
-				update_v6_addr_ht(&v6_ht, (struct in6_addr*) &ip6_prefix, pkt->questions->qname);
+				update_v6_addr_ht(&v6_ht_hour, (struct in6_addr*) &ip6_prefix, pkt->questions->qname, PREFIX_SLASH64);
+				update_v6_addr_ht(&v6_ht_day, (struct in6_addr*) &ip6_prefix, pkt->questions->qname, PREFIX_SLASH64);
 			}
 
 			// Add the domain name to the global HyperLogLog counter.
-			eemo_fn_exp->hll_add(global_prob_count, pkt->questions->qname, strlen(pkt->questions->qname));
+			eemo_fn_exp->hll_add(global_prob_count_hour, pkt->questions->qname, strlen(pkt->questions->qname));
+			eemo_fn_exp->hll_add(global_prob_count_day, pkt->questions->qname, strlen(pkt->questions->qname));
 
 			rv = ERV_HANDLED;
 		}
@@ -529,14 +627,6 @@ eemo_rv eemo_dnsuniq_init(eemo_export_fn_table_ptr eemo_fn, const char* conf_bas
 		WARNING_MSG("No directory specified to store count statistics in");
 	}
 
-	if (((eemo_fn->conf_get_int)(conf_base_path, "statistics_interval", &dumpstats_interval, dumpstats_interval) != ERV_OK) ||
-	   (dumpstats_interval <= 0))
-	{
-		ERROR_MSG("Invalid statistics interval in configuration");
-
-		return ERV_CONFIG_ERROR;
-	}
-
 	/* Register DNS handler */
 	if ((eemo_fn->reg_dns_handler)(&eemo_dnsuniq_dns_handler, PARSE_QUERY | PARSE_CANONICALIZE_NAME, &dns_handler_handle) != ERV_OK)
 	{
@@ -548,7 +638,8 @@ eemo_rv eemo_dnsuniq_init(eemo_export_fn_table_ptr eemo_fn, const char* conf_bas
 	}
 
 	// Initialize HyperLogLog for global count.
-	eemo_fn_exp->hll_init(global_prob_count);
+	eemo_fn_exp->hll_init(global_prob_count_hour);
+	eemo_fn_exp->hll_init(global_prob_count_day);
 
 	INFO_MSG("dnsuniq plugin initialisation complete");
 
