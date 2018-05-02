@@ -336,8 +336,14 @@ static void* eemo_dnsuniq_int_dumpstats_thread(void* params)
 	}
 
 	// Reset global HyperLogLog counter.
-	eemo_fn_exp->hll_init(global_prob_count_hour);
-	eemo_fn_exp->hll_init(global_prob_count_day);
+	if (cu_params->dumptype == DUMPTYPE_HOURLY)
+	{
+		eemo_fn_exp->hll_init(global_prob_count_hour);
+	}
+	else
+	{
+		eemo_fn_exp->hll_init(global_prob_count_day);
+	}
 
 	// Free the thread parameters and return.
 	free(cu_params);
@@ -346,14 +352,11 @@ static void* eemo_dnsuniq_int_dumpstats_thread(void* params)
 	return NULL;
 }
 
-static void eemo_dnsuniq_int_dumpstats(const int is_exiting)
+static void eemo_dnsuniq_int_dumpstats_hour(const int is_exiting)
 {
 	static time_t		mark_hour	= 0;
-	static time_t		mark_day	= 0;
 	dump_thread_params*	cu_hour		= NULL;
-	dump_thread_params*	cu_day		= NULL;
 	pthread_t		cu_thr_hour;
-	pthread_t		cu_thr_day;
 
 	// Has the time interval passed?
 	if (!is_exiting)
@@ -401,10 +404,15 @@ static void eemo_dnsuniq_int_dumpstats(const int is_exiting)
 			pthread_detach(cu_thr_hour);
 		}
 	}
+}
+
+static void eemo_dnsuniq_int_dumpstats_day(const int is_exiting)
+{
+	static time_t		mark_day	= 0;
+	dump_thread_params*	cu_day		= NULL;
+	pthread_t		cu_thr_day;
 
 	// Now look if the same information should also be dumped per day!
-	// ---------------------------------------------------------------
-
 	if (!is_exiting)
 	{
 		if (mark_day == 0)
@@ -535,7 +543,8 @@ eemo_rv eemo_dnsuniq_dns_handler(eemo_ip_packet_info ip_info, int is_tcp, const 
 		}
 
 		// Dump the statistics to a file if the time interval has passed.
-		eemo_dnsuniq_int_dumpstats(0);
+		eemo_dnsuniq_int_dumpstats_hour(0);
+		eemo_dnsuniq_int_dumpstats_day(0);
 	}
 
 	return rv;
@@ -649,7 +658,9 @@ eemo_rv eemo_dnsuniq_init(eemo_export_fn_table_ptr eemo_fn, const char* conf_bas
 /* Plugin uninitialisation */
 eemo_rv eemo_dnsuniq_uninit(eemo_export_fn_table_ptr eemo_fn)
 {
-	eemo_dnsuniq_int_dumpstats(1);
+	// Dump the current statistics before quitting.
+	eemo_dnsuniq_int_dumpstats_hour(1);
+	eemo_dnsuniq_int_dumpstats_day(1);
 
 	INFO_MSG("Uninitialising dnsuniq plugin");
 
