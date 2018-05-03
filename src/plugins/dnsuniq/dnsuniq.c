@@ -231,7 +231,7 @@ void write_csv_ht_v4(const char* const filename, v4_ht_ent* p_hashtable, const u
 				char ip_str[INET_ADDRSTRLEN]	= { 0 };
 				if (inet_ntop(AF_INET, &v4_it->addr, ip_str, INET_ADDRSTRLEN) != NULL)
 				{
-					fprintf(out, "%s,%llu/%i\n", ip_str, (unsigned long long) eemo_fn_exp->hll_count(v4_it->prob_count), v4_it->prefix_len);
+					fprintf(out, "%s/%i,%llu\n", ip_str, v4_it->prefix_len, (unsigned long long) eemo_fn_exp->hll_count(v4_it->prob_count));
 				}
 
 				HASH_DEL(p_hashtable, v4_it);
@@ -275,7 +275,7 @@ void write_csv_ht_v6(const char* const filename, v6_ht_ent* p_hashtable, const u
 				char ip_str[INET6_ADDRSTRLEN]	= { 0 };
 				if (inet_ntop(AF_INET6, &v6_it->addr, ip_str, INET6_ADDRSTRLEN) != NULL)
 				{
-					fprintf(out, "%s,%llu/%i\n", ip_str, (unsigned long long) eemo_fn_exp->hll_count(v6_it->prob_count), v6_it->prefix_len);
+					fprintf(out, "%s/%i,%llu\n", ip_str, v6_it->prefix_len, (unsigned long long) eemo_fn_exp->hll_count(v6_it->prob_count));
 				}
 
 				HASH_DEL(p_hashtable, v6_it);
