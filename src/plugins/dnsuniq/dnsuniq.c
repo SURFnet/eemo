@@ -44,7 +44,6 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <time.h>
-#include <pthread.h>
 #include "eemo.h"
 #include "eemo_api.h"
 #include "eemo_plugin_log.h"
@@ -292,71 +291,9 @@ void write_csv_ht_v6(const char* const filename, v6_ht_ent* p_hashtable, const u
 	}
 }
 
-typedef struct dump_thread_params
-{
-	// The unique domain name hash table grouped per IPv4 prefix.
-	v4_ht_ent*		dump_v4_ht;
-
-	// The unique domain name hash table grouped per IPv6 prefix.
-	v6_ht_ent*		dump_v6_ht;
-
-	// The unique domain name count over all IPv4 and IPv6 prefixes.
-	unsigned long long 	globcount;
-
-	// The timestamp for the current timeframe.
-	time_t			timestamp;
-
-	// Is this a dump for hourly or daily statistics?
-	dumptype_t		dumptype;
-}
-dump_thread_params;
-
-// Dumps the statistics to their designated files. The statistics will be dumped each hour and each day.
-static void* eemo_dnsuniq_int_dumpstats_thread(void* params)
-{
-	dump_thread_params* cu_params = (dump_thread_params*) params;
-
-	// Check whether the statistics directory exists.
-	if (statistics_dir)
-	{
-		char fn[512];
-
-		// Open the correct output file, we do not want to overwrite anything by accident.
-		// Try to open IPv4 output file for this timeframe, and write the data to it.
-		timeframe_filename(fn, cu_params->timestamp, FILETYPE_IPV4, cu_params->dumptype);
-		write_csv_ht_v4(fn, cu_params->dump_v4_ht, cu_params->globcount);
-
-		// Try to open IPv6 output file for this timeframe, and write the data to it.
-		timeframe_filename(fn, cu_params->timestamp, FILETYPE_IPV6, cu_params->dumptype);
-		write_csv_ht_v6(fn, cu_params->dump_v6_ht, cu_params->globcount);
-	}
-	else
-	{
-		ERROR_MSG("Could not open statistics files because the output directory is invalid!");
-	}
-
-	// Reset global HyperLogLog counter.
-	if (cu_params->dumptype == DUMPTYPE_HOURLY)
-	{
-		eemo_fn_exp->hll_init(global_prob_count_hour);
-	}
-	else
-	{
-		eemo_fn_exp->hll_init(global_prob_count_day);
-	}
-
-	// Free the thread parameters and return.
-	free(cu_params);
-	INFO_MSG("Statistics round for timestamp %i complete!", cu_params->timestamp);
-
-	return NULL;
-}
-
 static void eemo_dnsuniq_int_dumpstats_hour(const int is_exiting)
 {
 	static time_t		mark_hour	= 0;
-	dump_thread_params*	cu_hour		= NULL;
-	pthread_t		cu_thr_hour;
 
 	// Has the time interval passed?
 	if (!is_exiting)
@@ -375,44 +312,41 @@ static void eemo_dnsuniq_int_dumpstats_hour(const int is_exiting)
 		mark_hour = time(NULL);
 	}
 
-	/* Dump statistics */
-	cu_hour = (dump_thread_params*) malloc(sizeof(dump_thread_params));
+	// Dump the statistics to their designated files. The statistics will be dumped each hour and each day.
+	INFO_MSG("Performing hourly statistics round for timestamp %i...", mark_hour);
 
-	assert(cu_hour != NULL);
-
-	cu_hour->dump_v4_ht	= v4_ht_hour;
-	v4_ht_hour		= NULL;
-	cu_hour->dump_v6_ht	= v6_ht_hour;
-	v6_ht_hour		= NULL;
-	cu_hour->timestamp	= mark_hour;
-	cu_hour->globcount	= (unsigned long long) eemo_fn_exp->hll_count(global_prob_count_hour);
-	cu_hour->dumptype	= DUMPTYPE_HOURLY;
-
-	// Create a separate threat that dumps the statistics to a file.
-	if (pthread_create(&cu_thr_hour, NULL, eemo_dnsuniq_int_dumpstats_thread, cu_hour) != 0)
+	// Check whether the statistics directory exists.
+	if (statistics_dir)
 	{
-		ERROR_MSG("Failed to spawn hourly statistics writing thread!");
+		char fn[512];
+
+		// Open the correct output file, we do not want to overwrite anything by accident.
+		// Try to open IPv4 output file for this timeframe, and write the data to it.
+		timeframe_filename(fn, mark_hour, FILETYPE_IPV4, DUMPTYPE_HOURLY);
+		write_csv_ht_v4(fn, v4_ht_hour, (unsigned long long) eemo_fn_exp->hll_count(global_prob_count_hour));
+		v4_ht_hour = NULL;
+
+		// Try to open IPv6 output file for this timeframe, and write the data to it.
+		timeframe_filename(fn, mark_hour, FILETYPE_IPV6, DUMPTYPE_HOURLY);
+		write_csv_ht_v6(fn, v6_ht_hour, (unsigned long long) eemo_fn_exp->hll_count(global_prob_count_hour));
+		v6_ht_hour = NULL;
 	}
 	else
 	{
-		if (is_exiting)
-		{
-			pthread_join(cu_thr_hour, NULL);
-		}
-		else
-		{
-			pthread_detach(cu_thr_hour);
-		}
+		ERROR_MSG("Could not open statistics files because the output directory is invalid!");
 	}
+
+	// Reset global HyperLogLog counter.
+	eemo_fn_exp->hll_init(global_prob_count_hour);
+
+	INFO_MSG("Hourly statistics round for timestamp %i complete!", mark_hour);
 }
 
 static void eemo_dnsuniq_int_dumpstats_day(const int is_exiting)
 {
 	static time_t		mark_day	= 0;
-	dump_thread_params*	cu_day		= NULL;
-	pthread_t		cu_thr_day;
 
-	// Now look if the same information should also be dumped per day!
+	// Has the time interval passed?
 	if (!is_exiting)
 	{
 		if (mark_day == 0)
@@ -425,37 +359,38 @@ static void eemo_dnsuniq_int_dumpstats_day(const int is_exiting)
 		{
 			return;
 		}
+
+		mark_day = time(NULL);
 	}
 
-	/* Dump statistics */
-	cu_day = (dump_thread_params*) malloc(sizeof(dump_thread_params));
+	// Dump the statistics to their designated files. The statistics will be dumped each hour and each day.
+	INFO_MSG("Performing daily statistics round for timestamp %i...", mark_day);
 
-	assert(cu_day != NULL);
-
-	cu_day->dump_v4_ht	= v4_ht_day;
-	v4_ht_day		= NULL;
-	cu_day->dump_v6_ht	= v6_ht_day;
-	v6_ht_day		= NULL;
-	cu_day->timestamp	= mark_day;
-	cu_day->globcount	= (unsigned long long) eemo_fn_exp->hll_count(global_prob_count_day);
-	cu_day->dumptype	= DUMPTYPE_DAILY;
-
-	// Create a separate threat that dumps the statistics to a file.
-	if (pthread_create(&cu_thr_day, NULL, eemo_dnsuniq_int_dumpstats_thread, cu_day) != 0)
+	// Check whether the statistics directory exists.
+	if (statistics_dir)
 	{
-		ERROR_MSG("Failed to spawn daily statistics writing thread!");
+		char fn[512];
+
+		// Open the correct output file, we do not want to overwrite anything by accident.
+		// Try to open IPv4 output file for this timeframe, and write the data to it.
+		timeframe_filename(fn, mark_day, FILETYPE_IPV4, DUMPTYPE_DAILY);
+		write_csv_ht_v4(fn, v4_ht_day, (unsigned long long) eemo_fn_exp->hll_count(global_prob_count_day));
+		v4_ht_day = NULL;
+
+		// Try to open IPv6 output file for this timeframe, and write the data to it.
+		timeframe_filename(fn, mark_day, FILETYPE_IPV6, DUMPTYPE_DAILY);
+		write_csv_ht_v6(fn, v6_ht_day, (unsigned long long) eemo_fn_exp->hll_count(global_prob_count_day));
+		v6_ht_day = NULL;
 	}
 	else
 	{
-		if (is_exiting)
-		{
-			pthread_join(cu_thr_day, NULL);
-		}
-		else
-		{
-			pthread_detach(cu_thr_day);
-		}
+		ERROR_MSG("Could not open statistics files because the output directory is invalid!");
 	}
+
+	// Reset global HyperLogLog counter.
+	eemo_fn_exp->hll_init(global_prob_count_day);
+
+	INFO_MSG("Daily statistics round for timestamp %i complete!", mark_day);
 }
 
 // Prefix length constant definitions.
