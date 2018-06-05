@@ -81,6 +81,10 @@ static hll_stor			global_prob_count_day;
 static hll_stor			global_prob_count_hour_composite;
 static hll_stor			global_prob_count_day_composite;
 
+// Counting all labels in the domain name.
+static hll_stor			global_label_count_hour;
+static hll_stor			global_label_count_day;
+
 // Global counter that counts the number of queries performed.
 static unsigned long long	global_queries_performed_hour;
 static unsigned long long	global_queries_performed_day;
@@ -235,7 +239,7 @@ void timeframe_filename(char* const outFileName, const time_t timestamp, const f
 }
 
 // Writes the contents of the IPv4 hash table to a CSV file.
-void write_csv_ht_v4(const char* const filename, v4_ht_ent* p_hashtable, const unsigned long long globcount, const unsigned long long globcount2, const unsigned long long anyq)
+void write_csv_ht_v4(const char* const filename, v4_ht_ent* p_hashtable, const unsigned long long globcount, const unsigned long long globcount2, const unsigned long long anyq, const unsigned long long lblcount)
 {
 	FILE* out = NULL;
 	v4_ht_ent* v4_it = NULL;
@@ -251,6 +255,7 @@ void write_csv_ht_v4(const char* const filename, v4_ht_ent* p_hashtable, const u
 			// Write global unique domain count first (some summary).
 			fprintf(out, "Global count: %llu\n", globcount);
 			fprintf(out, "Global composite count: %llu\n", globcount2);
+			fprintf(out, "Global label count: %llu\n", lblcount);
 			fprintf(out, "Global query count: %llu\n\n", anyq);
 
 			// Write CSV header to file.
@@ -281,7 +286,7 @@ void write_csv_ht_v4(const char* const filename, v4_ht_ent* p_hashtable, const u
 }
 
 // Writes the contents of the IPv6 hash table to a CSV file.
-void write_csv_ht_v6(const char* const filename, v6_ht_ent* p_hashtable, const unsigned long long globcount, const unsigned long long globcount2, const unsigned long long anyq)
+void write_csv_ht_v6(const char* const filename, v6_ht_ent* p_hashtable, const unsigned long long globcount, const unsigned long long globcount2, const unsigned long long anyq, const unsigned long long lblcount)
 {
 	FILE* out = NULL;
 	v6_ht_ent* v6_it = NULL;
@@ -296,7 +301,8 @@ void write_csv_ht_v6(const char* const filename, v6_ht_ent* p_hashtable, const u
 		{
 			// Write global unique domain count first (some summary).
 			fprintf(out, "Global count: %llu\n", globcount);
-			fprintf(out, "Global composite count: %llu\n\n", globcount2);
+			fprintf(out, "Global composite count: %llu\n", globcount2);
+			fprintf(out, "Global label count: %llu\n", lblcount);
 			fprintf(out, "Global query count: %llu\n\n", anyq);
 
 			// Write CSV header to file.
@@ -359,13 +365,15 @@ static void eemo_dnsuniq_int_dumpstats_hour(const int is_exiting)
 		// Try to open IPv4 output file for this timeframe, and write the data to it.
 		timeframe_filename(fn, mark_hour, FILETYPE_IPV4, DUMPTYPE_HOURLY);
 		write_csv_ht_v4(fn, v4_ht_hour, (unsigned long long) eemo_fn_exp->hll_count(global_prob_count_hour)
-			, (unsigned long long) eemo_fn_exp->hll_count(global_prob_count_hour_composite), global_queries_performed_hour);
+			, (unsigned long long) eemo_fn_exp->hll_count(global_prob_count_hour_composite), global_queries_performed_hour
+			, (unsigned long long) eemo_fn_exp->hll_count(global_label_count_hour));
 		v4_ht_hour = NULL;
 
 		// Try to open IPv6 output file for this timeframe, and write the data to it.
 		timeframe_filename(fn, mark_hour, FILETYPE_IPV6, DUMPTYPE_HOURLY);
 		write_csv_ht_v6(fn, v6_ht_hour, (unsigned long long) eemo_fn_exp->hll_count(global_prob_count_hour)
-			, (unsigned long long) eemo_fn_exp->hll_count(global_prob_count_hour_composite), global_queries_performed_hour);
+			, (unsigned long long) eemo_fn_exp->hll_count(global_prob_count_hour_composite), global_queries_performed_hour
+			, (unsigned long long) eemo_fn_exp->hll_count(global_label_count_hour));
 		v6_ht_hour = NULL;
 	}
 	else
@@ -373,9 +381,10 @@ static void eemo_dnsuniq_int_dumpstats_hour(const int is_exiting)
 		ERROR_MSG("Could not open statistics files because the output directory is invalid!");
 	}
 
-	// Reset global HyperLogLog counter.
+	// Reset global HyperLogLog counters.
 	eemo_fn_exp->hll_init(global_prob_count_hour);
 	eemo_fn_exp->hll_init(global_prob_count_hour_composite);
+	eemo_fn_exp->hll_init(global_label_count_hour);
 	global_queries_performed_hour = 0;
 
 	INFO_MSG("Hourly statistics round for timestamp %i complete!", mark_hour);
@@ -414,13 +423,15 @@ static void eemo_dnsuniq_int_dumpstats_day(const int is_exiting)
 		// Try to open IPv4 output file for this timeframe, and write the data to it.
 		timeframe_filename(fn, mark_day, FILETYPE_IPV4, DUMPTYPE_DAILY);
 		write_csv_ht_v4(fn, v4_ht_day, (unsigned long long) eemo_fn_exp->hll_count(global_prob_count_day)
-			, (unsigned long long) eemo_fn_exp->hll_count(global_prob_count_day_composite), global_queries_performed_day);
+			, (unsigned long long) eemo_fn_exp->hll_count(global_prob_count_day_composite), global_queries_performed_day
+			, (unsigned long long) eemo_fn_exp->hll_count(global_label_count_day));
 		v4_ht_day = NULL;
 
 		// Try to open IPv6 output file for this timeframe, and write the data to it.
 		timeframe_filename(fn, mark_day, FILETYPE_IPV6, DUMPTYPE_DAILY);
 		write_csv_ht_v6(fn, v6_ht_day, (unsigned long long) eemo_fn_exp->hll_count(global_prob_count_day)
-			, (unsigned long long) eemo_fn_exp->hll_count(global_prob_count_day_composite), global_queries_performed_day);
+			, (unsigned long long) eemo_fn_exp->hll_count(global_prob_count_day_composite), global_queries_performed_day
+			, (unsigned long long) eemo_fn_exp->hll_count(global_label_count_day));
 		v6_ht_day = NULL;
 	}
 	else
@@ -431,6 +442,7 @@ static void eemo_dnsuniq_int_dumpstats_day(const int is_exiting)
 	// Reset global HyperLogLog counter.
 	eemo_fn_exp->hll_init(global_prob_count_day);
 	eemo_fn_exp->hll_init(global_prob_count_day_composite);
+	eemo_fn_exp->hll_init(global_label_count_day);
 	global_queries_performed_day = 0;
 
 	INFO_MSG("Daily statistics round for timestamp %i complete!", mark_day);
@@ -514,8 +526,26 @@ eemo_rv eemo_dnsuniq_dns_handler(eemo_ip_packet_info ip_info, int is_tcp, const 
 			}
 
 			// Add the domain name to the global HyperLogLog counters.
-			eemo_fn_exp->hll_add(global_prob_count_hour, pkt->questions->qname, strlen(pkt->questions->qname));
-			eemo_fn_exp->hll_add(global_prob_count_day, pkt->questions->qname, strlen(pkt->questions->qname));
+			const size_t namelen = strlen(pkt->questions->qname);
+			eemo_fn_exp->hll_add(global_prob_count_hour, pkt->questions->qname, namelen);
+			eemo_fn_exp->hll_add(global_prob_count_day, pkt->questions->qname, namelen);
+			eemo_fn_exp->hll_add(global_label_count_hour, pkt->questions->qname, namelen);
+			eemo_fn_exp->hll_add(global_label_count_day, pkt->questions->qname, namelen);
+
+			// Add all domain name labels to the global HyperLogLog counters.
+			const char* lbl_ptr = strchr(pkt->questions->qname, '.');
+			while (lbl_ptr != NULL)
+			{
+				const size_t lbl_len = lbl_ptr - pkt->questions->qname;
+				if (lbl_len > 0)
+				{
+					eemo_fn_exp->hll_add(global_label_count_hour, lbl_ptr, lbl_len);
+					eemo_fn_exp->hll_add(global_label_count_day, lbl_ptr, lbl_len);
+				}
+
+				// Find the next label.
+				lbl_ptr = strchr(lbl_ptr + 1, '.');
+			}
 
 			// Update the global query counter.
 			++global_queries_performed_hour;
@@ -631,6 +661,8 @@ eemo_rv eemo_dnsuniq_init(eemo_export_fn_table_ptr eemo_fn, const char* conf_bas
 	// Initialize HyperLogLog for global count.
 	eemo_fn_exp->hll_init(global_prob_count_hour);
 	eemo_fn_exp->hll_init(global_prob_count_day);
+	eemo_fn_exp->hll_init(global_label_count_hour);
+	eemo_fn_exp->hll_init(global_label_count_day);
 
 	INFO_MSG("dnsuniq plugin initialisation complete");
 
