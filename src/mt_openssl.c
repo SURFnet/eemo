@@ -1,7 +1,5 @@
-/* $Id$ */
-
 /*
- * Copyright (c) 2010-2015 SURFnet bv
+ * Copyright (c) 2010-2018 SURFnet bv
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -39,6 +37,10 @@
 #include "eemo.h"
 #include "eemo_log.h"
 #include <openssl/crypto.h>
+#include <openssl/err.h>
+#include <openssl/ssl.h>
+#include <openssl/engine.h>
+#include <openssl/conf.h>
 #include <pthread.h>
 
 /* Mutexes for use by OpenSSL */
@@ -108,6 +110,15 @@ eemo_rv eemo_mt_openssl_finalize(void)
 	mutex_buf = NULL;
 
 	INFO_MSG("Finalised multi-threaded use of OpenSSL");
+
+	/* Perform OpenSSL cleanup */
+	FIPS_mode_set(0);
+	ENGINE_cleanup();
+	CONF_modules_unload(1);
+	EVP_cleanup();
+	CRYPTO_cleanup_all_ex_data();
+	ERR_remove_state(0);
+	ERR_free_strings();
 
 	return ERV_OK;
 }
