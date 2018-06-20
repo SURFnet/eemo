@@ -207,6 +207,7 @@ static void eemo_dnstapout_send(const unsigned char* dns_dgram, const size_t dns
 	/* Point to query message */
 	m.query_message.data = (void*) dns_dgram;
 	m.query_message.len = dns_dgram_len;
+	m.has_query_message = 1;
 
 	/* Set address information */
 	if (ip_info.ip_type == IP_TYPE_V4)
