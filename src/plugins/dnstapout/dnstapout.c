@@ -264,6 +264,12 @@ eemo_rv eemo_dnstapout_udp_handler(const eemo_packet_buf* pkt, eemo_ip_packet_in
 	int	i		= 0;
 	int	ip_match	= 0;
 
+	if (dstport != 53)
+	{
+		/* This is a response, skip it */
+		return ERV_SKIPPED;
+	}
+
 	for (i = 0; i < cap_dst_ips_count; i++)
 	{
 		if (strcmp(cap_dst_ips[i], ip_info.ip_dst) == 0)
@@ -287,8 +293,15 @@ eemo_rv eemo_dnstapout_udp_handler(const eemo_packet_buf* pkt, eemo_ip_packet_in
 /* TCP handler */
 eemo_rv eemo_dnstapout_tcp_handler(const eemo_packet_buf* pkt, eemo_ip_packet_info ip_info, eemo_tcp_packet_info tcp_info)
 {
-	int	i		= 0;
-	int	ip_match	= 0;
+	int		i		= 0;
+	int		ip_match	= 0;
+	u_short		dns_length	= 0;
+
+	if (tcp_info.dstport != 53)
+	{
+		/* This is a response, skip it */
+		return ERV_SKIPPED;
+	}
 
 	for (i = 0; i < cap_dst_ips_count; i++)
 	{
@@ -305,7 +318,32 @@ eemo_rv eemo_dnstapout_tcp_handler(const eemo_packet_buf* pkt, eemo_ip_packet_in
 		return ERV_SKIPPED;
 	}
 
-	/* TODO: send packet to dnstap output */
+	/* Skip SYN, RST and FIN packets */
+	if (FLAG_SET(tcp_info.flags, TCP_SYN) ||
+	    FLAG_SET(tcp_info.flags, TCP_RST) ||
+	    FLAG_SET(tcp_info.flags, TCP_FIN))
+	{
+		return ERV_SKIPPED;
+	}
+
+	/* Check minimal length */
+	if (pkt->len < 2)
+	{
+		/* Malformed packet */
+		return ERV_MALFORMED;
+	}
+
+	/* Take length field */
+	dns_length = ntohs(*((u_short*) pkt->data));
+
+	/* Check length */
+	if ((pkt->len - 2) != dns_length)
+	{
+		/* Packet data is truncated and we currently don't do reassembly */
+		return ERV_MALFORMED;
+	}
+
+	eemo_dnstapout_send(&pkt->data[2], (pkt->len)-2, ip_info, tcp_info.srcport, tcp_info.dstport);
 
 	return ERV_HANDLED;
 }
