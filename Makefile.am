@@ -21,6 +21,8 @@ bin_SCRIPTS =
 sbin_SCRIPTS =
 EXTRA_DIST =
 doc_DATA =
+BUILT_SOURCES =
+CLEANFILES =
 
 # Base distribution
 EXTRA_DIST += 		AUTHORS \
@@ -45,8 +47,8 @@ dist_noinst_SCRIPTS +=	eemo.spec.in \
 			eemo_mux.rc \
 			eemo_sensor.rc 
 
-eemo.spec: eemo.spec.in
-	sed -e 's/_EEMO_VERSION_/@VERSION@/g' < $(srcdir)/eemo.spec.in > eemo.spec
+BUILT_SOURCES += eemo.spec
+CLEANFILES += eemo.spec
 
 # Configuration
 EXTRA_DIST +=		config/sample-eemo.conf \
@@ -533,10 +535,10 @@ lib_libeemo_dnsinflux_la_LDFLAGS =	-version-info @EEMO_DNSINFLUX_VERSION_INFO@ @
 if HAVE_DNSTAP
 lib_LTLIBRARIES +=			lib/libeemo_dnstapout.la
 
-BUILT_SOURCES =				src/plugins/dnstapout/dnstap.pb-c.h \
+BUILT_SOURCES +=			src/plugins/dnstapout/dnstap.pb-c.h \
 					src/plugins/dnstapout/dnstap.pb-c.c
 
-CLEANFILES =				src/plugins/dnstapout/dnstap.pb-c.h
+CLEANFILES +=				src/plugins/dnstapout/dnstap.pb-c.h
 					src/plugins/dnstapout/dnstap.pb-c.c
 
 src/plugins/dnstapout/dnstap.pb-c.h: src/plugins/dnstapout/dnstap.proto
@@ -555,3 +557,6 @@ lib_libeemo_dnstapout_la_SOURCES =	src/plugins/dnstapout/dnstapout.c \
 
 lib_libeemo_dnstapout_la_LDFLAGS =	-version-info @EEMO_DNSINFLUX_VERSION_INFO@ @PTHREAD_LIBS@ @LIBPROTOBUFC_LIBS@ @FSTRM_LIBS@
 endif
+
+eemo.spec: eemo.spec.in
+	sed -e 's/_EEMO_VERSION_/@VERSION@/g' < $(srcdir)/eemo.spec.in > eemo.spec
