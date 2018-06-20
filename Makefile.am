@@ -528,3 +528,30 @@ lib_libeemo_dnsinflux_la_SOURCES =	src/plugins/dnsinflux/dnsinflux_entry.c \
 					src/plugins/eemo_plugin_log.h
 
 lib_libeemo_dnsinflux_la_LDFLAGS =	-version-info @EEMO_DNSINFLUX_VERSION_INFO@ @PTHREAD_LIBS@
+
+# dnstapout plugin
+if HAVE_DNSTAP
+lib_LTLIBRARIES +=			lib/libeemo_dnstapout.la
+
+BUILT_SOURCES =				src/plugins/dnstapout/dnstap.pb-c.h \
+					src/plugins/dnstapout/dnstap.pb-c.c
+
+CLEANFILES =				src/plugins/dnstapout/dnstap.pb-c.h
+					src/plugins/dnstapout/dnstap.pb-c.c
+
+src/plugins/dnstapout/dnstap.pb-c.h: src/plugins/dnstapout/dnstap.proto
+	protoc-c --c_out=. src/plugins/dnstapout/dnstap.proto
+
+src/plugins/dnstapout/dnstap.pb-c.c: src/plugins/dnstapout/dnstap.proto
+	protoc-c --c_out=. src/plugins/dnstapout/dnstap.proto
+
+lib_libeemo_dnstapout_la_CFLAGS =	-Isrc -Isrc/plugins -Isrc/plugins/dnstapout @LIBCONFIG_CFLAGS@ @PTHREAD_CFLAGS@ @LIBPROTOBUFC_CFLAGS@ @FSTRM_CFLAGS@
+
+lib_libeemo_dnstapout_la_SOURCES =	src/plugins/dnstapout/dnstapout.c \
+					src/plugins/dnstapout/dnstap.pb-c.h \
+					src/plugins/dnstapout/dnstap.pb-c.c \
+					src/plugins/eemo_plugin_log.c \
+					src/plugins/eemo_plugin_log.h 
+
+lib_libeemo_dnstapout_la_LDFLAGS =	-version-info @EEMO_DNSINFLUX_VERSION_INFO@ @PTHREAD_LIBS@ @LIBPROTOBUFC_LIBS@ @FSTRM_LIBS@
+endif
