@@ -150,6 +150,22 @@ static void update_v4_addr_ht(v4_ht_ent** ht, struct in_addr* addr, const char* 
 		snprintf(composed, 512, "%s/%i:%s", ip_str, prefixlen, name);
 		eemo_fn_exp->hll_add(global_prob_count_hour_composite, composed, strlen(composed));
 		eemo_fn_exp->hll_add(global_prob_count_day_composite, composed, strlen(composed));
+
+		// Add all domain name labels to the global HyperLogLog counters.
+		const char* lbl_ptr = strchr(name, '.');
+		while (lbl_ptr != NULL)
+		{
+			const size_t lbl_len = lbl_ptr - name;
+			if (lbl_len > 0)
+			{
+				eemo_fn_exp->hll_add(global_prob_count_hour_composite, lbl_ptr, lbl_len);
+				eemo_fn_exp->hll_add(global_prob_count_day_composite, lbl_ptr, lbl_len);
+			}
+
+			// Find the next label.
+			lbl_ptr = strchr(lbl_ptr + 1, '.');
+		}
+
 	}
 
 	// Update the prefix length of this entry.
@@ -191,6 +207,21 @@ static void update_v6_addr_ht(v6_ht_ent** ht, struct in6_addr* addr, const char*
 		snprintf(composed, 512, "%s/%i:%s", ip_str, prefixlen, name);
 		eemo_fn_exp->hll_add(global_prob_count_hour_composite, composed, strlen(composed));
 		eemo_fn_exp->hll_add(global_prob_count_day_composite, composed, strlen(composed));
+
+		// Add all domain name labels to the global HyperLogLog counters.
+		const char* lbl_ptr = strchr(name, '.');
+		while (lbl_ptr != NULL)
+		{
+			const size_t lbl_len = lbl_ptr - name;
+			if (lbl_len > 0)
+			{
+				eemo_fn_exp->hll_add(global_prob_count_hour_composite, lbl_ptr, lbl_len);
+				eemo_fn_exp->hll_add(global_prob_count_day_composite, lbl_ptr, lbl_len);
+			}
+
+			// Find the next label.
+			lbl_ptr = strchr(lbl_ptr + 1, '.');
+		}
 	}
 
 	// Update the prefix length of this entry.
