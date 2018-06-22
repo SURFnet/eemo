@@ -147,6 +147,11 @@ define([EEMO_DNSUNIQ_CURRENT], [1])
 define([EEMO_DNSUNIQ_REVISION], [0])
 define([EEMO_DNSUNIQ_AGE], [0])
 
+# Plugin for dnstap output to a UNIX domain socket
+define([EEMO_DNSTAPOUT_CURRENT], [1])
+define([EEMO_DNSTAPOUT_REVISION], [0])
+define([EEMO_DNSTAPOUT_AGE], [0])
+
 ################################################################################
 # Configuration functions                                                      #
 ################################################################################
@@ -212,6 +217,8 @@ EEMO_HONAS_VERSION_INFO="EEMO_HONAS_CURRENT:EEMO_HONAS_REVISION:EEMO_HONAS_AGE"
 AC_SUBST(EEMO_HONAS_VERSION_INFO)
 EEMO_DNSUNIQ_VERSION_INFO="EEMO_DNSUNIQ_CURRENT:EEMO_DNSUNIQ_REVISION:EEMO_DNSUNIQ_AGE"
 AC_SUBST(EEMO_DNSUNIQ_VERSION_INFO)
+EEMO_DNSTAPOUT_VERSION_INFO="EEMO_DNSTAPOUT_CURRENT:EEMO_DNSTAPOUT_REVISION:EEMO_DNSTAPOUT_AGE"
+AC_SUBST(EEMO_DNSTAPOUT_VERSION_INFO)
 
 # Checks for compilers and other programs
 AC_PROG_CC_C99
@@ -241,6 +248,16 @@ ACX_PTHREAD
 PKG_CHECK_MODULES([OPENSSL], [openssl >= 1.0.1],, AC_MSG_ERROR([OpenSSL 1.0.1 or newer not found]))
 PKG_CHECK_MODULES([ZLIB], [zlib >= 0.2.0],, AC_MSG_ERROR([zlib 1.2.8 or newer not found]))
 PKG_CHECK_MODULES([LIBARCHIVE], [libarchive >= 3.0.0],, AC_MSG_ERROR([libarchive 3.0.0 or newer not found]))
+PKG_CHECK_MODULES([LIBPROTOBUFC], [libprotobuf-c >= 1.2.1],[
+	PKG_CHECK_MODULES([FSTRM], [libfstrm >= 0.2.0],, AC_MSG_ERROR([libfstrm 0.2.0 required to build the dnstap output plugin]))
+	AC_CHECK_PROG([PROTOCC], protoc-c, yes, no)
+	if test $PROTOCC = no ; then
+		AC_MSG_ERROR([protoc-c is required to build the dnstap output plugin])
+	fi
+	AM_CONDITIONAL([HAVE_DNSTAP], true)
+], [
+	AC_MSG_WARN([libprotobuf-c 1.2.1 or newer not found -- skipping build of dnstap plugin])
+])
 AX_LIB_SQLITE3(3.7.0)
 
 AM_COND_IF([WITH_SQLITE3], ,AC_MSG_WARN([Not building IP-to-AS or GeoIP support since these depend on SQLite!]))
