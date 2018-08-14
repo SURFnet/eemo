@@ -1,6 +1,6 @@
 /*
- * Copyright (c) 2010-2015 SURFnet bv
- * Copyright (c) 2015 Roland van Rijswijk-Deij
+ * Copyright (c) 2010-2018 SURFnet bv
+ * Copyright (c) 2015-2018 Roland van Rijswijk-Deij
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -51,10 +51,59 @@ static unsigned long		raw_handler_handle	= 0;
 
 static int			capture_time		= -1;
 static int			capture_count		= -1;
+static int			capture_interval	= -1;
+static time_t			next_interval		= 0;
+static char*			name_prefix		= NULL;
 static int			counted			= 0;
 static pcap_t*			capture_pcap		= NULL;
 static pcap_dumper_t*		capture_out		= NULL;
 static int			capture_start		= 0;
+
+/* Start a new PCAP */
+static void start_new_pcap(void)
+{
+	char	pcap_name[4096]	= { 0 };
+	time_t	now		= time(NULL);
+
+	if (name_prefix == NULL) return;
+
+	snprintf(pcap_name, 4096, "%s-%u.pcap", name_prefix, (unsigned int) now);
+
+	if (capture_out != NULL)
+	{
+		pcap_dump_close(capture_out);
+	}
+
+	if (capture_pcap != NULL)
+	{
+		pcap_close(capture_pcap);
+	}
+
+	/* Attempt to open the dumping file */
+	capture_pcap = pcap_open_dead(DLT_EN10MB, 65536);
+	
+	if (capture_pcap == NULL)
+	{
+		ERROR_MSG("Failed to set up dummy PCAP header");
+	}
+	
+	capture_out = pcap_dump_open(capture_pcap, pcap_name);
+	
+	if (capture_out == NULL)
+	{
+		ERROR_MSG("Failed to open PCAP output file %s", pcap_name);
+	}
+	else
+	{
+		INFO_MSG("Opened new PCAP %s", pcap_name);
+	}
+
+	if (capture_interval > 0)
+	{
+		next_interval = (now / capture_interval) * capture_interval;
+		next_interval += capture_interval;
+	}
+}
 
 /* Raw packet handler */
 eemo_rv eemo_dumppcap_handle_pkt(const eemo_packet_buf* pkt, struct timeval ts)
@@ -69,6 +118,11 @@ eemo_rv eemo_dumppcap_handle_pkt(const eemo_packet_buf* pkt, struct timeval ts)
 		raise(SIGTERM);
 
 		return ERV_HANDLED;
+	}
+
+	if ((capture_interval > 0) && (now >= next_interval))
+	{
+		start_new_pcap();
 	}
 
 	memcpy(&hdr.ts, &ts, sizeof(struct timeval));
@@ -110,9 +164,23 @@ eemo_rv eemo_dumppcap_init(eemo_export_fn_table_ptr eemo_fn, const char* conf_ba
 	}
 
 	/* Read configuration */
-	if (((eemo_fn->conf_get_string)(conf_base_path, "pcap_file", &capture_file, NULL) != ERV_OK) || (capture_file == NULL))
+	if (((eemo_fn->conf_get_string)(conf_base_path, "pcap_file", &capture_file, NULL) != ERV_OK))
 	{
 		ERROR_MSG("Failed to retrieve the PCAP output file name from the configuration");
+
+		return ERV_CONFIG_ERROR;
+	}
+
+	if (((eemo_fn->conf_get_string)(conf_base_path, "name_prefix", &name_prefix, NULL) != ERV_OK))
+	{
+		ERROR_MSG("Failed to retrieve the PCAP output file name prefix from the configuration");
+
+		return ERV_CONFIG_ERROR;
+	}
+
+	if ((!capture_file && !name_prefix) || (capture_file && name_prefix))
+	{
+		ERROR_MSG("The configuration must either specify a PCAP filename or filename prefix");
 
 		return ERV_CONFIG_ERROR;
 	}
@@ -131,26 +199,40 @@ eemo_rv eemo_dumppcap_init(eemo_export_fn_table_ptr eemo_fn, const char* conf_ba
 		return ERV_CONFIG_ERROR;
 	}
 
-	/* Attempt to open the dumping file */
-	capture_pcap = pcap_open_dead(DLT_EN10MB, 65536);
-
-	if (capture_pcap == NULL)
+	if ((eemo_fn->conf_get_int)(conf_base_path, "cap_interval", &capture_interval, -1) != ERV_OK)
 	{
-		ERROR_MSG("Failed to set up dummy PCAP header");
+		ERROR_MSG("Failed to retrieve the duration of individual captures from the configuration");
 
-		return ERV_GENERAL_ERROR;
+		return ERV_CONFIG_ERROR;
 	}
 
-	capture_out = pcap_dump_open(capture_pcap, capture_file);
-
-	if (capture_out == NULL)
+	if (capture_file)
 	{
-		ERROR_MSG("Failed to open PCAP output file %s", capture_file);
-
-		return ERV_GENERAL_ERROR;
+		/* Attempt to open the dumping file */
+		capture_pcap = pcap_open_dead(DLT_EN10MB, 65536);
+	
+		if (capture_pcap == NULL)
+		{
+			ERROR_MSG("Failed to set up dummy PCAP header");
+	
+			return ERV_GENERAL_ERROR;
+		}
+	
+		capture_out = pcap_dump_open(capture_pcap, capture_file);
+	
+		if (capture_out == NULL)
+		{
+			ERROR_MSG("Failed to open PCAP output file %s", capture_file);
+	
+			return ERV_GENERAL_ERROR;
+		}
+	
+		free(capture_file);
 	}
-
-	free(capture_file);
+	else
+	{
+		start_new_pcap();
+	}
 
 	INFO_MSG("PCAP dump plugin initialisation complete");
 
@@ -179,6 +261,8 @@ eemo_rv eemo_dumppcap_uninit(eemo_export_fn_table_ptr eemo_fn)
 	{
 		pcap_close(capture_pcap);
 	}
+
+	free(name_prefix);
 
 	INFO_MSG("Finished uninitialising PCAP dump plugin");
 
