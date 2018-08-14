@@ -257,6 +257,7 @@ PKG_CHECK_MODULES([LIBPROTOBUFC], [libprotobuf-c >= 1.2.1],[
 	AM_CONDITIONAL([HAVE_DNSTAP], true)
 ], [
 	AC_MSG_WARN([libprotobuf-c 1.2.1 or newer not found -- skipping build of dnstap plugin])
+	AM_CONDITIONAL([HAVE_DNSTAP], false)
 ])
 AX_LIB_SQLITE3(3.7.0)
 
