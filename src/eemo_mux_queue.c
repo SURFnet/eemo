@@ -41,6 +41,7 @@
 #include "eemo_mux_queue.h"
 #include <pthread.h>
 #include <openssl/ssl.h>
+#include <string.h>
 #include <assert.h>
 
 #define AVG_DGRAM_SIZE		1750

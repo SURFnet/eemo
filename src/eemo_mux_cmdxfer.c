@@ -43,6 +43,7 @@
 #include <openssl/ssl.h>
 #include <stdint.h>
 #include <assert.h>
+#include <string.h>
 #include "endian_compat.h"
 
 /* Define this to log information about recv/xmit of commands */

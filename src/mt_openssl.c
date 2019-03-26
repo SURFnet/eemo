@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2010-2018 SURFnet bv
+ * Copyright (c) 2019 NLnet Labs
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -43,6 +44,7 @@
 #include <openssl/conf.h>
 #include <pthread.h>
 
+#if OPENSSL_VERSION_NUMBER < 0x10100000L
 /* Mutexes for use by OpenSSL */
 static pthread_mutex_t*	mutex_buf	= NULL;
 
@@ -122,4 +124,19 @@ eemo_rv eemo_mt_openssl_finalize(void)
 
 	return ERV_OK;
 }
+#else /* OPENSSL_VERSION_NUMBER >= 0x10100000L */
+eemo_rv eemo_mt_openssl_init(void)
+{
+	INFO_MSG("Using OpenSSL 1.1.0, multi-threaded use does not require any special initialisation");
+
+	return ERV_OK;
+}
+
+eemo_rv eemo_mt_openssl_finalize(void)
+{
+	INFO_MSG("Finalised multi-threaded use of OpenSSL");
+
+	return ERV_OK;
+}
+#endif /* OPENSSL_VERSION_NUMBER >= 0x10100000L */
 

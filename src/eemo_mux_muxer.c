@@ -952,7 +952,11 @@ static int eemo_mux_setup_sensor_socket(void)
 	INFO_MSG("Sensor server bound to port %d", server_port);
 	
 	/* Now set up TLS */
+#if OPENSSL_VERSION_NUMBER < 0x10100000L
 	sensor_tls_ctx = SSL_CTX_new(TLSv1_2_server_method());
+#else
+	sensor_tls_ctx = SSL_CTX_new(TLS_server_method());
+#endif
 	
 	if (sensor_tls_ctx == NULL)
 	{
@@ -1168,7 +1172,11 @@ static int eemo_mux_setup_client_socket(void)
 	INFO_MSG("Client server bound to port %d", server_port);
 	
 	/* Now set up TLS */
+#if OPENSSL_VERSION_NUMBER < 0x10100000L
 	client_tls_ctx = SSL_CTX_new(TLSv1_2_server_method());
+#else
+	client_tls_ctx = SSL_CTX_new(TLS_server_method());
+#endif
 	
 	if (client_tls_ctx == NULL)
 	{
