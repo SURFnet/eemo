@@ -2,6 +2,7 @@
 
 /*
  * Copyright (c) 2010-2011 SURFnet bv
+ * Copyright (c) 2021 Roland van Rijswijk-Deij
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -167,8 +168,8 @@ void eemo_log(const int log_at_level, const char* file, const int line, const ch
 
 	if (log_at_level == EEMO_LOG_DEBUG)
 	{
-		static char debug_buf[8192];
-		vsnprintf(debug_buf, 8192, format, args);
+		static char debug_buf[4096];
+		vsnprintf(debug_buf, 4096, format, args);
 		snprintf(log_buf, 8192, "%s(%d): %s", file, line, debug_buf);
 	}
 	else

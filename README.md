@@ -4,8 +4,7 @@
 Copyright (c) 2010-2017 SURFnet bv
 http://www.surf.nl/en/about-surf/subsidiaries/surfnet
 
-Copyright (c) 2014-2017 Roland van Rijswijk-Deij
-http://wwwhome.ewi.utwente.nl/~rijswijkrm/
+Copyright (c) 2014-2021 Roland van Rijswijk-Deij
 
 All rights reserved. This tool is distributed under a BSD-style license. For more information, see LICENSE
 

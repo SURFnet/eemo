@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2010-2011 SURFnet bv
- * Copyright (c) 2014-2016 Roland van Rijswijk-Deij
+ * Copyright (c) 2014-2021 Roland van Rijswijk-Deij
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -44,6 +44,8 @@
 #include <signal.h>
 #include <pcap.h>
 #include <time.h>
+#include <string.h>
+#include <stdlib.h>
 
 #define SNAPLEN			65536
 #define DEBUG_PACKET_FILE	"/tmp/eemo.packet"
@@ -170,6 +172,7 @@ eemo_rv eemo_ether_capture_init(const char* interface)
 	char 			errbuf[PCAP_ERRBUF_SIZE]	= { 0 };
 	char*			capture_filter			= NULL;
 	struct bpf_program	packet_filter;
+	pcap_if_t*		alldevs				= NULL;
 	
 	handle = NULL;
 
@@ -203,7 +206,33 @@ eemo_rv eemo_ether_capture_init(const char* interface)
 	}
 
 	/* Determine the default interface if none was specified */
-	cap_if = (interface == NULL) ? pcap_lookupdev(errbuf) : interface;
+	if (interface)
+	{
+		cap_if = interface;
+	}
+	else
+	{
+		if (!pcap_findalldevs(&alldevs, errbuf))
+		{
+			pcap_if_t* it = alldevs;
+
+			while(it)
+			{
+				if (FLAG_SET(it->flags, PCAP_IF_UP))
+				{
+					cap_if = strdup(it->name);
+				}
+				else
+				{
+					INFO_MSG("Skipping %s because it is not up", it->name);
+				}
+
+				it = it->next;
+			}
+
+			pcap_freealldevs(alldevs);
+		}
+	}
 
 	if (cap_if == NULL)
 	{

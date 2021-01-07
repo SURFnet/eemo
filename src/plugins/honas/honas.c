@@ -149,7 +149,7 @@ eemo_rv eemo_honas_dns_handler(eemo_ip_packet_info ip_info, int is_tcp, const ee
 				struct dns_query_socket_t dnsquery;
 				memcpy(&dnsquery.ipaddress, &ip_address, sizeof(struct in_addr46));
 				dnsquery.domain_length = strlen(next->qname);
-				strncpy(dnsquery.domainname, next->qname, dnsquery.domain_length);
+				strncpy(dnsquery.domainname, next->qname, dnsquery.domain_length+1);
 				dnsquery.dnsclass = next->qclass;
 				dnsquery.dnsrecordtype = next->qtype;
 

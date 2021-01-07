@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2010-2016 SURFnet bv
- * Copyright (c) 2015-2016 Roland van Rijswijk-Deij
+ * Copyright (c) 2015-2021 Roland van Rijswijk-Deij
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -393,10 +393,11 @@ char* eemo_rdata_to_string(eemo_dns_rr* rr)
 				if (rv != NULL)
 				{
 					size_t cur_len = strlen(rv);
-
-					rv = (char*) realloc(rv, (cur_len + strlen(txt_it->string) + 2) * sizeof(char));
+					char* rvprime = malloc((cur_len + strlen(txt_it->string) + 2) * sizeof(char));
 					
-					sprintf(rv, "%s\n%s", rv, txt_it->string);
+					sprintf(rvprime, "%s\n%s", rv, txt_it->string);
+					free(rv);
+					rv = rvprime;
 				}
 				else
 				{

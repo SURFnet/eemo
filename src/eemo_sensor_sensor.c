@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2010-2015 SURFnet bv
+ * Copyright (c) 2021 Roland van Rijswijk-Deij
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -731,14 +732,41 @@ void eemo_sensor_pcap_cb(u_char* user_ptr, const struct pcap_pkthdr* hdr, const 
 eemo_rv eemo_sensor_capture(void)
 {
 	char			errbuf[PCAP_ERRBUF_SIZE]	= { 0 };
+	pcap_if_t*		alldevs				= NULL;
 	struct bpf_program	packet_filter;
-	const char*		pcap_if				= NULL;
+	char*			pcap_if				= NULL;
 	char			filter_expr[4096]		= { 0 };
 	pcap_t*			new_handle			= NULL;
 
 	pcap_handle = NULL;
 
-	pcap_if = (sensor_iface != NULL) ? sensor_iface : pcap_lookupdev(errbuf);
+	if (sensor_iface != NULL)
+	{
+		pcap_if = sensor_iface;
+	}
+	else
+	{
+		if (!pcap_findalldevs(&alldevs, errbuf))
+		{
+			pcap_if_t* it = alldevs;
+
+			while(it)
+			{
+				if (FLAG_SET(it->flags, PCAP_IF_UP))
+				{
+					pcap_if = strdup(it->name);
+				}
+				else
+				{
+					INFO_MSG("Skipping %s because it is not up", it->name);
+				}
+
+				it = it->next;
+			}
+
+			pcap_freealldevs(alldevs);
+		}
+	}
 
 	if (pcap_if == NULL)
 	{
